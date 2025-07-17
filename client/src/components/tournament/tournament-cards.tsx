@@ -1,14 +1,15 @@
 import { Calendar, Users, Trophy, BarChart3 } from 'lucide-react';
-import { Tournament } from '@/hooks/use-tournament-data';
+import { Tournament, Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 interface TournamentCardsProps {
   tournaments: Tournament[];
-  teams: any[];
-  games: any[];
-  pools: any[];
+  teams: Team[];
+  games: Game[];
+  pools: Pool[];
+  ageDivisions: AgeDivision[];
 }
 
-export const TournamentCards = ({ tournaments, teams, games, pools }: TournamentCardsProps) => {
+export const TournamentCards = ({ tournaments, teams, games, pools, ageDivisions }: TournamentCardsProps) => {
   const activeTournament = tournaments.find(t => t.id === 'aug-classic');
   const upcomingTournament = tournaments.find(t => t.id === 'provincials');
   
