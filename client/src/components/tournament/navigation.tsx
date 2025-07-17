@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Menu, X, Trophy, Users, Calendar, ListChecks, Medal, Home } from 'lucide-react';
 
-const FalconLogo = () => (
+const NestLogo = () => (
   <img 
-    src="https://forestgladebaseball.com/wp-content/uploads/2022/02/519-FSU-Falcons-e1645479021528.png" 
-    alt="Forest Glade Falcons Logo" 
+    src="@assets/519-fsu-falcons.webp" 
+    alt="The Nest Logo" 
     className="h-12 w-auto"
     onError={(e) => { 
       const target = e.target as HTMLImageElement;
       target.onerror = null; 
-      target.src = 'https://placehold.co/100x50/177e0e/ffffff?text=Falcons'; 
+      target.src = 'https://placehold.co/100x50/177e0e/ffffff?text=The+Nest'; 
     }}
   />
 );
@@ -35,10 +35,10 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <FalconLogo />
+            <NestLogo />
             <div className="text-white ml-4">
               <h1 className="text-xl font-bold">Tournament Manager</h1>
-              <p className="text-sm text-green-200">Forest Glade Falcons</p>
+              <p className="text-sm text-green-200">The Nest</p>
             </div>
           </div>
           
