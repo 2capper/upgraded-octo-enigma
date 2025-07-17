@@ -39,9 +39,10 @@ const calculateStats = (teamId: string, games: Game[], teamIdFilter?: string[]):
     const isHome = g.homeTeamId === teamId;
     stats.runsFor += isHome ? (g.homeScore || 0) : (g.awayScore || 0);
     stats.runsAgainst += isHome ? (g.awayScore || 0) : (g.homeScore || 0);
-    stats.offensiveInnings += isHome ? (g.homeInningsBatted || 0) : (g.awayInningsBatted || 0);
+    // Convert to numbers to ensure proper calculation
+    stats.offensiveInnings += isHome ? Number(g.homeInningsBatted || 0) : Number(g.awayInningsBatted || 0);
     // DIP = Defensive Innings Played = innings played by the opposition (when this team was defending)
-    stats.defensiveInnings += isHome ? (g.awayInningsBatted || 0) : (g.homeInningsBatted || 0);
+    stats.defensiveInnings += isHome ? Number(g.awayInningsBatted || 0) : Number(g.homeInningsBatted || 0);
 
     const forfeited = (isHome && g.forfeitStatus === 'home') || (!isHome && g.forfeitStatus === 'away');
     if (forfeited) { 
