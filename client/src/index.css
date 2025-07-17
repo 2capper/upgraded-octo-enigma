@@ -1,75 +1,132 @@
+/* Import professional fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto+Slab:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --foreground: hsl(220, 13%, 18%);
+  --muted: hsl(220, 13%, 95%);
+  --muted-foreground: hsl(220, 9%, 46%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --popover-foreground: hsl(220, 13%, 18%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(118, 83%, 29%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --card-foreground: hsl(220, 13%, 18%);
+  --border: hsl(220, 13%, 91%);
+  --input: hsl(220, 13%, 91%);
+  --primary: hsl(24, 77%, 52%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(220, 13%, 95%);
+  --secondary-foreground: hsl(220, 13%, 18%);
+  --accent: hsl(24, 77%, 52%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(24, 77%, 52%);
   --radius: 0.5rem;
 
-  /* Tournament specific colors */
-  --falcons-green: hsl(118, 83%, 29%);
-  --falcons-dark-green: hsl(124, 55%, 29%);
-  --falcons-gold: hsl(45, 93%, 47%);
-  --falcons-dark-gold: hsl(45, 93%, 35%);
-  --text-color: hsl(20, 14.3%, 4.1%);
-  --text-secondary: hsl(25, 5.3%, 44.7%);
-  --background-color: hsl(0, 0%, 100%);
-  --header-bg: hsl(60, 4.8%, 95.9%);
-  --header-text: hsl(25, 5.3%, 44.7%);
-  --border-color: hsl(20, 5.9%, 90%);
+  /* Baseball theme colors inspired by professional sports sites */
+  --baseball-primary: hsl(24, 77%, 52%); /* Orange/red like MLB */
+  --baseball-secondary: hsl(220, 13%, 18%); /* Dark blue/navy */
+  --baseball-accent: hsl(45, 93%, 47%); /* Gold */
+  --baseball-green: hsl(118, 83%, 29%); /* Field green */
+  --baseball-dark-green: hsl(124, 55%, 29%);
+  --baseball-gold: hsl(45, 93%, 47%);
+  --baseball-dark-gold: hsl(45, 93%, 35%);
+  --baseball-brown: hsl(24, 45%, 37%); /* Baseball brown */
+  --baseball-cream: hsl(48, 100%, 96%); /* Cream background */
+  
+  /* Text colors */
+  --text-primary: hsl(220, 13%, 18%);
+  --text-secondary: hsl(220, 9%, 46%);
+  --text-light: hsl(220, 9%, 64%);
+  --text-white: hsl(0, 0%, 100%);
+  
+  /* Background colors */
+  --bg-primary: hsl(0, 0%, 100%);
+  --bg-secondary: hsl(48, 100%, 96%);
+  --bg-dark: hsl(220, 13%, 18%);
+  --bg-muted: hsl(220, 13%, 95%);
+  --bg-hero: linear-gradient(135deg, hsl(24, 77%, 52%) 0%, hsl(220, 13%, 18%) 100%);
+  
+  /* Component colors */
+  --header-bg: hsl(220, 13%, 18%);
+  --header-text: hsl(0, 0%, 100%);
+  --card-bg: hsl(0, 0%, 100%);
+  --card-border: hsl(220, 13%, 91%);
+  --table-header: hsl(220, 13%, 95%);
+  --table-row-even: hsl(220, 13%, 98%);
+  --table-row-hover: hsl(220, 13%, 95%);
+  
+  /* Shadow and effects */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .dark {
-  --background: hsl(240, 10%, 3.9%);
+  --background: hsl(220, 13%, 9%);
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
+  --muted: hsl(220, 13%, 15%);
+  --muted-foreground: hsl(220, 9%, 64%);
+  --popover: hsl(220, 13%, 9%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(220, 13%, 12%);
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(118, 83%, 29%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(240, 3.7%, 15.9%);
+  --border: hsl(220, 13%, 20%);
+  --input: hsl(220, 13%, 20%);
+  --primary: hsl(24, 77%, 52%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(220, 13%, 15%);
   --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --accent: hsl(24, 77%, 52%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(24, 77%, 52%);
   --radius: 0.5rem;
 
-  /* Tournament specific colors for dark mode */
-  --falcons-green: hsl(118, 83%, 29%);
-  --falcons-dark-green: hsl(124, 55%, 29%);
-  --falcons-gold: hsl(45, 93%, 47%);
-  --falcons-dark-gold: hsl(45, 93%, 35%);
-  --text-color: hsl(0, 0%, 98%);
-  --text-secondary: hsl(240, 5%, 64.9%);
-  --background-color: hsl(240, 10%, 3.9%);
-  --header-bg: hsl(240, 3.7%, 15.9%);
-  --header-text: hsl(0, 0%, 98%);
-  --border-color: hsl(240, 3.7%, 15.9%);
+  /* Baseball theme colors for dark mode */
+  --baseball-primary: hsl(24, 77%, 52%);
+  --baseball-secondary: hsl(220, 13%, 9%);
+  --baseball-accent: hsl(45, 93%, 47%);
+  --baseball-green: hsl(118, 83%, 29%);
+  --baseball-dark-green: hsl(124, 55%, 29%);
+  --baseball-gold: hsl(45, 93%, 47%);
+  --baseball-dark-gold: hsl(45, 93%, 35%);
+  --baseball-brown: hsl(24, 45%, 37%);
+  --baseball-cream: hsl(220, 13%, 12%);
+  
+  /* Text colors for dark mode */
+  --text-primary: hsl(0, 0%, 98%);
+  --text-secondary: hsl(220, 9%, 64%);
+  --text-light: hsl(220, 9%, 46%);
+  --text-white: hsl(0, 0%, 100%);
+  
+  /* Background colors for dark mode */
+  --bg-primary: hsl(220, 13%, 9%);
+  --bg-secondary: hsl(220, 13%, 12%);
+  --bg-dark: hsl(220, 13%, 6%);
+  --bg-muted: hsl(220, 13%, 15%);
+  --bg-hero: linear-gradient(135deg, hsl(24, 77%, 52%) 0%, hsl(220, 13%, 6%) 100%);
+  
+  /* Component colors for dark mode */
+  --header-bg: hsl(220, 13%, 6%);
+  --header-text: hsl(0, 0%, 100%);
+  --card-bg: hsl(220, 13%, 12%);
+  --card-border: hsl(220, 13%, 20%);
+  --table-header: hsl(220, 13%, 15%);
+  --table-row-even: hsl(220, 13%, 11%);
+  --table-row-hover: hsl(220, 13%, 15%);
+  
+  /* Shadow and effects for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
@@ -78,23 +135,335 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply antialiased bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Roboto Slab', serif;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-primary);
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
   }
 }
 
-.loading-spinner {
-  animation: spin 1s linear infinite;
+@layer components {
+  /* Professional header styles */
+  .baseball-header {
+    @apply bg-[var(--header-bg)] text-[var(--header-text)] shadow-lg;
+    background: var(--bg-hero);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .baseball-nav {
+    @apply flex items-center justify-between px-6 py-4;
+  }
+
+  .baseball-nav-brand {
+    @apply text-2xl font-bold text-[var(--text-white)];
+    font-family: 'Roboto Slab', serif;
+  }
+
+  .baseball-nav-links {
+    @apply flex space-x-8;
+  }
+
+  .baseball-nav-link {
+    @apply px-4 py-2 rounded-md text-[var(--text-white)] hover:bg-white/10 transition-colors duration-200;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .baseball-nav-link.active {
+    @apply bg-white/20 text-[var(--baseball-accent)];
+  }
+
+  /* Professional card styles */
+  .baseball-card {
+    @apply bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg shadow-md hover:shadow-lg transition-all duration-300;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow-md);
+  }
+
+  .baseball-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .baseball-card-header {
+    @apply px-6 py-4 border-b border-[var(--card-border)];
+    background: var(--table-header);
+  }
+
+  .baseball-card-title {
+    @apply text-xl font-semibold text-[var(--text-primary)];
+    font-family: 'Roboto Slab', serif;
+  }
+
+  .baseball-card-content {
+    @apply px-6 py-4;
+  }
+
+  /* Professional table styles */
+  .baseball-table {
+    @apply w-full border-collapse;
+    background: var(--card-bg);
+  }
+
+  .baseball-table th {
+    @apply px-6 py-4 text-left text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider;
+    background: var(--table-header);
+    border-bottom: 2px solid var(--card-border);
+  }
+
+  .baseball-table td {
+    @apply px-6 py-4 text-sm text-[var(--text-primary)] border-b border-[var(--card-border)];
+  }
+
+  .baseball-table tr:nth-child(even) {
+    background: var(--table-row-even);
+  }
+
+  .baseball-table tr:hover {
+    background: var(--table-row-hover);
+  }
+
+  /* Professional button styles */
+  .baseball-btn {
+    @apply inline-flex items-center px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .baseball-btn-primary {
+    @apply baseball-btn text-[var(--text-white)] focus:ring-[var(--baseball-primary)];
+    background-color: var(--baseball-primary);
+  }
+
+  .baseball-btn-primary:hover {
+    background-color: var(--baseball-primary);
+    opacity: 0.9;
+  }
+
+  .baseball-btn-secondary {
+    @apply baseball-btn text-[var(--text-primary)] focus:ring-[var(--bg-muted)];
+    background-color: var(--bg-muted);
+  }
+
+  .baseball-btn-secondary:hover {
+    background-color: var(--bg-muted);
+    opacity: 0.8;
+  }
+
+  .baseball-btn-accent {
+    @apply baseball-btn text-[var(--text-primary)] focus:ring-[var(--baseball-accent)];
+    background-color: var(--baseball-accent);
+  }
+
+  .baseball-btn-accent:hover {
+    background-color: var(--baseball-accent);
+    opacity: 0.9;
+  }
+
+  /* Professional form styles */
+  .baseball-form-group {
+    @apply mb-6;
+  }
+
+  .baseball-form-label {
+    @apply block text-sm font-semibold text-[var(--text-primary)] mb-2;
+  }
+
+  .baseball-form-input {
+    @apply w-full px-4 py-3 border border-[var(--card-border)] rounded-lg bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-light)] focus:outline-none focus:ring-2 focus:ring-[var(--baseball-primary)] focus:border-transparent;
+  }
+
+  /* Professional stats and metrics */
+  .baseball-stat {
+    @apply text-center;
+  }
+
+  .baseball-stat-value {
+    @apply text-3xl font-bold text-[var(--baseball-primary)];
+    font-family: 'Roboto Slab', serif;
+  }
+
+  .baseball-stat-label {
+    @apply text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wider;
+  }
+
+  /* Professional badge styles */
+  .baseball-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .baseball-badge-primary {
+    @apply baseball-badge bg-[var(--baseball-primary)]/10 text-[var(--baseball-primary)];
+  }
+
+  .baseball-badge-success {
+    @apply baseball-badge bg-[var(--baseball-green)]/10 text-[var(--baseball-green)];
+  }
+
+  .baseball-badge-warning {
+    @apply baseball-badge bg-[var(--baseball-accent)]/10 text-[var(--baseball-dark-gold)];
+  }
+
+  /* Professional section styles */
+  .baseball-section {
+    @apply py-12 px-6;
+  }
+
+  .baseball-section-title {
+    @apply text-3xl font-bold text-[var(--text-primary)] mb-8 text-center;
+    font-family: 'Roboto Slab', serif;
+  }
+
+  .baseball-section-subtitle {
+    @apply text-lg text-[var(--text-secondary)] mb-8 text-center max-w-2xl mx-auto;
+  }
+
+  /* Professional grid layouts */
+  .baseball-grid {
+    @apply grid gap-6;
+  }
+
+  .baseball-grid-2 {
+    @apply baseball-grid grid-cols-1 md:grid-cols-2;
+  }
+
+  .baseball-grid-3 {
+    @apply baseball-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .baseball-grid-4 {
+    @apply baseball-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Professional hero section */
+  .baseball-hero {
+    @apply text-center py-20 px-6;
+    background: var(--bg-hero);
+    color: var(--text-white);
+  }
+
+  .baseball-hero-title {
+    @apply text-5xl font-bold mb-6;
+    font-family: 'Roboto Slab', serif;
+  }
+
+  .baseball-hero-subtitle {
+    @apply text-xl mb-8 max-w-2xl mx-auto;
+    color: rgba(255, 255, 255, 0.9);
+  }
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
+@layer utilities {
+  /* Animation utilities */
+  .loading-spinner {
+    animation: spin 1s linear infinite;
+  }
 
-.hover-lift {
-  transition: transform 0.2s ease-in-out;
-}
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 
-.hover-lift:hover {
-  transform: translateY(-2px);
+  .hover-lift {
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Professional shadows */
+  .shadow-professional {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .shadow-professional-xl {
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Professional backgrounds */
+  .bg-hero {
+    background: var(--bg-hero);
+  }
+
+  .bg-gradient-subtle {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  }
+
+  /* Professional text colors */
+  .text-baseball-primary {
+    color: var(--baseball-primary);
+  }
+
+  .text-baseball-secondary {
+    color: var(--baseball-secondary);
+  }
+
+  .text-baseball-accent {
+    color: var(--baseball-accent);
+  }
+
+  .text-baseball-green {
+    color: var(--baseball-green);
+  }
+
+  /* Professional background colors */
+  .bg-baseball-primary {
+    background-color: var(--baseball-primary);
+  }
+
+  .bg-baseball-secondary {
+    background-color: var(--baseball-secondary);
+  }
+
+  .bg-baseball-accent {
+    background-color: var(--baseball-accent);
+  }
+
+  .bg-baseball-green {
+    background-color: var(--baseball-green);
+  }
 }
