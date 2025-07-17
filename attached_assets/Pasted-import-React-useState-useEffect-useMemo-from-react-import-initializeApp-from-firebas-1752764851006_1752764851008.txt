@@ -1,0 +1,902 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, doc, onSnapshot, updateDoc, setDoc, query, getDocs, addDoc, deleteDoc, writeBatch, where } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { Trophy, ListChecks, Medal, Swords, Shield, Eye, Edit, AlertTriangle, Trash2, PlusCircle, Settings, ArrowLeft, Home, UploadCloud, Calendar, MapPin, Loader2 } from 'lucide-react';
+
+// --- Firebase Configuration ---
+const firebaseConfig = typeof __firebase_config !== 'undefined'
+    ? JSON.parse(__firebase_config)
+    : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID", storageBucket: "YOUR_STORAGE_BUCKET", messagingSenderId: "YOUR_MESSAGING_SENDER_ID", appId: "YOUR_APP_ID" };
+
+// --- Firebase Initialization ---
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-tournament-app';
+
+// --- Components ---
+
+const FalconLogo = () => (
+    <img 
+        src="https://forestgladebaseball.com/wp-content/uploads/2022/02/519-FSU-Falcons-e1645479021528.png" 
+        alt="Forest Glade Falcons Logo" 
+        className="h-12 w-auto"
+        onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/100x50/177e0e/ffffff?text=Falcons'; }}
+    />
+);
+
+
+// --- Data Seeding ---
+const seedInitialData = async () => {
+    const tournamentsRef = collection(db, `/artifacts/${appId}/public/data/tournaments`);
+    const snapshot = await getDocs(tournamentsRef);
+    if (!snapshot.empty) return;
+
+    console.log("Seeding new tournament data structure...");
+    
+    const tournaments = [
+        { id: 'aug-classic', name: 'Falcons August Classic', date: 'Aug 1-3' },
+        { id: 'provincials', name: '11U Provincials', date: 'Aug 29-31' }
+    ];
+
+    for (const tournament of tournaments) {
+        await setDoc(doc(db, `/artifacts/${appId}/public/data/tournaments`, tournament.id), { name: tournament.name, date: tournament.date });
+    }
+    console.log("Seeding complete.");
+};
+
+// --- Tie Breaker Logic ---
+const calculateStats = (teamId, games, teamIdFilter = null) => {
+    const relevantGames = games.filter(g => {
+        const isInGame = g.homeTeamId === teamId || g.awayTeamId === teamId;
+        if (!isInGame || g.status !== 'completed') return false;
+        if (teamIdFilter) {
+            const otherTeamId = g.homeTeamId === teamId ? g.awayTeamId : g.homeTeamId;
+            return teamIdFilter.includes(otherTeamId);
+        }
+        return true;
+    });
+
+    let stats = { wins: 0, losses: 0, ties: 0, runsFor: 0, runsAgainst: 0, offensiveInnings: 0, defensiveInnings: 0, forfeitLosses: 0 };
+    relevantGames.forEach(g => {
+        const isHome = g.homeTeamId === teamId;
+        stats.runsFor += isHome ? Number(g.homeScore) : Number(g.awayScore);
+        stats.runsAgainst += isHome ? Number(g.awayScore) : Number(g.homeScore);
+        stats.offensiveInnings += isHome ? Number(g.homeInningsBatted) : Number(g.awayInningsBatted);
+        stats.defensiveInnings += isHome ? Number(g.awayInningsBatted) : Number(g.homeInningsBatted);
+
+        const forfeited = (isHome && g.forfeitStatus === 'home') || (!isHome && g.forfeitStatus === 'away');
+        if (forfeited) { stats.losses++; stats.forfeitLosses++; return; }
+
+        if (g.homeScore > g.awayScore) isHome ? stats.wins++ : stats.losses++;
+        else if (g.awayScore > g.homeScore) isHome ? stats.losses++ : stats.wins++;
+        else stats.ties++;
+    });
+    return stats;
+};
+
+const resolveTie = (tiedTeams, allGames) => {
+    if (tiedTeams.length <= 1) return tiedTeams;
+    let sortedTeams = [...tiedTeams];
+    const teamIds = sortedTeams.map(t => t.id);
+
+    const regroupAndResolve = (getMetric, descending = false) => {
+        sortedTeams.sort((a, b) => descending ? getMetric(b) - getMetric(a) : getMetric(a) - getMetric(b));
+        if (getMetric(sortedTeams[0]) !== getMetric(sortedTeams[sortedTeams.length - 1])) {
+            const groups = []; let currentGroup = [sortedTeams[0]];
+            for(let i = 1; i < sortedTeams.length; i++) {
+                if (getMetric(sortedTeams[i]) === getMetric(currentGroup[0])) currentGroup.push(sortedTeams[i]);
+                else { groups.push(currentGroup); currentGroup = [sortedTeams[i]]; }
+            }
+            groups.push(currentGroup);
+            return groups.flatMap(group => resolveTie(group, allGames));
+        }
+        return null;
+    };
+
+    let result = regroupAndResolve(team => team.forfeitLosses); if (result) return result;
+    if (sortedTeams.length === 2) {
+        const stats = calculateStats(sortedTeams[0].id, allGames, [sortedTeams[1].id]);
+        if (stats.wins > stats.losses) return [sortedTeams[0], sortedTeams[1]];
+        if (stats.losses > stats.wins) return [sortedTeams[1], sortedTeams[0]];
+    }
+    const raRatioAmongTied = t => { const s = calculateStats(t.id, allGames, teamIds); return s.defensiveInnings > 0 ? s.runsAgainst / s.defensiveInnings : Infinity; };
+    result = regroupAndResolve(raRatioAmongTied); if (result) return result;
+    result = regroupAndResolve(t => t.runsAgainstPerInning); if (result) return result;
+    const rfRatioAmongTied = t => { const s = calculateStats(t.id, allGames, teamIds); return s.offensiveInnings > 0 ? s.runsFor / s.offensiveInnings : 0; };
+    result = regroupAndResolve(rfRatioAmongTied, true); if (result) return result;
+    result = regroupAndResolve(t => t.runsForPerInning, true); if (result) return result;
+    return sortedTeams.sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// --- Components ---
+const StandingsTable = ({ teams, games, pools, showPoolColumn }) => {
+    const standings = useMemo(() => {
+        if (!teams.length) return [];
+        const teamStats = teams.map(team => {
+            const allGameStats = calculateStats(team.id, games);
+            return {
+                ...team, ...allGameStats,
+                points: (allGameStats.wins * 2) + (allGameStats.ties * 1),
+                runsAgainstPerInning: allGameStats.defensiveInnings > 0 ? (allGameStats.runsAgainst / allGameStats.defensiveInnings) : 0,
+                runsForPerInning: allGameStats.offensiveInnings > 0 ? (allGameStats.runsFor / allGameStats.offensiveInnings) : 0,
+            };
+        });
+        const groups = teamStats.reduce((acc, team) => { (acc[team.points] = acc[team.points] || []).push(team); return acc; }, {});
+        return Object.keys(groups).sort((a, b) => b - a).flatMap(points => resolveTie(groups[points], games));
+    }, [teams, games]);
+
+    const getPoolName = (poolId) => pools.find(p => p.id === poolId)?.name || '';
+
+    return (
+        <div className="overflow-x-auto bg-[var(--background-color)] p-4 sm:p-6 rounded-xl shadow-lg border border-[var(--border-color)]">
+            <table className="min-w-full divide-y divide-[var(--border-color)]">
+                <thead className="bg-[var(--header-bg)]">
+                    <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">Team</th>
+                        {showPoolColumn && <th className="px-2 py-3 text-left text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">Pool</th>}
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">GP</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">W-L-T</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">RF</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">RA</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider" title="Defensive Innings Played">DIP</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider" title="Runs Allowed per Defensive Inning">RA/Inn</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-[var(--header-text)] uppercase tracking-wider">Pts</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-[var(--background-color)] divide-y divide-[var(--border-color)]">
+                    {standings.map((team) => (
+                        <tr key={team.id} className={team.forfeitLosses > 0 ? 'bg-red-500/10' : ''}>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--text-color)]">{team.name} {team.forfeitLosses > 0 && <AlertTriangle className="inline w-4 h-4 ml-1 text-red-500" title="Team has a forfeit loss"/>}</td>
+                            {showPoolColumn && <td className="px-2 py-4 whitespace-nowrap text-sm text-[var(--text-secondary)]">{getPoolName(team.poolId)}</td>}
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-[var(--text-secondary)]">{team.wins + team.losses + team.ties}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-[var(--text-secondary)]">{`${team.wins}-${team.losses}-${team.ties}`}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-green-500 font-semibold">{team.runsFor}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-red-500 font-semibold">{team.runsAgainst}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-[var(--text-secondary)] font-semibold">{team.defensiveInnings}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-[var(--text-secondary)] font-semibold">{team.runsAgainstPerInning.toFixed(2)}</td>
+                            <td className="px-2 py-4 text-center whitespace-nowrap text-sm text-[var(--text-color)] font-bold">{team.points}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+const PlayoffBracket = ({ teams, games, pools }) => {
+    const playoffTeams = useMemo(() => {
+        const allTeamsWithStats = teams.map(team => {
+            const stats = calculateStats(team.id, games);
+            return {
+                ...team, ...stats,
+                points: (stats.wins * 2) + (stats.ties * 1),
+                runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : 0,
+                runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
+            };
+        });
+
+        const poolWinners = [];
+        const remainingTeams = [];
+        
+        pools.forEach(pool => {
+            const teamsInPool = allTeamsWithStats.filter(t => t.poolId === pool.id);
+            if (teamsInPool.length > 0) {
+                const sortedPool = resolveTie(teamsInPool, games);
+                poolWinners.push(sortedPool[0]);
+                remainingTeams.push(...sortedPool.slice(1));
+            }
+        });
+
+        const wildCards = resolveTie(remainingTeams, games).slice(0, 3);
+        const qualifiedTeams = [...poolWinners, ...wildCards];
+        
+        if (qualifiedTeams.length < 6) return [];
+        return resolveTie(qualifiedTeams, games).slice(0, 6);
+    }, [teams, games, pools]);
+
+    if (playoffTeams.length < 6) {
+        return <div className="text-center p-8 bg-[var(--background-color)] rounded-xl shadow-lg border border-[var(--border-color)] text-[var(--text-color)]">Not enough completed games to determine playoff bracket.</div>
+    }
+    
+    const [seed1, seed2, seed3, seed4, seed5, seed6] = playoffTeams;
+
+    return (
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-200">
+            <div className="flex items-center mb-6">
+                <Medal className="w-8 h-8 text-amber-500 mr-3" />
+                <h2 className="text-2xl font-bold text-gray-800">Playoff Bracket</h2>
+            </div>
+            <div className="flex flex-col md:flex-row justify-center items-center md:items-start gap-8 md:gap-16">
+                {/* Left Side of Bracket */}
+                <div className="flex flex-col gap-8 w-full">
+                    {/* QF 1 */}
+                    <div className="flex items-center">
+                        <div className="flex flex-col w-40">
+                            <div className="border-b border-r border-gray-400 p-2"><b>3.</b> {seed3.name}</div>
+                            <div className="p-2"><b>6.</b> {seed6.name}</div>
+                        </div>
+                        <div className="w-8 border-t border-b border-r border-gray-400 h-16"></div>
+                        <div className="w-40 border-b border-gray-400 p-2">Winner (3 vs 6)</div>
+                    </div>
+                    {/* SF 1 */}
+                     <div className="flex items-center ml-auto">
+                        <div className="flex flex-col w-40">
+                            <div className="border-b border-r border-gray-400 p-2"><b>2.</b> {seed2.name}</div>
+                            <div className="p-2">Winner (3 vs 6)</div>
+                        </div>
+                        <div className="w-8 border-t border-b border-r border-gray-400 h-16"></div>
+                        <div className="w-40 border-b border-gray-400 p-2"></div>
+                    </div>
+                </div>
+
+                {/* Championship */}
+                <div className="flex flex-col justify-center items-center gap-2">
+                     <div className="w-40 p-2 text-center font-bold text-lg">CHAMPIONSHIP</div>
+                     <div className="w-40 border-b border-gray-400 p-2 text-center"></div>
+                </div>
+                
+                {/* Right Side of Bracket */}
+                 <div className="flex flex-col gap-8 w-full">
+                     {/* QF 2 */}
+                    <div className="flex items-center">
+                        <div className="w-40 border-b border-gray-400 p-2 text-right">Winner (4 vs 5)</div>
+                        <div className="w-8 border-t border-b border-l border-gray-400 h-16"></div>
+                        <div className="flex flex-col w-40">
+                            <div className="border-b border-l border-gray-400 p-2"><b>4.</b> {seed4.name}</div>
+                            <div className="p-2 border-l border-gray-400"><b>5.</b> {seed5.name}</div>
+                        </div>
+                    </div>
+                     {/* SF 2 */}
+                      <div className="flex items-center mr-auto">
+                        <div className="w-40 border-b border-gray-400 p-2 text-right"></div>
+                        <div className="w-8 border-t border-b border-l border-gray-400 h-16"></div>
+                        <div className="flex flex-col w-40">
+                            <div className="border-b border-l border-gray-400 p-2"><b>1.</b> {seed1.name}</div>
+                            <div className="p-2 border-l border-gray-400">Winner (4 vs 5)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ScoreSubmissionForm = ({ games, teams, pools, isVisible }) => {
+    const [selectedPoolId, setSelectedPoolId] = useState('');
+    const [selectedGameId, setSelectedGameId] = useState('');
+    const [homeScore, setHomeScore] = useState('');
+    const [awayScore, setAwayScore] = useState('');
+    const [homeInnings, setHomeInnings] = useState('');
+    const [awayInnings, setAwayInnings] = useState('');
+    const [forfeitStatus, setForfeitStatus] = useState('none');
+    const [submitting, setSubmitting] = useState(false);
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const scheduledGames = useMemo(() => games.filter(g => g.status === 'scheduled'), [games]);
+    const gamesInPool = useMemo(() => scheduledGames.filter(g => g.poolId === selectedPoolId), [scheduledGames, selectedPoolId]);
+    const getTeamName = (teamId) => teams.find(t => t.id === teamId)?.name || 'Unknown';
+    const selectedGame = useMemo(() => games.find(g => g.id === selectedGameId), [games, selectedGameId]);
+
+    const resetForm = () => {
+        setSelectedGameId(''); setHomeScore(''); setAwayScore('');
+        setHomeInnings(''); setAwayInnings(''); setForfeitStatus('none');
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedGameId || homeScore === '' || awayScore === '' || homeInnings === '' || awayInnings === '') {
+            setMessage({ type: 'error', text: 'Please fill out all fields.' }); return;
+        }
+        setSubmitting(true); setMessage({ type: '', text: '' });
+        try {
+            const gameRef = doc(db, `/artifacts/${appId}/public/data/games`, selectedGameId);
+            await updateDoc(gameRef, {
+                homeScore: Number(homeScore), awayScore: Number(awayScore),
+                homeInningsBatted: Number(homeInnings), awayInningsBatted: Number(awayInnings),
+                status: 'completed', forfeitStatus
+            });
+            setMessage({ type: 'success', text: 'Score submitted successfully!' });
+            resetForm();
+        } catch (error) {
+            console.error("Error submitting score:", error);
+            setMessage({ type: 'error', text: 'An error occurred.' });
+        } finally { setSubmitting(false); }
+    };
+
+    if (!isVisible) return null;
+
+    return (
+        <div className="bg-[var(--background-color)] p-6 sm:p-8 rounded-xl shadow-lg border border-[var(--border-color)] text-[var(--text-color)]">
+            <div className="flex items-center mb-6"><ListChecks className="w-8 h-8 text-[var(--primary-color)] mr-3" /><h2 className="text-2xl font-bold">Submit Game Score</h2></div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label htmlFor="pool" className="block text-sm font-medium mb-1">1. Select Pool</label>
+                    <select id="pool" value={selectedPoolId} onChange={(e) => { setSelectedPoolId(e.target.value); resetForm(); }} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border-gray-300 focus:outline-none focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] sm:text-sm rounded-md shadow-sm text-gray-900">
+                        <option value="">-- Choose a Pool --</option>
+                        {pools.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                {selectedPoolId && (<div>
+                    <label htmlFor="game" className="block text-sm font-medium mb-1">2. Select Game</label>
+                    <select id="game" value={selectedGameId} onChange={(e) => setSelectedGameId(e.target.value)} disabled={!selectedPoolId} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border-gray-300 focus:outline-none focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] sm:text-sm rounded-md shadow-sm text-gray-900">
+                        <option value="">-- Choose a Game --</option>
+                        {gamesInPool.map(g => (<option key={g.id} value={g.id}>{getTeamName(g.homeTeamId)} vs {getTeamName(g.awayTeamId)}</option>))}
+                    </select>
+                </div>)}
+                {selectedGame && (<div className="p-4 border border-[var(--border-color)] rounded-lg bg-[var(--header-bg)] space-y-4">
+                    <h3 className="font-semibold">3. Enter Final Score & Innings</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                        <div><label htmlFor="homeScore" className="block text-sm font-medium">{getTeamName(selectedGame.homeTeamId)} Score</label><input type="number" id="homeScore" value={homeScore} onChange={(e) => setHomeScore(e.target.value)} className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md text-gray-900"/></div>
+                        <div><label htmlFor="awayScore" className="block text-sm font-medium">{getTeamName(selectedGame.awayTeamId)} Score</label><input type="number" id="awayScore" value={awayScore} onChange={(e) => setAwayScore(e.target.value)} className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md text-gray-900"/></div>
+                        <div><label htmlFor="homeInnings" className="block text-sm font-medium">Home Innings</label><input type="number" id="homeInnings" value={homeInnings} onChange={(e) => setHomeInnings(e.target.value)} className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md text-gray-900"/></div>
+                        <div><label htmlFor="awayInnings" className="block text-sm font-medium">Visitor Innings</label><input type="number" id="awayInnings" value={awayInnings} onChange={(e) => setAwayInnings(e.target.value)} className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md text-gray-900"/></div>
+                    </div>
+                    <div className="pt-2"><label htmlFor="forfeit" className="block text-sm font-medium">Forfeit Status</label>
+                        <select id="forfeit" value={forfeitStatus} onChange={(e) => setForfeitStatus(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border-gray-300 focus:outline-none focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] sm:text-sm rounded-md shadow-sm text-gray-900">
+                            <option value="none">No Forfeit</option>
+                            <option value="home">Forfeited by {getTeamName(selectedGame.homeTeamId)}</option>
+                            <option value="away">Forfeited by {getTeamName(selectedGame.awayTeamId)}</option>
+                        </select>
+                    </div>
+                </div>)}
+                <div className="pt-2"><button type="submit" disabled={submitting || !selectedGameId} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary-color)] hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-color)] disabled:bg-gray-400 disabled:cursor-not-allowed">{submitting ? 'Submitting...' : 'Submit Final Score'}</button></div>
+            </form>
+            {message.text && (<div className={`mt-4 p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-500/20 text-green-200' : 'bg-red-500/20 text-red-200'}`}>{message.text}</div>)}
+        </div>
+    );
+};
+
+const AdminPortal = ({ tournamentId, isVisible, onImportSuccess }) => {
+    const [file, setFile] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [message, setMessage] = useState({type: '', text: ''});
+
+    const handleFileChange = (e) => {
+        setMessage({type: '', text: ''});
+        setFile(e.target.files[0]);
+    };
+
+    const adjustTimeToET = (timeString) => {
+        if (!timeString) return '';
+        const timeParts = timeString.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!timeParts) return timeString; 
+    
+        let [, hours, minutes, modifier] = timeParts;
+        hours = parseInt(hours, 10);
+    
+        if (modifier.toUpperCase() === 'PM' && hours !== 12) {
+            hours += 12;
+        }
+        if (modifier.toUpperCase() === 'AM' && hours === 12) {
+            hours = 0;
+        }
+    
+        hours += 1;
+    
+        if (hours >= 24) {
+            hours -= 24;
+        }
+        
+        const newModifier = hours >= 12 ? 'PM' : 'AM';
+        let displayHours = hours % 12;
+        if (displayHours === 0) {
+            displayHours = 12;
+        }
+        
+        const displayMinutes = `0${parseInt(minutes, 10)}`.slice(-2);
+    
+        return `${displayHours}:${displayMinutes} ${newModifier}`;
+    };
+
+    const handleImport = async () => {
+        if (!file) {
+            setMessage({type: 'error', text: 'Please select a file to import.'});
+            return;
+        }
+        setIsProcessing(true);
+        setMessage({type: 'info', text: 'Processing CSV file...'});
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const csvData = event.target.result;
+            const lines = csvData.split('\n').filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                setMessage({type: 'error', text: 'CSV file is empty or has no data rows.'});
+                setIsProcessing(false);
+                return;
+            }
+            
+            const normalizeHeader = (h) => h.trim().replace(/^\uFEFF/, '').toLowerCase().replace(/[^a-z0-9]/gi, '');
+            const rawHeaders = lines[0].split(',').map(h => h.trim());
+            
+            const headerMapping = {
+                matchNumber: ['game', 'match', 'matchno'],
+                date: ['date'],
+                time: ['time'],
+                location: ['location', 'diamond', 'venue'],
+                subVenue: ['subvenue'],
+                division: ['division'],
+                pool: ['pool'],
+                homeTeam: ['hometeam', 'home', 'team1'],
+                awayTeam: ['awayteam', 'visitor', 'away', 'team2']
+            };
+
+            const columnIndexMap = {};
+            const foundHeaders = new Set();
+            
+            rawHeaders.forEach((rawHeader, index) => {
+                const normalized = normalizeHeader(rawHeader);
+                for (const canonicalHeader in headerMapping) {
+                    if (headerMapping[canonicalHeader].includes(normalized)) {
+                        columnIndexMap[canonicalHeader] = index;
+                        foundHeaders.add(canonicalHeader);
+                        break;
+                    }
+                }
+            });
+
+            const requiredCanonicalHeaders = ['matchNumber', 'date', 'time', 'location', 'division', 'pool', 'homeTeam', 'awayTeam'];
+            const missingHeaders = requiredCanonicalHeaders.filter(h => !foundHeaders.has(h));
+
+            if(missingHeaders.length > 0) {
+                setMessage({type: 'error', text: `CSV is missing required columns: ${missingHeaders.join(', ')}. Found headers: ${rawHeaders.join(', ')}`});
+                setIsProcessing(false);
+                return;
+            }
+
+            const data = lines.slice(1).map(line => {
+                const values = line.split(',');
+                const rowData = {};
+                for (const key in columnIndexMap) {
+                    rowData[key] = values[columnIndexMap[key]]?.trim().replace(/^"|"$/g, '') || '';
+                }
+                return rowData;
+            });
+
+            const validData = data.filter(row => row.division && row.pool && row.homeTeam && row.awayTeam);
+            
+            if (validData.length === 0) {
+                setMessage({type: 'error', text: `Found ${data.length} data rows, but 0 were valid. Please check the data in your CSV file.`});
+                setIsProcessing(false);
+                return;
+            }
+
+            try {
+                const tournamentPath = `/artifacts/${appId}/public/data/tournaments/${tournamentId}`;
+                
+                const deleteBatch = writeBatch(db);
+                const collectionsToClear = ['ageDivisions', 'pools', 'teams', 'games'];
+                for (const coll of collectionsToClear) {
+                    const snapshot = await getDocs(collection(db, `${tournamentPath}/${coll}`));
+                    snapshot.docs.forEach(d => deleteBatch.delete(d.ref));
+                }
+                await deleteBatch.commit();
+
+                const addBatch = writeBatch(db);
+                const divisionsMap = new Map();
+                const poolsMap = new Map();
+                const teamsMap = new Map();
+
+                // First pass: build structure
+                for (const row of validData) {
+                    let divisionId = divisionsMap.get(row.division);
+                    if (!divisionId) {
+                        divisionId = `div_${row.division.replace(/\s+/g, '-')}`;
+                        divisionsMap.set(row.division, divisionId);
+                        const divRef = doc(db, `${tournamentPath}/ageDivisions`, divisionId);
+                        addBatch.set(divRef, { name: row.division });
+                    }
+                    
+                    let poolName = row.pool.replace(row.division, '').trim();
+                    if (!poolName) poolName = row.pool; // Fallback
+                    let poolKey = `${divisionId}-${poolName}`;
+                    let poolId = poolsMap.get(poolKey);
+                    if (!poolId) {
+                        poolId = `pool_${poolKey.replace(/\s+/g, '-')}`;
+                        poolsMap.set(poolKey, poolId);
+                        const poolRef = doc(db, `${tournamentPath}/pools`, poolId);
+                        addBatch.set(poolRef, { name: poolName, ageDivisionId: divisionId });
+                    }
+                    
+                    const homeTeamKey = `${divisionId}-${row.homeTeam}`;
+                    if (!teamsMap.has(homeTeamKey)) {
+                        const newTeamRef = doc(collection(db, `${tournamentPath}/teams`));
+                        teamsMap.set(homeTeamKey, newTeamRef.id);
+                        addBatch.set(newTeamRef, { name: row.homeTeam, poolId: poolId });
+                    }
+                    const awayTeamKey = `${divisionId}-${row.awayTeam}`;
+                     if (!teamsMap.has(awayTeamKey)) {
+                        const newTeamRef = doc(collection(db, `${tournamentPath}/teams`));
+                        teamsMap.set(awayTeamKey, newTeamRef.id);
+                        addBatch.set(newTeamRef, { name: row.awayTeam, poolId: poolId });
+                    }
+                }
+                
+                // Second pass: write games
+                for (const row of validData) {
+                    const divisionId = divisionsMap.get(row.division);
+                    const poolName = row.pool.replace(row.division, '').trim();
+                    const poolKey = `${divisionId}-${poolName}`;
+                    const poolId = poolsMap.get(poolKey);
+                    const homeTeamId = teamsMap.get(`${divisionId}-${row.homeTeam}`);
+                    const awayTeamId = teamsMap.get(`${divisionId}-${row.awayTeam}`);
+
+                    if(!homeTeamId || !awayTeamId || !poolId) continue;
+
+                    const gameId = `g${row.matchNumber}`;
+                    const gameRef = doc(db, `${tournamentPath}/games`, gameId);
+                    addBatch.set(gameRef, {
+                        id: gameId,
+                        homeTeamId,
+                        awayTeamId,
+                        status: 'scheduled',
+                        homeScore: null,
+                        awayScore: null,
+                        homeInningsBatted: null,
+                        awayInningsBatted: null,
+                        poolId,
+                        forfeitStatus: 'none',
+                        date: row.date,
+                        time: adjustTimeToET(row.time),
+                        location: row.location,
+                        subVenue: row.subVenue || ''
+                    });
+                }
+                
+                await addBatch.commit();
+                setMessage({type: 'success', text: `Successfully imported ${validData.length} games!`});
+                setFile(null);
+                if(onImportSuccess) onImportSuccess();
+
+            } catch (error) {
+                console.error("Error importing CSV:", error);
+                setMessage({type: 'error', text: 'An error occurred during import. Check console for details.'});
+            }
+        };
+        reader.readAsText(file);
+        setIsProcessing(false);
+    };
+
+    if (!isVisible) return null;
+
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-8">
+            <div className="flex items-center gap-3"><Settings className="w-8 h-8 text-[var(--primary-color)]" /><h2 className="text-3xl font-bold">Admin Portal</h2></div>
+            
+            <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-bold text-lg">Import Schedule from CSV</h3>
+                <p className="text-sm text-gray-600">This will delete all existing data for this tournament and replace it. Upload a CSV with headers: Match #, Date, Time, Location, Division, Pool, Home Team, Away Team.</p>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                    <input type="file" accept=".csv" onChange={handleFileChange} className="flex-grow w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-[var(--primary-color)] hover:file:bg-violet-100"/>
+                    <button onClick={handleImport} disabled={isProcessing || !file} className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-[var(--primary-color)] text-white rounded-md hover:bg-opacity-80 disabled:bg-gray-400">
+                        <UploadCloud size={20} className="mr-2"/> {isProcessing ? 'Importing...' : 'Import Schedule'}
+                    </button>
+                </div>
+                 {message.text && (<div className={`mt-4 p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{message.text}</div>)}
+            </div>
+        </div>
+    );
+};
+
+const ScheduleView = ({ games, teams }) => {
+    const getTeamName = (teamId) => teams.find(t => t.id === teamId)?.name || 'Unknown';
+    const [directionsLoading, setDirectionsLoading] = useState(null);
+    
+    const venueCoordinates = {
+        'OPT1': { lat: 42.302070, lng: -82.916669 },
+        'TC West': { lat: 42.275, lng: -82.898 },
+        'TC East': { lat: 42.275, lng: -82.896 },
+        'Optimist': { lat: 42.295, lng: -82.915 },
+        'Lacasse Park': { lat: 42.308, lng: -82.89 },
+    };
+
+    const getDirections = async (game) => {
+        setDirectionsLoading(game.id);
+        const subVenueKey = Object.keys(venueCoordinates).find(key => game.subVenue.toLowerCase().includes(key.toLowerCase()));
+        let locationQuery;
+
+        if (subVenueKey && venueCoordinates[subVenueKey]) {
+            const { lat, lng } = venueCoordinates[subVenueKey];
+            locationQuery = `${lat},${lng}`;
+        } else {
+            locationQuery = `${game.location} ${game.subVenue || ''}, Tecumseh, Ontario`;
+        }
+
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(locationQuery)}&travelmode=walking`;
+        window.open(mapsUrl, '_blank');
+        setDirectionsLoading(null);
+    };
+
+    const groupedGames = useMemo(() => {
+        return games.reduce((acc, game) => {
+            const date = game.date || 'Unscheduled';
+            if (!acc[date]) {
+                acc[date] = [];
+            }
+            acc[date].push(game);
+            return acc;
+        }, {});
+    }, [games]);
+    
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    return (
+        <div className="space-y-6">
+            {Object.keys(groupedGames).sort((a,b) => new Date(a) - new Date(b)).map(date => (
+                <div key={date}>
+                    <h3 className="text-xl font-bold mb-3 text-[var(--text-color)]">{formatDate(date)}</h3>
+                    <div className="space-y-4">
+                        {groupedGames[date].map(game => (
+                            <div key={game.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="font-bold text-lg">{getTeamName(game.homeTeamId)} vs {getTeamName(game.awayTeamId)}</div>
+                                        <div className="text-sm text-gray-500">{game.time} @ {game.location}{game.subVenue && ` - ${game.subVenue}`}</div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {game.status === 'completed' ? (
+                                            <div className="text-right">
+                                                <div className="font-bold text-xl">{game.homeScore} - {game.awayScore}</div>
+                                                <div className="text-xs text-blue-600">Final</div>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => getDirections(game)} disabled={directionsLoading === game.id} className="flex items-center text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors disabled:bg-gray-200 disabled:cursor-wait">
+                                                {directionsLoading === game.id ? <Loader2 size={16} className="animate-spin mr-2"/> : <MapPin size={16} className="mr-2"/>}
+                                                Directions
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+
+const TournamentDashboard = ({ tournament, onBack, onDataImported }) => {
+    const [ageDivisions, setAgeDivisions] = useState([]);
+    const [pools, setPools] = useState([]);
+    const [teams, setTeams] = useState([]);
+    const [games, setGames] = useState([]);
+    const [activeAgeDivisionId, setActiveAgeDivisionId] = useState(null);
+    const [activeView, setActiveView] = useState('overall');
+    const [isCoachView, setIsCoachView] = useState(false);
+    const [isAdminView, setIsAdminView] = useState(false);
+
+    useEffect(() => {
+        if (!tournament?.id) return;
+        const tournamentPath = `/artifacts/${appId}/public/data/tournaments/${tournament.id}`;
+        const collections = ['ageDivisions', 'pools', 'teams', 'games'];
+        const unsubs = collections.map(c => 
+            onSnapshot(query(collection(db, `${tournamentPath}/${c}`)), (snapshot) => {
+                const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (c === 'ageDivisions') { 
+                    setAgeDivisions(data); 
+                    if (!activeAgeDivisionId || !data.some(d => d.id === activeAgeDivisionId)) {
+                        setActiveAgeDivisionId(data.length > 0 ? data[0].id : null);
+                    }
+                }
+                else if (c === 'pools') setPools(data);
+                else if (c === 'teams') setTeams(data);
+                else if (c === 'games') setGames(data);
+            })
+        );
+        return () => unsubs.forEach(unsub => unsub());
+    }, [tournament?.id, onDataImported]);
+
+    const { poolsInAgeDivision, teamsInAgeDivision, gamesInAgeDivision } = useMemo(() => {
+        if (!activeAgeDivisionId) return { poolsInAgeDivision: [], teamsInAgeDivision: [], gamesInAgeDivision: [] };
+        const currentPools = pools.filter(p => p.ageDivisionId === activeAgeDivisionId).sort((a,b) => a.name.localeCompare(b.name));
+        const poolIds = currentPools.map(p => p.id);
+        const currentTeams = teams.filter(t => poolIds.includes(t.poolId));
+        const currentGames = games.filter(g => poolIds.includes(g.poolId));
+        return { poolsInAgeDivision: currentPools, teamsInAgeDivision: currentTeams, gamesInAgeDivision: currentGames };
+    }, [activeAgeDivisionId, pools, teams, games]);
+
+    const { teamsForView, gamesForView, showPoolColumn } = useMemo(() => {
+        if (activeView === 'overall' || activeView === 'playoffs' || activeView === 'schedule') {
+            return { teamsForView: teamsInAgeDivision, gamesForView: gamesInAgeDivision, showPoolColumn: true };
+        }
+        return {
+            teamsForView: teamsInAgeDivision.filter(t => t.poolId === activeView),
+            gamesForView: gamesInAgeDivision.filter(g => g.poolId === activeView),
+            showPoolColumn: false
+        };
+    }, [activeView, teamsInAgeDivision, gamesInAgeDivision]);
+
+    return (
+        <>
+            <header className="bg-[var(--background-color)] shadow-md"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center">
+                    <button onClick={onBack} className="mr-4 p-2 rounded-full hover:bg-gray-200"><ArrowLeft/></button>
+                    <FalconLogo />
+                    <div className="ml-3">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{tournament.name}</h1>
+                        <p className="text-sm text-gray-500">{tournament.date}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center rounded-md bg-gray-200 p-1">
+                        {ageDivisions.map(ad => (
+                            <button
+                                key={ad.id}
+                                onClick={() => { setActiveAgeDivisionId(ad.id); setActiveView('overall'); }}
+                                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${ activeAgeDivisionId === ad.id ? 'bg-[var(--primary-color)] text-white shadow' : 'text-gray-600 hover:bg-gray-300' }`}
+                            >
+                                {ad.name}
+                            </button>
+                        ))}
+                    </div>
+                    <button onClick={() => setIsCoachView(!isCoachView)} title="Toggle Coach View" className="p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                        {isCoachView ? <Eye size={20} /> : <Edit size={20} />}
+                    </button>
+                     <button onClick={() => setIsAdminView(!isAdminView)} title="Toggle Admin Portal" className="p-2 rounded-md bg-gray-600 text-white hover:bg-gray-700 transition-colors">
+                        <Settings size={20} />
+                    </button>
+                </div>
+            </div></header>
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {isAdminView ? (
+                    <AdminPortal tournamentId={tournament.id} isVisible={isAdminView} onImportSuccess={onDataImported} />
+                ) : (
+                    <div className={`grid grid-cols-1 ${isCoachView ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-8 items-start`}>
+                        <div className={isCoachView ? 'lg:col-span-2' : 'lg:col-span-1'}>
+                            <div className="space-y-8">
+                                <div>
+                                    <div className="flex items-center mb-4"><Trophy className="w-8 h-8 text-[var(--primary-color)] mr-3" /><h2 className="text-3xl font-bold">Standings & Playoffs</h2></div>
+                                    <div className="border-b border-[var(--border-color)]">
+                                        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+                                            <button onClick={() => setActiveView('overall')} className={`shrink-0 ${activeView === 'overall' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Overall</button>
+                                            {poolsInAgeDivision.map((pool) => (<button key={pool.id} onClick={() => setActiveView(pool.id)} className={`shrink-0 ${activeView === pool.id ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>{pool.name}</button>))}
+                                            <button onClick={() => setActiveView('schedule')} className={`shrink-0 ${activeView === 'schedule' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Schedule</button>
+                                            <button onClick={() => setActiveView('playoffs')} className={`shrink-0 ${activeView === 'playoffs' ? 'border-amber-500 text-amber-500' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Playoffs</button>
+                                        </nav>
+                                    </div>
+                                </div>
+                                
+                                {activeView !== 'playoffs' && activeView !== 'schedule' && <StandingsTable teams={teamsForView} games={gamesForView} pools={poolsInAgeDivision} showPoolColumn={activeView === 'overall'} />}
+                                {activeView === 'playoffs' && <PlayoffBracket teams={teamsInAgeDivision} games={gamesInAgeDivision} pools={poolsInAgeDivision} />}
+                                {activeView === 'schedule' && <ScheduleView games={gamesForView} teams={teamsForView} />}
+                                
+                            </div>
+                        </div>
+                        <div className={isCoachView ? 'block' : 'hidden'}>
+                            <ScoreSubmissionForm games={gamesInAgeDivision} teams={teamsInAgeDivision} pools={poolsInAgeDivision} isVisible={isCoachView} />
+                        </div>
+                    </div>
+                )}
+            </main>
+        </>
+    )
+}
+
+const TournamentSelector = ({ onSelectTournament }) => {
+    const [tournaments, setTournaments] = useState([]);
+    const [newTournamentName, setNewTournamentName] = useState("");
+    const [newTournamentDate, setNewTournamentDate] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const q = query(collection(db, `/artifacts/${appId}/public/data/tournaments`));
+        const unsub = onSnapshot(q, (snapshot) => {
+            setTournaments(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return unsub;
+    }, []);
+
+    const handleAddTournament = async (e) => {
+        e.preventDefault();
+        if(!newTournamentName.trim() || !newTournamentDate.trim()) return;
+        setIsSubmitting(true);
+        try {
+            await addDoc(collection(db, `/artifacts/${appId}/public/data/tournaments`), {
+                name: newTournamentName,
+                date: newTournamentDate
+            });
+            setNewTournamentName("");
+            setNewTournamentDate("");
+        } catch (error) {
+            console.error("Error adding tournament", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <div className="max-w-4xl mx-auto p-8">
+            <div className="flex justify-center items-center gap-4 mb-8">
+                <FalconLogo />
+                <h1 className="text-4xl font-bold text-center text-[var(--text-color)]">Tournament Hub</h1>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {tournaments.map(t => (
+                    <div key={t.id} onClick={() => onSelectTournament(t)} className="p-6 bg-white rounded-xl shadow-lg border border-gray-200 cursor-pointer hover:shadow-xl hover:border-[var(--primary-color)] transition-all">
+                        <h2 className="text-xl font-bold text-[var(--primary-color)]">{t.name}</h2>
+                        <p className="text-gray-500">{t.date}</p>
+                    </div>
+                ))}
+            </div>
+            <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+                <h3 className="text-2xl font-bold mb-4">Create New Tournament</h3>
+                <form onSubmit={handleAddTournament} className="flex flex-col sm:flex-row gap-4">
+                    <input type="text" value={newTournamentName} onChange={e => setNewTournamentName(e.target.value)} placeholder="Tournament Name" className="flex-grow block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] sm:text-sm rounded-md shadow-sm"/>
+                    <input type="text" value={newTournamentDate} onChange={e => setNewTournamentDate(e.target.value)} placeholder="Tournament Date (e.g., Sep 5-7)" className="flex-grow block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] sm:text-sm rounded-md shadow-sm"/>
+                    <button type="submit" disabled={isSubmitting} className="flex items-center justify-center px-4 py-2 bg-[var(--primary-color)] text-white rounded-md hover:bg-opacity-80 disabled:bg-gray-400">
+                        <PlusCircle size={20} className="mr-2"/> Create
+                    </button>
+                </form>
+            </div>
+        </div>
+    )
+}
+
+export default function App() {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [selectedTournament, setSelectedTournament] = useState(null);
+    const [dataVersion, setDataVersion] = useState(1);
+
+    useEffect(() => {
+        const authAndLoad = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        await seedInitialData();
+                        setLoading(false);
+                    } else {
+                        setLoading(false);
+                    }
+                });
+            } catch (e) { console.error(e); setError('Could not connect.'); setLoading(false); }
+        };
+        authAndLoad();
+    }, []);
+
+    if (loading) return <div className="min-h-screen bg-[var(--main-bg)] flex items-center justify-center text-[var(--text-color)]">Loading...</div>;
+    if (error) return <div className="min-h-screen bg-[var(--main-bg)] flex items-center justify-center text-red-400">{error}</div>;
+
+    return (
+        <>
+        <style>{`
+            :root {
+                --primary-color: #177e0e; /* Forest Green */
+                --background-color: #ffffff;
+                --main-bg: #f3f4f6; /* Gray 100 */
+                --header-bg: #f9fafb; /* Gray 50 */
+                --text-color: #062847; /* Dark Blue/Black */
+                --text-secondary: #0e5e50; /* Dark Teal */
+                --border-color: #e5e7eb; /* Gray 200 */
+            }
+        `}</style>
+        <div className="bg-[var(--main-bg)] min-h-screen font-sans text-[var(--text-color)]">
+            {selectedTournament ? (
+                <TournamentDashboard 
+                    key={`${selectedTournament.id}-${dataVersion}`} 
+                    tournament={selectedTournament} 
+                    onBack={() => setSelectedTournament(null)} 
+                    onDataImported={() => setDataVersion(v => v + 1)}
+                />
+            ) : (
+                <TournamentSelector onSelectTournament={setSelectedTournament} />
+            )}
+            <footer className="text-center py-6 text-sm text-gray-500"><p>Tournament Tracker App</p></footer>
+        </div>
+        </>
+    );
+}
