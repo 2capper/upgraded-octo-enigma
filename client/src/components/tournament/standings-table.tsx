@@ -291,7 +291,7 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
       {standingsByDivision.map(({ division, pools: divisionPools, overallStandings, poolStandings }) => (
         <div key={division.id} className="space-y-6">
           {/* Overall Division Standings */}
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 pl-[12px] pr-[12px] pt-[12px] pb-[12px]">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">{division.name} Overall Standings</h3>
               <div className="text-sm text-gray-500">
