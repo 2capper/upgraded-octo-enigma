@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Team, Game, Pool } from '@/hooks/use-tournament-data';
+import { Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 interface StandingsTableProps {
   teams: Team[];
   games: Game[];
   pools: Pool[];
+  ageDivisions: AgeDivision[];
   showPoolColumn?: boolean;
 }
 
@@ -127,36 +128,55 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
   return sortedTeams.sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export const StandingsTable = ({ teams, games, pools, showPoolColumn = true }: StandingsTableProps) => {
-  const standings = useMemo(() => {
-    if (!teams.length) return [];
+export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColumn = true }: StandingsTableProps) => {
+  const standingsByDivision = useMemo(() => {
+    if (!teams.length || !ageDivisions.length) return [];
     
-    const teamStats = teams.map(team => {
-      const allGameStats = calculateStats(team.id, games);
+    return ageDivisions.map(division => {
+      // Get pools for this division
+      const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
+      
+      // Get teams in this division
+      const divisionTeams = teams.filter(t => 
+        divisionPools.some(p => p.id === t.poolId)
+      );
+      
+      // Calculate stats for each team
+      const teamStats = divisionTeams.map(team => {
+        const allGameStats = calculateStats(team.id, games);
+        return {
+          ...team,
+          ...allGameStats,
+          points: (allGameStats.wins * 2) + (allGameStats.ties * 1),
+          runsAgainstPerInning: allGameStats.defensiveInnings > 0 ? (allGameStats.runsAgainst / allGameStats.defensiveInnings) : 0,
+          runsForPerInning: allGameStats.offensiveInnings > 0 ? (allGameStats.runsFor / allGameStats.offensiveInnings) : 0,
+        };
+      });
+
+      // Group teams by points for tie-breaking
+      const groups = teamStats.reduce((acc, team) => {
+        const points = team.points;
+        if (!acc[points]) acc[points] = [];
+        acc[points].push(team);
+        return acc;
+      }, {} as Record<number, any[]>);
+
+      // Sort and resolve ties
+      const sortedStandings = Object.keys(groups)
+        .sort((a, b) => Number(b) - Number(a))
+        .flatMap(points => resolveTie(groups[Number(points)], games));
+
       return {
-        ...team,
-        ...allGameStats,
-        points: (allGameStats.wins * 2) + (allGameStats.ties * 1),
-        runsAgainstPerInning: allGameStats.defensiveInnings > 0 ? (allGameStats.runsAgainst / allGameStats.defensiveInnings) : 0,
-        runsForPerInning: allGameStats.offensiveInnings > 0 ? (allGameStats.runsFor / allGameStats.offensiveInnings) : 0,
+        division,
+        pools: divisionPools,
+        teams: sortedStandings
       };
     });
-
-    const groups = teamStats.reduce((acc, team) => {
-      const points = team.points;
-      if (!acc[points]) acc[points] = [];
-      acc[points].push(team);
-      return acc;
-    }, {} as Record<number, any[]>);
-
-    return Object.keys(groups)
-      .sort((a, b) => Number(b) - Number(a))
-      .flatMap(points => resolveTie(groups[Number(points)], games));
-  }, [teams, games]);
+  }, [teams, games, pools, ageDivisions]);
 
   const getPoolName = (poolId: string) => pools.find(p => p.id === poolId)?.name || '';
 
-  if (standings.length === 0) {
+  if (standingsByDivision.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No teams or games available to display standings.</p>
@@ -165,77 +185,88 @@ export const StandingsTable = ({ teams, games, pools, showPoolColumn = true }: S
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-              {showPoolColumn && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pool</th>}
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">GP</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W-L-T</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RF</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RA</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Defensive Innings Played">DIP</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Runs Allowed per Defensive Inning">RA/Inn</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {standings.map((team, index) => (
-              <tr key={team.id} className={`hover:bg-gray-50 transition-colors ${team.forfeitLosses > 0 ? 'bg-red-50' : ''}`}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-[var(--falcons-green)]' : 
-                      index === 1 ? 'bg-gray-400' : 
-                      index === 2 ? 'bg-yellow-500' : 'bg-gray-300'
-                    }`}>
-                      <span className="text-white font-bold text-sm">{index + 1}</span>
-                    </div>
-                    <div className="ml-4">
+    <div className="space-y-8">
+      {standingsByDivision.map(({ division, pools: divisionPools, teams: divisionTeams }) => (
+        <div key={division.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">{division.name} Standings</h3>
+            <div className="text-sm text-gray-500">
+              {divisionPools.length} Pools • {divisionTeams.length} Teams
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                  {showPoolColumn && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pool</th>}
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">GP</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W-L-T</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RF</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RA</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Defensive Innings Played">DIP</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Runs Allowed per Defensive Inning">RA/Inn</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {divisionTeams.map((team, index) => (
+                  <tr key={team.id} className={`hover:bg-gray-50 transition-colors ${team.forfeitLosses > 0 ? 'bg-red-50' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <span className="text-sm font-medium text-gray-900">{team.name}</span>
-                        {team.forfeitLosses > 0 && (
-                          <AlertTriangle className="w-4 h-4 ml-2 text-red-500" title="Team has a forfeit loss" />
-                        )}
+                        <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+                          index === 0 ? 'bg-[var(--falcons-green)]' : 
+                          index === 1 ? 'bg-gray-400' : 
+                          index === 2 ? 'bg-yellow-500' : 'bg-gray-300'
+                        }`}>
+                          <span className="text-white font-bold text-sm">{index + 1}</span>
+                        </div>
+                        <div className="ml-4">
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-900">{team.name}</span>
+                            {team.forfeitLosses > 0 && (
+                              <AlertTriangle className="w-4 h-4 ml-2 text-red-500" title="Team has a forfeit loss" />
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </td>
-                {showPoolColumn && (
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {getPoolName(team.poolId)}
-                    </span>
-                  </td>
-                )}
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                  {team.wins + team.losses + team.ties}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                  {`${team.wins}-${team.losses}-${team.ties}`}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-green-600">
-                  {team.runsFor}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-red-600">
-                  {team.runsAgainst}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
-                  {team.defensiveInnings}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
-                  {team.runsAgainstPerInning.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-bold">
-                  {team.points}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    {showPoolColumn && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {getPoolName(team.poolId)}
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                      {team.wins + team.losses + team.ties}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                      {`${team.wins}-${team.losses}-${team.ties}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-green-600">
+                      {team.runsFor}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-red-600">
+                      {team.runsAgainst}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                      {team.defensiveInnings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                      {team.runsAgainstPerInning.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-bold">
+                      {team.points}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
