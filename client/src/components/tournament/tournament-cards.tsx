@@ -40,51 +40,7 @@ export const TournamentCards = ({ tournaments, teams, games, pools, ageDivisions
 
   return (
     <div className="space-y-6 mb-8">
-      {/* Tournament Overview */}
-      {activeTournament && (
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-gray-900">{activeTournament.name}</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Active</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{targetDivisions.length}</div>
-              <div className="text-sm text-gray-500">Age Divisions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{ageDivisionStats.reduce((sum, stat) => sum + stat.poolCount, 0)}</div>
-              <div className="text-sm text-gray-500">Total Pools</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{ageDivisionStats.reduce((sum, stat) => sum + stat.teamCount, 0)}</div>
-              <div className="text-sm text-gray-500">Total Teams</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{ageDivisionStats.reduce((sum, stat) => sum + stat.completedGames, 0)}/{ageDivisionStats.reduce((sum, stat) => sum + stat.gameCount, 0)}</div>
-              <div className="text-sm text-gray-500">Games Complete</div>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-500">Overall Progress</span>
-              <span className="text-sm font-medium text-gray-900">{Math.round(
-                ageDivisionStats.reduce((sum, stat) => sum + stat.gameCount, 0) > 0 ? 
-                (ageDivisionStats.reduce((sum, stat) => sum + stat.completedGames, 0) / ageDivisionStats.reduce((sum, stat) => sum + stat.gameCount, 0)) * 100 : 0
-              )}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-[var(--falcons-green)] h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${
-                  ageDivisionStats.reduce((sum, stat) => sum + stat.gameCount, 0) > 0 ? 
-                  (ageDivisionStats.reduce((sum, stat) => sum + stat.completedGames, 0) / ageDivisionStats.reduce((sum, stat) => sum + stat.gameCount, 0)) * 100 : 0
-                }%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       
 
