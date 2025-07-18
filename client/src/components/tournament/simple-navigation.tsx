@@ -48,9 +48,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
               <Button 
                 variant={currentPage === 'coach' ? 'secondary' : 'ghost'}
                 size="sm"
-                className={`flex items-center text-white hover:text-orange-200 ${
-                  currentPage === 'coach' ? 'bg-[var(--splash-orange)]/20' : 'hover:bg-white/10'
-                }`}
+                className="justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-9 rounded-md px-3 flex items-center hover:text-orange-200 bg-[var(--splash-orange)]/20 text-[#212121]"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Score Input
