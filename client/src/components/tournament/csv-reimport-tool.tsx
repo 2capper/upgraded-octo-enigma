@@ -53,6 +53,11 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
       const pools = [...new Set(csvData.map(row => row.Pool ? `${row.Division}-${row.Pool}` : null))]
         .filter(p => p && p.includes('-'));
       
+      // Add playoff pools for each division (for playoff games without pools)
+      ageDivisions.forEach(div => {
+        pools.push(`${div}-Playoff`);
+      });
+      
       // Extract unique teams (skip playoff placeholders)
       const teams = new Set<string>();
       csvData.forEach(row => {
@@ -84,7 +89,10 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
           ? `team_div_${row.Division}-${row['Team 2'].replace(/ /g, '-')}`
           : '';
         
-        const poolId = row.Pool ? `pool_div_${row.Division}-Pool-${row.Pool}` : '';
+        // Use regular pool or playoff pool for games without pools
+        const poolId = row.Pool 
+          ? `pool_div_${row.Division}-Pool-${row.Pool}` 
+          : `pool_div_${row.Division}-Pool-Playoff`;
         
         return {
           id: gameId,
@@ -97,7 +105,7 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
           location: row.Venue || '3215 Forest Glade Dr',
           subVenue: row.SubVenue || '',
           isPlayoff: row['Match Type'] === 'playoff',
-          poolId: poolId || null,
+          poolId: poolId,
           status: 'scheduled' as const
         };
       });
@@ -130,7 +138,9 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
             id: `team_div_${division}-${nameParts.join('-')}`,
             name: teamName,
             ageDivisionId: `div_${division}`,
-            poolId: poolMatch?.Pool ? `pool_div_${division}-Pool-${poolMatch.Pool}` : null
+            poolId: poolMatch?.Pool 
+              ? `pool_div_${division}-Pool-${poolMatch.Pool}` 
+              : `pool_div_${division}-Pool-Playoff` // Use playoff pool if no pool found
           };
         }),
         games
