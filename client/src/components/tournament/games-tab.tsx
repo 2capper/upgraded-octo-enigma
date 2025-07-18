@@ -15,7 +15,7 @@ interface GamesTabProps {
 const DIAMOND_COORDINATES = {
   // CSV format names - these match exactly what's in the database
   'Bernie Amlin Field (BAF)': { lat: 42.208056, lng: -83.009443 },
-  'Tom Wilson Field (TWF)': { lat: 42.209054, lng: -83.008994 },
+  'Tom Wilson Field (TWF)': 'https://maps.app.goo.gl/uyVpvb9JM6nGs8M97', // Google Maps link
   'Optimist 1 (OPT1)': { lat: 42.208169, lng: -83.008209 },
   'Optimist 2 (OPT2)': { lat: 42.208594, lng: -83.007789 },
   'Donna Bombardier Diamond (DBD)': { lat: 42.209259, lng: -83.009798 },
@@ -166,8 +166,14 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
       return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond)}&travelmode=walking`;
     }
     
-    // Use coordinates for precise navigation within the park
-    return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}&travelmode=walking`;
+    // Handle both coordinate objects and Google Maps links
+    if (typeof location === 'string') {
+      // Direct Google Maps link
+      return location;
+    } else {
+      // Coordinate object format
+      return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}&travelmode=walking`;
+    }
   };
 
   return (
