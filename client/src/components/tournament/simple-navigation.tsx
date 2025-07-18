@@ -3,16 +3,7 @@ import { Trophy, Home, FileText, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NestLogo = () => (
-  <img 
-    src="@assets/Flying F.JPG" 
-    alt="The Nest Logo" 
-    className="h-12 w-auto"
-    onError={(e) => { 
-      const target = e.target as HTMLImageElement;
-      target.onerror = null; 
-      target.src = 'https://placehold.co/100x50/177e0e/ffffff?text=The+Nest'; 
-    }}
-  />
+  <div></div>
 );
 
 interface SimpleNavigationProps {
