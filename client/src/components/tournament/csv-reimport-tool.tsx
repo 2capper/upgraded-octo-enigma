@@ -108,7 +108,7 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
           poolId: poolId,
           status: 'scheduled' as const
         };
-      });
+      }).filter(game => game.homeTeamId && game.awayTeamId); // Only include games with both teams
       
       // Prepare the data for bulk import
       const importData = {
