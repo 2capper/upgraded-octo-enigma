@@ -253,7 +253,10 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                         {/* Date and Time */}
                         <div className="flex-shrink-0 w-32">
                           <p className="font-medium text-gray-900">{formatDate(game.date)}</p>
-                          <p className="text-sm text-gray-600">{convertCentralToEastern(game.location)}</p>
+                          <p className="text-sm text-gray-600">
+                            {/* Use game.time after reimport, game.location for old data */}
+                            {convertCentralToEastern(game.time || game.location)}
+                          </p>
                         </div>
                         
                         {/* Teams and Score */}
