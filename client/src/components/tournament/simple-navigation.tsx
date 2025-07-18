@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 
 const NestLogo = () => (
   <img 
-    src="@assets/519-fsu-falcons.webp" 
+    src="@assets/Flying F.JPG" 
     alt="The Nest Logo" 
     className="h-12 w-auto"
     onError={(e) => { 
