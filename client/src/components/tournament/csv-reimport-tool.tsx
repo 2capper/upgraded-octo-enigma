@@ -1,0 +1,198 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { Upload, AlertCircle } from 'lucide-react';
+
+interface CSVReimportToolProps {
+  tournamentId: string;
+}
+
+export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  const parseCSV = (csvText: string) => {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+    
+    const data = lines.slice(1).map(line => {
+      const values = line.match(/("([^"]*)"|[^,]+)/g) || [];
+      const row: any = {};
+      
+      headers.forEach((header, index) => {
+        row[header] = values[index]?.replace(/"/g, '').trim() || '';
+      });
+      
+      return row;
+    });
+    
+    return data;
+  };
+
+  const diamondCoordinates: Record<string, { lat: number; lng: number }> = {
+    'Bernie Amlin Field (BAF)': { lat: 42.208056, lng: -83.009443 },
+    'Tom Wilson Field (TWF)': { lat: 42.209054, lng: -83.008994 },
+    'Optimist 1 (OPT1)': { lat: 42.208169, lng: -83.008209 },
+    'Optimist 2 (OPT2)': { lat: 42.208594, lng: -83.007789 },
+    'Donna Bombardier Diamond (DBD)': { lat: 42.209259, lng: -83.009798 }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    
+    try {
+      const text = await file.text();
+      const csvData = parseCSV(text);
+      
+      // Extract unique divisions and pools
+      const ageDivisions = [...new Set(csvData.map(row => row.Division))].filter(Boolean);
+      const pools = [...new Set(csvData.map(row => `${row.Division}-${row.Pool}`))].filter(p => !p.includes('-'));
+      
+      // Extract unique teams
+      const teams = new Set<string>();
+      csvData.forEach(row => {
+        if (row['Team 1']) teams.add(`${row.Division}-${row['Team 1']}`);
+        if (row['Team 2']) teams.add(`${row.Division}-${row['Team 2']}`);
+      });
+      
+      // Transform games data with proper column mapping
+      const games = csvData.map(row => {
+        const gameId = `g${row['Game #']}`;
+        const homeTeamId = row['Team 1'] ? `team_div_${row.Division}-${row['Team 1'].replace(/ /g, '-')}` : '';
+        const awayTeamId = row['Team 2'] ? `team_div_${row.Division}-${row['Team 2'].replace(/ /g, '-')}` : '';
+        const poolId = row.Pool ? `pool_div_${row.Division}-Pool-${row.Pool}` : '';
+        
+        return {
+          id: gameId,
+          homeTeamId,
+          awayTeamId,
+          homeScore: row['Team 1 Score'] ? parseInt(row['Team 1 Score']) : null,
+          awayScore: row['Team 2 Score'] ? parseInt(row['Team 2 Score']) : null,
+          date: row.Date,
+          time: row.Time, // Keep in Central time, will be converted on display
+          location: row.Venue || '3215 Forest Glade Dr',
+          subVenue: row.SubVenue || '',
+          isPlayoff: row['Match Type'] === 'playoff',
+          poolId: poolId || null,
+          status: 'scheduled' as const
+        };
+      }).filter(game => game.homeTeamId || game.awayTeamId);
+      
+      // Prepare the data for bulk import
+      const importData = {
+        ageDivisions: ageDivisions.map(div => ({
+          id: `div_${div}`,
+          name: div,
+          sortOrder: div === '11U' ? 1 : 2
+        })),
+        pools: pools.filter(p => p.split('-')[1]).map(pool => {
+          const [division, poolName] = pool.split('-');
+          return {
+            id: `pool_div_${division}-Pool-${poolName}`,
+            name: `Pool ${poolName}`,
+            ageDivisionId: `div_${division}`
+          };
+        }),
+        teams: Array.from(teams).map(team => {
+          const [division, ...nameParts] = team.split('-');
+          const teamName = nameParts.join(' ');
+          const poolMatch = csvData.find(row => 
+            (row['Team 1'] === teamName || row['Team 2'] === teamName) && 
+            row.Division === division && 
+            row.Pool
+          );
+          
+          return {
+            id: `team_div_${division}-${nameParts.join('-')}`,
+            name: teamName,
+            ageDivisionId: `div_${division}`,
+            poolId: poolMatch?.Pool ? `pool_div_${division}-Pool-${poolMatch.Pool}` : null
+          };
+        }),
+        games
+      };
+      
+      // Make the API call to bulk import
+      const response = await fetch(`/api/tournaments/${tournamentId}/bulk-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(importData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to import data');
+      }
+      
+      toast({
+        title: 'Success!',
+        description: `Imported ${games.length} games with proper venue and diamond data`,
+      });
+      
+      // Refresh the page to show updated data
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({
+        title: 'Import Failed',
+        description: 'There was an error importing the CSV file',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-orange-500 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">CSV Data Re-import</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Upload the corrected CSV file to fix the venue and diamond data
+            </p>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <p className="text-sm text-gray-700">Expected CSV columns:</p>
+          <ul className="text-xs text-gray-600 list-disc list-inside space-y-1">
+            <li>Game #, Division, Pool, Team 1, Team 1 Score, Team 2 Score, Team 2</li>
+            <li>Match Type, Date, Time, Venue, SubVenue</li>
+          </ul>
+        </div>
+        
+        <div className="pt-2">
+          <label htmlFor="csv-upload" className="block">
+            <input
+              id="csv-upload"
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              disabled={isProcessing}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="default"
+              disabled={isProcessing}
+              className="w-full cursor-pointer"
+              asChild
+            >
+              <span>
+                <Upload className="w-4 h-4 mr-2" />
+                {isProcessing ? 'Processing...' : 'Upload CSV File'}
+              </span>
+            </Button>
+          </label>
+        </div>
+      </div>
+    </Card>
+  );
+}

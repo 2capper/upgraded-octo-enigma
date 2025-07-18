@@ -11,15 +11,27 @@ interface GamesTabProps {
   ageDivisions: AgeDivision[];
 }
 
-// Diamond coordinates mapping
+// Diamond coordinates mapping - provided by user
 const DIAMOND_COORDINATES = {
-  'Bernie Amlin Field': { lat: 42.304889, lng: -82.917139 },
-  'BAF': { lat: 42.304889, lng: -82.917139 },
-  'Tom Wilson Field': { lat: 42.303417, lng: -82.917722 },
-  'TWF': { lat: 42.303417, lng: -82.917722 },
-  'Optimist 1': { lat: 42.302073, lng: -82.916674 },
-  'Optimist 2': { lat: 42.301955, lng: -82.917832 },
-  'Donna Bombardier': { lat: 42.304034, lng: -82.917166 },
+  // Full names
+  'Bernie Amlin Field': { lat: 42.208056, lng: -83.009443 },
+  'Tom Wilson Field': { lat: 42.209054, lng: -83.008994 },
+  'Optimist 1': { lat: 42.208169, lng: -83.008209 },
+  'Optimist 2': { lat: 42.208594, lng: -83.007789 },
+  'Donna Bombardier': { lat: 42.209259, lng: -83.009798 },
+  'Donna Bombardier Diamond': { lat: 42.209259, lng: -83.009798 },
+  // CSV format names
+  'Bernie Amlin Field (BAF)': { lat: 42.208056, lng: -83.009443 },
+  'Tom Wilson Field (TWF)': { lat: 42.209054, lng: -83.008994 },
+  'Optimist 1 (OPT1)': { lat: 42.208169, lng: -83.008209 },
+  'Optimist 2 (OPT2)': { lat: 42.208594, lng: -83.007789 },
+  'Donna Bombardier Diamond (DBD)': { lat: 42.209259, lng: -83.009798 },
+  // Short codes
+  'BAF': { lat: 42.208056, lng: -83.009443 },
+  'TWF': { lat: 42.209054, lng: -83.008994 },
+  'OPT1': { lat: 42.208169, lng: -83.008209 },
+  'OPT2': { lat: 42.208594, lng: -83.007789 },
+  'DBD': { lat: 42.209259, lng: -83.009798 },
 };
 
 export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) => {
@@ -267,21 +279,23 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                           <div className="text-sm text-gray-600 mb-2">
                             <div className="flex items-center gap-2 justify-end">
                               <MapPin className="w-4 h-4" />
-                              <span className="font-medium">Diamond TBD</span>
+                              <span className="font-medium">{game.subVenue || 'Diamond TBD'}</span>
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
-                              {game.subVenue}
+                              3215 Forest Glade Dr
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.subVenue || '3215 Forest Glade Dr')}&travelmode=walking`, '_blank')}
-                          >
-                            <Navigation className="w-3 h-3 mr-1" />
-                            Get Directions
-                          </Button>
+                          {game.subVenue && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                              onClick={() => window.open(getDirectionsUrl(game.subVenue), '_blank')}
+                            >
+                              <Navigation className="w-3 h-3 mr-1" />
+                              Get Directions
+                            </Button>
+                          )}
                         </div>
 
                         {/* Status */}

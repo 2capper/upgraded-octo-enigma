@@ -58,8 +58,14 @@ Preferred communication style: Simple, everyday language.
 - **Games Management**: Game scheduling and score submission
 - **Teams Management**: Team registration and information
 - **Playoffs**: Tournament bracket management
-- **Admin Portal**: Administrative functions including tournament creation with auto-generated IDs, data import with tournament selection, game result editing with filtering, and export capabilities
+- **Admin Portal**: Administrative functions including tournament creation with auto-generated IDs, data import with tournament selection, game result editing with filtering, CSV reimport tool, and export capabilities
 - **Hierarchical Score Input**: Step-by-step score submission workflow for coaches
+- **Diamond GPS Coordinates**: 
+  - Bernie Amlin Field: 42.208056, -83.009443
+  - Tom Wilson Field: 42.209054, -83.008994
+  - Optimist 1: 42.208169, -83.008209
+  - Optimist 2: 42.208594, -83.007789
+  - Donna Bombardier: 42.209259, -83.009798
 
 ### Authentication System
 - **Storage Interface**: Abstracted storage layer with in-memory fallback
@@ -131,6 +137,10 @@ Preferred communication style: Simple, everyday language.
 - Redesigned game schedule to list format with cascading division/team filters (January 2025)
 - Added venue and sub-venue (diamond) information display for each game (January 2025)
 - Integrated GPS coordinates for 5 baseball diamonds with walking directions via Google Maps (January 2025)
+- Fixed time conversion from Central to Eastern Time in game schedule (January 2025)
+- Identified CSV import column misalignment issue - data was shifted causing diamond names to be lost (January 2025)
+- Added CSV reimport tool to admin portal for fixing data import issues (January 2025)
+- Updated diamond coordinate mappings to match CSV format with full names and abbreviations (January 2025)
 
 ## Key Architectural Decisions
 
