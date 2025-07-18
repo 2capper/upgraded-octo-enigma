@@ -78,9 +78,8 @@ export default function TournamentDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <SimpleNavigation 
-        currentTournament={currentTournament}
-        tournaments={tournaments}
         tournamentId={tournamentId}
+        currentPage='dashboard'
       />
       
       <div className="container mx-auto px-4 py-8">
@@ -153,7 +152,6 @@ export default function TournamentDashboard() {
               teams={teams}
               ageDivisions={ageDivisions}
               pools={pools}
-              tournamentId={tournamentId}
             />
           </TabsContent>
           
