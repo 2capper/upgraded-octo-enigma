@@ -11,7 +11,9 @@ interface GamesTabProps {
   ageDivisions: AgeDivision[];
 }
 
-// Diamond coordinates mapping - provided by user
+// Diamond coordinates mapping with complex address
+const COMPLEX_ADDRESS = '3215 Forest Glade Dr, Windsor, ON N8R 1W7, Canada';
+
 const DIAMOND_COORDINATES = {
   // Full names
   'Bernie Amlin Field': { lat: 42.208056, lng: -83.009443 },
@@ -178,7 +180,10 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
       // If coordinates not set, use the venue name for search
       return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond)}&travelmode=walking`;
     }
-    return `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}&travelmode=walking`;
+    // Use higher precision and ensure proper formatting
+    const lat = coords.lat.toFixed(6);
+    const lng = coords.lng.toFixed(6);
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
   };
 
   return (
