@@ -83,10 +83,10 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
         
         // For playoff games with placeholders, use empty team IDs
         const homeTeamId = row['Team 1'] && !isPlayoffPlaceholder(row['Team 1']) 
-          ? `team_div_${row.Division}-${row['Team 1'].replace(/ /g, '-')}` 
+          ? `team_div_${row.Division}-${row['Team 1']}` 
           : '';
         const awayTeamId = row['Team 2'] && !isPlayoffPlaceholder(row['Team 2'])
-          ? `team_div_${row.Division}-${row['Team 2'].replace(/ /g, '-')}`
+          ? `team_div_${row.Division}-${row['Team 2']}`
           : '';
         
         // Use regular pool or playoff pool for games without pools
