@@ -50,20 +50,40 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
       
       // Extract unique divisions and pools
       const ageDivisions = [...new Set(csvData.map(row => row.Division))].filter(Boolean);
-      const pools = [...new Set(csvData.map(row => `${row.Division}-${row.Pool}`))].filter(p => !p.includes('-'));
+      const pools = [...new Set(csvData.map(row => row.Pool ? `${row.Division}-${row.Pool}` : null))]
+        .filter(p => p && p.includes('-'));
       
-      // Extract unique teams
+      // Extract unique teams (skip playoff placeholders)
       const teams = new Set<string>();
       csvData.forEach(row => {
-        if (row['Team 1']) teams.add(`${row.Division}-${row['Team 1']}`);
-        if (row['Team 2']) teams.add(`${row.Division}-${row['Team 2']}`);
+        // Skip playoff placeholder teams like "Seed #3", "Winner of game"
+        const isPlayoffPlaceholder = (team: string) => 
+          team.includes('Seed #') || team.includes('Winner of');
+        
+        if (row['Team 1'] && !isPlayoffPlaceholder(row['Team 1'])) {
+          teams.add(`${row.Division}-${row['Team 1']}`);
+        }
+        if (row['Team 2'] && !isPlayoffPlaceholder(row['Team 2'])) {
+          teams.add(`${row.Division}-${row['Team 2']}`);
+        }
       });
       
       // Transform games data with proper column mapping
       const games = csvData.map(row => {
         const gameId = `g${row['Game #']}`;
-        const homeTeamId = row['Team 1'] ? `team_div_${row.Division}-${row['Team 1'].replace(/ /g, '-')}` : '';
-        const awayTeamId = row['Team 2'] ? `team_div_${row.Division}-${row['Team 2'].replace(/ /g, '-')}` : '';
+        
+        // Check if this is a playoff game with placeholder teams
+        const isPlayoffPlaceholder = (team: string) => 
+          team.includes('Seed #') || team.includes('Winner of');
+        
+        // For playoff games with placeholders, use empty team IDs
+        const homeTeamId = row['Team 1'] && !isPlayoffPlaceholder(row['Team 1']) 
+          ? `team_div_${row.Division}-${row['Team 1'].replace(/ /g, '-')}` 
+          : '';
+        const awayTeamId = row['Team 2'] && !isPlayoffPlaceholder(row['Team 2'])
+          ? `team_div_${row.Division}-${row['Team 2'].replace(/ /g, '-')}`
+          : '';
+        
         const poolId = row.Pool ? `pool_div_${row.Division}-Pool-${row.Pool}` : '';
         
         return {
@@ -80,7 +100,7 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
           poolId: poolId || null,
           status: 'scheduled' as const
         };
-      }).filter(game => game.homeTeamId || game.awayTeamId);
+      });
       
       // Prepare the data for bulk import
       const importData = {
