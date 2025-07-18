@@ -241,7 +241,7 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                         {/* Date and Time */}
                         <div className="flex-shrink-0 w-32">
                           <p className="font-medium text-gray-900">{formatDate(game.date)}</p>
-                          <p className="text-sm text-gray-600">{convertCentralToEastern(game.time)}</p>
+                          <p className="text-sm text-gray-600">{convertCentralToEastern(game.location)}</p>
                         </div>
                         
                         {/* Teams and Score */}
@@ -267,23 +267,21 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                           <div className="text-sm text-gray-600 mb-2">
                             <div className="flex items-center gap-2 justify-end">
                               <MapPin className="w-4 h-4" />
-                              <span className="font-medium">{game.subVenue || 'TBD'}</span>
+                              <span className="font-medium">Diamond TBD</span>
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
-                              {game.location}
+                              {game.subVenue}
                             </div>
                           </div>
-                          {game.subVenue && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                              onClick={() => window.open(getDirectionsUrl(game.subVenue!), '_blank')}
-                            >
-                              <Navigation className="w-3 h-3 mr-1" />
-                              Get Directions
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.subVenue || '3215 Forest Glade Dr')}&travelmode=walking`, '_blank')}
+                          >
+                            <Navigation className="w-3 h-3 mr-1" />
+                            Get Directions
+                          </Button>
                         </div>
 
                         {/* Status */}
