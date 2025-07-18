@@ -13,15 +13,17 @@ interface GamesTabProps {
 
 // Diamond coordinates mapping
 const DIAMOND_COORDINATES = {
-  'Diamond 1': { lat: 0, lng: 0 }, // Replace with actual coordinates
-  'Diamond 2': { lat: 0, lng: 0 }, // Replace with actual coordinates
-  'Diamond 3': { lat: 0, lng: 0 }, // Replace with actual coordinates
-  'Diamond 4': { lat: 0, lng: 0 }, // Replace with actual coordinates
-  'Diamond 5': { lat: 0, lng: 0 }, // Replace with actual coordinates
+  'Bernie Amlin Field': { lat: 42.304889, lng: -82.917139 },
+  'BAF': { lat: 42.304889, lng: -82.917139 },
+  'Tom Wilson Field': { lat: 42.303417, lng: -82.917722 },
+  'TWF': { lat: 42.303417, lng: -82.917722 },
+  'Optimist 1': { lat: 42.302073, lng: -82.916674 },
+  'Optimist 2': { lat: 42.301955, lng: -82.917832 },
+  'Donna Bombardier': { lat: 42.304034, lng: -82.917166 },
 };
 
 export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) => {
-  const [divisionFilter, setDivisionFilter] = useState('all');
+  const [divisionFilter, setDivisionFilter] = useState('');
   const [teamFilter, setTeamFilter] = useState('all');
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
@@ -39,29 +41,52 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
     return getTeamDivision(game.homeTeamId);
   };
 
-  // Get unique teams for filter
-  const uniqueTeams = useMemo(() => {
-    const teamsSet = new Set<string>();
-    games.forEach(game => {
-      teamsSet.add(game.homeTeamId);
-      teamsSet.add(game.awayTeamId);
+  // Get teams for selected division
+  const divisionTeams = useMemo(() => {
+    if (!divisionFilter) return [];
+    
+    // Get all teams in the selected division
+    const divisionPools = pools.filter(p => p.ageDivisionId === divisionFilter);
+    const divisionTeamIds = new Set<string>();
+    
+    // Get teams from pools
+    teams.forEach(team => {
+      if (divisionPools.some(p => p.id === team.poolId)) {
+        divisionTeamIds.add(team.id);
+      }
     });
-    return Array.from(teamsSet).map(id => teams.find(t => t.id === id)).filter(Boolean);
-  }, [games, teams]);
+    
+    // Also include teams that play games in this division
+    games.forEach(game => {
+      const gameDivision = getGameDivision(game);
+      if (gameDivision?.id === divisionFilter) {
+        divisionTeamIds.add(game.homeTeamId);
+        divisionTeamIds.add(game.awayTeamId);
+      }
+    });
+    
+    return Array.from(divisionTeamIds)
+      .map(id => teams.find(t => t.id === id))
+      .filter(Boolean)
+      .sort((a, b) => a!.name.localeCompare(b!.name));
+  }, [games, teams, pools, divisionFilter]);
 
   // Filter and sort games
   const filteredAndSortedGames = useMemo(() => {
     let filtered = games;
 
-    // Filter by division
-    if (divisionFilter !== 'all') {
+    // Filter by division (required)
+    if (divisionFilter) {
       filtered = filtered.filter(game => {
         const division = getGameDivision(game);
         return division?.id === divisionFilter;
       });
+    } else {
+      // No division selected, show no games
+      return [];
     }
 
-    // Filter by team
+    // Filter by team (optional)
     if (teamFilter !== 'all') {
       filtered = filtered.filter(game => 
         game.homeTeamId === teamFilter || game.awayTeamId === teamFilter
@@ -118,12 +143,14 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Game Schedule</h3>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+          <Select value={divisionFilter} onValueChange={(value) => {
+            setDivisionFilter(value);
+            setTeamFilter('all'); // Reset team filter when division changes
+          }}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Divisions" />
+              <SelectValue placeholder="Select Division" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Divisions</SelectItem>
               {ageDivisions.map(division => (
                 <SelectItem key={division.id} value={division.id}>
                   {division.name}
@@ -132,19 +159,21 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
             </SelectContent>
           </Select>
           
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Teams" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teams</SelectItem>
-              {uniqueTeams.map(team => (
-                <SelectItem key={team!.id} value={team!.id}>
-                  {team!.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {divisionFilter && (
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                {divisionTeams.map(team => (
+                  <SelectItem key={team!.id} value={team!.id}>
+                    {team!.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Button className="bg-[var(--falcons-green)] text-white hover:bg-[var(--falcons-dark-green)]">
             <Plus className="w-4 h-4 mr-2" />
@@ -153,7 +182,12 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
         </div>
       </div>
 
-      {gamesByDivision.length === 0 ? (
+      {!divisionFilter ? (
+        <div className="text-center py-12">
+          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">Please select a division to view games.</p>
+        </div>
+      ) : gamesByDivision.length === 0 ? (
         <div className="text-center py-12">
           <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500">No games found for the selected filters.</p>
@@ -199,9 +233,16 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                         
                         {/* Venue and Directions */}
                         <div className="flex-shrink-0 text-right">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                            <MapPin className="w-4 h-4" />
-                            <span>{game.subVenue || game.location}</span>
+                          <div className="text-sm text-gray-600 mb-2">
+                            <div className="flex items-center gap-2 justify-end">
+                              <MapPin className="w-4 h-4" />
+                              <span>{game.location}</span>
+                            </div>
+                            {game.subVenue && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Diamond: {game.subVenue}
+                              </div>
+                            )}
                           </div>
                           {game.subVenue && (
                             <Button

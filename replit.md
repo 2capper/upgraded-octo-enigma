@@ -128,6 +128,9 @@ Preferred communication style: Simple, everyday language.
 - Reorganized admin portal with tabbed interface (January 2025)
 - Added standalone tournament URLs with dedicated /tournament/{id} routes (January 2025)
 - Enhanced tournament creation with immediate URL preview and navigation (January 2025)
+- Redesigned game schedule to list format with cascading division/team filters (January 2025)
+- Added venue and sub-venue (diamond) information display for each game (January 2025)
+- Integrated GPS coordinates for 5 baseball diamonds with walking directions via Google Maps (January 2025)
 
 ## Key Architectural Decisions
 
