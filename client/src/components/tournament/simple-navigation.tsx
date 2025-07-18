@@ -31,41 +31,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
             <NestLogo />
           </div>
           
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Link href={`/dashboard/${tournamentId}`}>
-              <Button 
-                variant={currentPage === 'dashboard' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-9 rounded-md px-3 flex items-center hover:text-orange-200 bg-[var(--splash-orange)]/20 text-[#212121]"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Dashboard
-              </Button>
-            </Link>
-            
-            <Link href={`/coach-score-input/${tournamentId}`}>
-              <Button 
-                variant={currentPage === 'coach' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-secondary/80 h-9 rounded-md px-3 flex items-center hover:text-orange-200 bg-[var(--splash-orange)]/20 text-[#212121]"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Score Input
-              </Button>
-            </Link>
-            
-            <Link href={`/admin-portal/${tournamentId}`}>
-              <Button 
-                variant={currentPage === 'admin' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 rounded-md px-3 flex items-center hover:text-orange-200 hover:bg-white/10 text-[#212121]"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Admin
-              </Button>
-            </Link>
-          </div>
+          
           
           {/* Mobile Navigation */}
           <div className="md:hidden">
