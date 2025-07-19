@@ -49,6 +49,9 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
 
   const loading = tournamentsLoading || teamsLoading || gamesLoading || poolsLoading || ageDivisionsLoading;
   const error = tournamentsError || teamsError || gamesError || poolsError || ageDivisionsError;
+  
+  // Find the current tournament from the tournaments list
+  const currentTournament = tournaments.find(t => t.id === tournamentId) || null;
 
   return {
     teams,
@@ -56,6 +59,8 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
     pools,
     tournaments,
     ageDivisions,
+    currentTournament,
+    isLoading: loading,
     loading,
     error: error?.message || null
   };

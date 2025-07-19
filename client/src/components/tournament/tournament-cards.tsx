@@ -9,7 +9,7 @@ interface TournamentCardsProps {
   ageDivisions: AgeDivision[];
 }
 
-export const TournamentCards = ({ tournaments, teams, games, pools, ageDivisions }: TournamentCardsProps) => {
+export const TournamentCards = ({ tournaments = [], teams = [], games = [], pools = [], ageDivisions = [] }: TournamentCardsProps) => {
   const activeTournament = tournaments.find(t => t.id === 'aug-classic');
   const upcomingTournament = tournaments.find(t => t.id === 'provincials');
   
