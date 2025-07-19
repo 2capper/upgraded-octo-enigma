@@ -119,9 +119,11 @@ export function CSVReimportTool({ tournamentId }: CSVReimportToolProps) {
         })),
         pools: pools.filter(p => p.split('-')[1]).map(pool => {
           const [division, poolName] = pool.split('-');
+          // Remove "Pool" prefix if already present in poolName
+          const cleanPoolName = poolName.replace(/^Pool\s*/i, '');
           return {
-            id: `pool_div_${division}-Pool-${poolName}`,
-            name: `Pool ${poolName}`,
+            id: `pool_div_${division}-Pool-${cleanPoolName}`,
+            name: cleanPoolName,
             ageDivisionId: `div_${division}`
           };
         }),

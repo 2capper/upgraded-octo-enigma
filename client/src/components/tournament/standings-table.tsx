@@ -133,6 +133,7 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
 
 export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColumn = true }: StandingsTableProps) => {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
+  const [selectedPool, setSelectedPool] = useState<string | null>(null);
   
   const standingsByDivision = useMemo(() => {
     if (!teams.length || !ageDivisions.length) return [];
@@ -381,19 +382,46 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
             {renderStandingsTable(overallStandings, `${division.name} Overall`)}
           </div>
 
-          {/* Pool Standings */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {poolStandings.map(({ pool, teams: poolTeams }) => (
-              <div key={pool.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 text-left pl-[12px] pr-[12px] pt-[12px] pb-[12px]">
-                <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-lg font-semibold text-gray-900">{pool.name}</h4>
-                  <div className="text-sm text-gray-500">
-                    {poolTeams.length} Teams
+          {/* Pool Standings with Tabs */}
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Pool Standings</h4>
+            
+            {/* Pool Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {poolStandings.map(({ pool }, index) => (
+                <Button
+                  key={pool.id}
+                  variant={selectedPool === pool.id || (selectedPool === null && index === 0) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedPool(pool.id)}
+                  className={selectedPool === pool.id || (selectedPool === null && index === 0) 
+                    ? "bg-[var(--falcons-green)] text-white" 
+                    : ""}
+                >
+                  {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Selected Pool Standings */}
+            {poolStandings.map(({ pool, teams: poolTeams }, index) => {
+              const isSelected = selectedPool === pool.id || (selectedPool === null && index === 0);
+              if (!isSelected) return null;
+              
+              return (
+                <div key={pool.id}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h5 className="text-md font-semibold text-gray-900">
+                      {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
+                    </h5>
+                    <div className="text-sm text-gray-500">
+                      {poolTeams.length} Teams
+                    </div>
                   </div>
+                  {renderStandingsTable(poolTeams, pool.name)}
                 </div>
-                {renderStandingsTable(poolTeams, pool.name)}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}
