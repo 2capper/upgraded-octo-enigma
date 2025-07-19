@@ -60,7 +60,14 @@ export const HierarchicalScoreInput = ({
   }, [selectedTeamId, games]);
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
-  const getPoolName = (poolId: string) => pools.find(p => p.id === poolId)?.name || 'Unknown';
+  const getPoolName = (poolId: string) => {
+    const pool = pools.find(p => p.id === poolId);
+    if (!pool) return 'Unknown';
+    
+    // Extract number from pool name (e.g., "Pool Pool 3" -> "3")
+    const match = pool.name.match(/(\d+)$/);
+    return match ? match[1] : pool.name;
+  };
   const selectedGame = useMemo(() => games.find(g => g.id === selectedGameId), [games, selectedGameId]);
 
   const updateGameMutation = useMutation({
