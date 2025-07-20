@@ -384,20 +384,7 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">Pool Standings</h4>
             
-            {/* Pool Tabs */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {poolStandings.map(({ pool }, index) => (
-                <div
-                  key={pool.id}
-                  onClick={() => setSelectedPool(pool.id)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded cursor-pointer ${selectedPool === pool.id || (selectedPool === null && index === 0) 
-                    ? 'bg-[var(--yellow)] text-[var(--forest-green)]' 
-                    : 'bg-[var(--forest-green)] text-[var(--yellow)]'} hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors`}
-                >
-                  {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
-                </div>
-              ))}
-            </div>
+            
             
             {/* Selected Pool Standings */}
             {poolStandings.map(({ pool, teams: poolTeams }, index) => {
