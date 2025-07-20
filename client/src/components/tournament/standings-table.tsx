@@ -407,9 +407,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
               return (
                 <div key={pool.id}>
                   <div className="flex items-center justify-between mb-4">
-                    <h5 className="text-md font-semibold text-gray-900">
-                      {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
-                    </h5>
                     <div className="text-sm text-gray-500">
                       {poolTeams.length} Teams
                     </div>
