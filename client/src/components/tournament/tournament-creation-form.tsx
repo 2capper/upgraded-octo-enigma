@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Calendar, Type, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,18 +10,24 @@ import { insertTournamentSchema } from '@shared/schema';
 
 interface TournamentCreationFormProps {
   onSuccess?: (tournament: any) => void;
+  showForm?: boolean;
 }
 
-export const TournamentCreationForm = ({ onSuccess }: TournamentCreationFormProps) => {
+export const TournamentCreationForm = ({ onSuccess, showForm = false }: TournamentCreationFormProps) => {
   const [formData, setFormData] = useState({
     id: '',
     name: '',
     date: '',
   });
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(showForm);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Update form visibility when showForm prop changes
+  useEffect(() => {
+    setIsOpen(showForm);
+  }, [showForm]);
 
   const createTournamentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -101,10 +107,10 @@ export const TournamentCreationForm = ({ onSuccess }: TournamentCreationFormProp
     return (
       <Button 
         onClick={() => setIsOpen(true)}
-        className="bg-[var(--falcons-green)] text-white hover:bg-[var(--falcons-dark-green)]"
+        className="bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors w-full"
       >
         <Plus className="w-4 h-4 mr-2" />
-        Create New Tournament
+        Click Here to Create New Tournament
       </Button>
     );
   }

@@ -20,13 +20,15 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState('tournaments');
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const handleNewTournament = () => {
     // Switch to tournaments tab where the creation form is
     setActiveTab('tournaments');
+    setShowCreateForm(true);
     toast({
       title: "Create New Tournament",
-      description: "Use the form below to create a new tournament.",
+      description: "Fill out the form to create a new tournament.",
     });
   };
 
@@ -209,8 +211,10 @@ export default function AdminPortal() {
           <TabsContent value="tournaments" className="mt-6">
             <div className="space-y-6">
               <TournamentCreationForm 
+                showForm={showCreateForm}
                 onSuccess={(tournament) => {
                   console.log('Tournament created:', tournament);
+                  setShowCreateForm(false);
                 }}
               />
               
