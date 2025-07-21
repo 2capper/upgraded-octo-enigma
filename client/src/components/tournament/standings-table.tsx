@@ -178,8 +178,32 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
         .sort((a, b) => Number(b) - Number(a))
         .flatMap(points => resolveTie(groups[Number(points)], games));
 
+      // Sort pools in ascending order
+      const sortedPools = [...divisionPools].sort((a, b) => {
+        // Extract the pool identifier (number or letter) from the name
+        const extractIdentifier = (name: string) => {
+          const match = name.match(/Pool\s*([A-Za-z0-9]+)/i);
+          return match ? match[1] : name;
+        };
+        
+        const idA = extractIdentifier(a.name);
+        const idB = extractIdentifier(b.name);
+        
+        // Try to parse as numbers first
+        const numA = parseInt(idA);
+        const numB = parseInt(idB);
+        
+        if (!isNaN(numA) && !isNaN(numB)) {
+          // Both are numbers, sort numerically
+          return numA - numB;
+        } else {
+          // At least one is not a number, sort alphabetically
+          return idA.localeCompare(idB);
+        }
+      });
+
       // Calculate pool standings
-      const poolStandings = divisionPools.map(pool => {
+      const poolStandings = sortedPools.map(pool => {
         const poolTeams = teamStats.filter(t => t.poolId === pool.id);
         
         // Group pool teams by points for tie-breaking
@@ -203,7 +227,7 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
 
       return {
         division,
-        pools: divisionPools,
+        pools: sortedPools,
         overallStandings,
         poolStandings
       };
