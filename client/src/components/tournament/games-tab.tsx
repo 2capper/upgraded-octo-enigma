@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Calendar, Plus, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Team, Game, Pool, AgeDivision } from '@/hooks/use-tournament-data';
+import type { Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 interface GamesTabProps {
   games: Game[];
@@ -287,7 +287,7 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                                 size="sm"
                                 variant="outline"
                                 className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs px-3"
-                                onClick={() => window.open(getDirectionsUrl(game.subVenue), '_blank')}
+                                onClick={() => window.open(getDirectionsUrl(game.subVenue!), '_blank')}
                               >
                                 <Navigation className="w-3 h-3 mr-1" />
                                 Directions

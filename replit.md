@@ -141,6 +141,9 @@ Preferred communication style: Simple, everyday language.
 - Identified CSV import column misalignment issue - data was shifted causing diamond names to be lost (January 2025)
 - Added CSV reimport tool to admin portal for fixing data import issues (January 2025)
 - Updated diamond coordinate mappings to match CSV format with full names and abbreviations (January 2025)
+- Fixed CSV reimport ID generation to match main import format, stripping "Pool" prefix for consistency (January 2025)
+- Simplified tournament dashboard UI by removing Total Teams, Games Progress, and Divisions cards (January 2025)
+- Removed pool selection buttons from standings display - now shows all pools simultaneously (January 2025)
 
 ## Key Architectural Decisions
 

@@ -297,7 +297,9 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                       <div className="flex items-center">
                         <span className="text-sm font-medium text-gray-900">{team.name}</span>
                         {team.forfeitLosses > 0 && (
-                          <AlertTriangle className="w-4 h-4 ml-2 text-red-500" title="Team has a forfeit loss" />
+                          <span title="Team has a forfeit loss">
+                            <AlertTriangle className="w-4 h-4 ml-2 text-red-500" />
+                          </span>
                         )}
                       </div>
                     </div>
@@ -386,22 +388,22 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
             
             
             
-            {/* Selected Pool Standings */}
-            {poolStandings.map(({ pool, teams: poolTeams }, index) => {
-              const isSelected = selectedPool === pool.id || (selectedPool === null && index === 0);
-              if (!isSelected) return null;
-              
-              return (
+            {/* All Pool Standings */}
+            <div className="space-y-6">
+              {poolStandings.map(({ pool, teams: poolTeams }) => (
                 <div key={pool.id}>
                   <div className="flex items-center justify-between mb-4">
+                    <h5 className="text-md font-semibold text-gray-700">
+                      {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
+                    </h5>
                     <div className="text-sm text-gray-500">
                       {poolTeams.length} Teams
                     </div>
                   </div>
                   {renderStandingsTable(poolTeams, pool.name)}
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       ))}
