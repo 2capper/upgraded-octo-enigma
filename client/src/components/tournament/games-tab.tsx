@@ -92,9 +92,33 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
 
     // Sort by date and time
     return filtered.sort((a, b) => {
-      const dateCompare = a.date.localeCompare(b.date);
+      // Compare dates first
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      const dateCompare = dateA.getTime() - dateB.getTime();
+      
       if (dateCompare !== 0) return dateCompare;
-      return a.time.localeCompare(b.time);
+      
+      // If dates are equal, compare times
+      // Parse time strings to ensure proper sorting
+      const parseTime = (timeStr: string) => {
+        if (!timeStr) return 0;
+        
+        // Handle various time formats
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        
+        let hour24 = hours || 0;
+        if (period?.toLowerCase() === 'pm' && hours !== 12) {
+          hour24 += 12;
+        } else if (period?.toLowerCase() === 'am' && hours === 12) {
+          hour24 = 0;
+        }
+        
+        return hour24 * 60 + (minutes || 0);
+      };
+      
+      return parseTime(a.time) - parseTime(b.time);
     });
   }, [games, divisionFilter, teamFilter]);
 
