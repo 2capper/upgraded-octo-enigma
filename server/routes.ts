@@ -17,6 +17,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
+      console.log("Login attempt - Environment:", process.env.NODE_ENV);
+      console.log("Session ID before login:", req.sessionID);
+      
       const { username, password } = req.body;
       
       if (!username || !password) {
@@ -36,12 +39,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = user.id;
       req.session.isAdmin = user.id === 1; // First user is admin
       
+      console.log("Session data set:", { userId: req.session.userId, isAdmin: req.session.isAdmin });
+      
       // Save session explicitly
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
           return res.status(500).json({ error: "Failed to save session" });
         }
+        
+        console.log("Session saved successfully, ID:", req.sessionID);
         
         res.json({ 
           success: true, 
@@ -68,6 +75,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get("/api/auth/check", (req, res) => {
+    console.log("Auth check - Session ID:", req.sessionID);
+    console.log("Auth check - Session data:", req.session);
+    console.log("Auth check - Cookie header:", req.headers.cookie);
+    
     if (req.session.userId) {
       res.json({ 
         authenticated: true, 
