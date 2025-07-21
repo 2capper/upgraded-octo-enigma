@@ -123,16 +123,16 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         const rawHeaders = lines[0].split(',').map(h => h.trim());
 
         const headerMapping: Record<string, string[]> = {
-          matchNumber: ['game', 'match', 'matchno'],
+          matchNumber: ['game', 'match', 'matchno', 'game#'],
           date: ['date'],
           time: ['time'],
           location: ['location', 'diamond', 'venue'],
-          subVenue: ['subvenue'],
+          subVenue: ['subvenue', 'sub-venue'],
           division: ['division'],
           pool: ['pool'],
-          matchType: ['matchtype', 'gametype', 'type'],
-          homeTeam: ['hometeam', 'home', 'team1'],
-          awayTeam: ['awayteam', 'visitor', 'away', 'team2']
+          matchType: ['matchtype', 'gametype', 'type', 'match type'],
+          homeTeam: ['hometeam', 'home', 'team1', 'team 1'],
+          awayTeam: ['awayteam', 'visitor', 'away', 'team2', 'team 2']
         };
 
         const columnIndexMap: Record<string, number> = {};
@@ -253,23 +253,27 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             }
           }
 
-          // Only create teams if they're not placeholder teams
-          if (!isPlayoffPlaceholder(row.homeTeam)) {
-            const homeTeamKey = `${divisionId}-${row.homeTeam}`;
-            if (!teamsMap.has(homeTeamKey)) {
-              const teamId = `${selectedTournamentId}_team_${homeTeamKey.replace(/\s+/g, '-')}`;
-              teamsMap.set(homeTeamKey, teamId);
-              teams.push({ id: teamId, name: row.homeTeam, poolId: poolId });
-            }
+          // Create teams - including placeholder teams for playoffs
+          const homeTeamKey = `${divisionId}-${row.homeTeam}`;
+          if (!teamsMap.has(homeTeamKey)) {
+            const teamId = `${selectedTournamentId}_team_${homeTeamKey.replace(/\s+/g, '-')}`;
+            teamsMap.set(homeTeamKey, teamId);
+            // For playoff placeholder teams, assign to playoff pool
+            const teamPoolId = isPlayoffPlaceholder(row.homeTeam) 
+              ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
+              : poolId;
+            teams.push({ id: teamId, name: row.homeTeam, poolId: teamPoolId });
           }
 
-          if (!isPlayoffPlaceholder(row.awayTeam)) {
-            const awayTeamKey = `${divisionId}-${row.awayTeam}`;
-            if (!teamsMap.has(awayTeamKey)) {
-              const teamId = `${selectedTournamentId}_team_${awayTeamKey.replace(/\s+/g, '-')}`;
-              teamsMap.set(awayTeamKey, teamId);
-              teams.push({ id: teamId, name: row.awayTeam, poolId: poolId });
-            }
+          const awayTeamKey = `${divisionId}-${row.awayTeam}`;
+          if (!teamsMap.has(awayTeamKey)) {
+            const teamId = `${selectedTournamentId}_team_${awayTeamKey.replace(/\s+/g, '-')}`;
+            teamsMap.set(awayTeamKey, teamId);
+            // For playoff placeholder teams, assign to playoff pool
+            const teamPoolId = isPlayoffPlaceholder(row.awayTeam) 
+              ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
+              : poolId;
+            teams.push({ id: teamId, name: row.awayTeam, poolId: teamPoolId });
           }
         }
 
@@ -295,28 +299,26 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
 
           if (!poolId) continue;
 
-          // Get team IDs - for playoff games with placeholders, use empty string
-          let homeTeamId = '';
-          let awayTeamId = '';
-          
-          if (!isPlayoffPlaceholder(row.homeTeam)) {
-            homeTeamId = teamsMap.get(`${divisionId}-${row.homeTeam}`) || '';
-          }
-          
-          if (!isPlayoffPlaceholder(row.awayTeam)) {
-            awayTeamId = teamsMap.get(`${divisionId}-${row.awayTeam}`) || '';
-          }
+          // Get team IDs - all teams should now exist including placeholder teams
+          const homeTeamId = teamsMap.get(`${divisionId}-${row.homeTeam}`);
+          const awayTeamId = teamsMap.get(`${divisionId}-${row.awayTeam}`);
 
-          // For pool games, both teams must exist
-          if (!isPlayoffGame && (!homeTeamId || !awayTeamId)) continue;
-
-          // Skip playoff games with empty teams for now since DB requires team IDs
+          // Skip only if we truly don't have team IDs (shouldn't happen now)
           if (!homeTeamId || !awayTeamId) {
-            console.log(`Skipping game ${row.matchNumber} - missing team IDs (playoff game with TBD teams)`);
+            console.warn(`Warning: Game ${row.matchNumber} missing team IDs - this shouldn't happen`);
             continue;
           }
 
           const gameId = `${selectedTournamentId}_g${row.matchNumber}`;
+          
+          // Log venue data for debugging
+          if (row.matchNumber === '1' || row.matchNumber === '40') {
+            console.log(`Game ${row.matchNumber} venue data:`, {
+              location: row.location,
+              subVenue: row.subVenue
+            });
+          }
+          
           games.push({
             id: gameId,
             homeTeamId,
@@ -330,20 +332,24 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             forfeitStatus: 'none',
             date: row.date,
             time: adjustTimeToET(row.time),
-            location: row.location,
+            location: row.location || '3215 Forest Glade Dr',
             subVenue: row.subVenue || '',
-            tournamentId: selectedTournamentId
+            tournamentId: selectedTournamentId,
+            isPlayoff: isPlayoffGame
           });
         }
 
-        // Count skipped playoff games
-        let skippedPlayoffGames = 0;
+        // Count playoff games
+        let playoffGamesCount = 0;
+        let poolGamesCount = 0;
         for (const row of validData) {
           const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff' ||
                                isPlayoffPlaceholder(row.homeTeam) || 
                                isPlayoffPlaceholder(row.awayTeam);
           if (isPlayoffGame) {
-            skippedPlayoffGames++;
+            playoffGamesCount++;
+          } else {
+            poolGamesCount++;
           }
         }
 
@@ -352,10 +358,11 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         console.log(`- Total rows in CSV: ${data.length}`);
         console.log(`- Valid data rows: ${validData.length}`);
         console.log(`- Games imported: ${games.length}`);
-        console.log(`- Playoff games skipped (TBD teams): ${skippedPlayoffGames}`);
+        console.log(`  - Pool games: ${poolGamesCount}`);
+        console.log(`  - Playoff games: ${playoffGamesCount}`);
         console.log(`- Divisions: ${ageDivisions.length}`);
         console.log(`- Pools: ${pools.length} (including playoff pools)`);
-        console.log(`- Teams: ${teams.length}`);
+        console.log(`- Teams: ${teams.length} (including placeholder teams)`);
 
         bulkImportMutation.mutate({
           ageDivisions,
@@ -364,13 +371,9 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           games
         });
 
-        const warningText = skippedPlayoffGames > 0 
-          ? ` Note: ${skippedPlayoffGames} playoff games with TBD teams were not imported.`
-          : '';
-        
         setMessage({ 
           type: 'success', 
-          text: `Successfully imported ${games.length} games!${warningText}` 
+          text: `Successfully imported ${games.length} games (${poolGamesCount} pool games, ${playoffGamesCount} playoff games).`
         });
 
       } catch (error) {

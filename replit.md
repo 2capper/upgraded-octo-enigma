@@ -147,6 +147,11 @@ Preferred communication style: Simple, everyday language.
 - Removed pool selection buttons from standings display - now shows all pools simultaneously (January 2025)
 - Restored pool tabs in standings display for better navigation between pools (January 2025)
 - Removed Coach Score Input button from tournament dashboard (January 2025)
+- Fixed CSV import to handle all 49 games including playoff games with placeholder teams (January 2025)
+- Made homeTeamId and awayTeamId nullable in games table to support future TBD playoff teams (January 2025)
+- Added isPlayoff boolean field to games table for proper game type identification (January 2025)
+- Enhanced CSV header mapping to handle multiple column name variations (January 2025)
+- Fixed venue/subVenue data mapping to properly import diamond information on first import (January 2025)
 
 ## Key Architectural Decisions
 
