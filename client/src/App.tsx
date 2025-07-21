@@ -10,11 +10,11 @@ import TournamentDashboard from "@/pages/tournament-dashboard";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
-function RedirectToTournament() {
+function RedirectToAdminPortal() {
   const [, setLocation] = useLocation();
   
   useEffect(() => {
-    setLocation("/tournament/aug-classic");
+    setLocation("/admin-portal");
   }, [setLocation]);
   
   return null;
@@ -23,7 +23,7 @@ function RedirectToTournament() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={RedirectToTournament} />
+      <Route path="/" component={RedirectToAdminPortal} />
       <Route path="/dashboard/:tournamentId" component={Dashboard} />
       <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
       <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />
