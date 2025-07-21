@@ -398,14 +398,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
               
               {poolStandings.map(({ pool, teams: poolTeams }) => (
                 <TabsContent key={pool.id} value={pool.id} className="mt-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className="text-md font-semibold text-gray-700">
-                      {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
-                    </h5>
-                    <div className="text-sm text-gray-500">
-                      {poolTeams.length} Teams
-                    </div>
-                  </div>
                   {renderStandingsTable(poolTeams, pool.name)}
                 </TabsContent>
               ))}

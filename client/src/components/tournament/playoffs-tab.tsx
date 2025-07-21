@@ -83,6 +83,7 @@ export const PlayoffsTab = ({ teams, games, pools }: PlayoffsTabProps) => {
   const playoffTeams = useMemo(() => {
     if (!teams.length || !games.length) return [];
     
+    // Calculate overall standings for all teams across all pools
     const allTeamsWithStats = teams.map(team => {
       const stats = calculateStats(team.id, games);
       return {
@@ -94,23 +95,28 @@ export const PlayoffsTab = ({ teams, games, pools }: PlayoffsTabProps) => {
       };
     });
 
-    const poolWinners: any[] = [];
-    const remainingTeams: any[] = [];
+    // Sort all teams by points first, then apply tie-breaker logic
+    allTeamsWithStats.sort((a, b) => b.points - a.points);
     
-    pools.forEach(pool => {
-      const teamsInPool = allTeamsWithStats.filter(t => t.poolId === pool.id);
-      if (teamsInPool.length > 0) {
-        const sortedPool = resolveTie(teamsInPool, games);
-        poolWinners.push(sortedPool[0]);
-        remainingTeams.push(...sortedPool.slice(1));
+    // Group teams by points and resolve ties
+    const groups: any[][] = [];
+    let currentGroup = [allTeamsWithStats[0]];
+    
+    for (let i = 1; i < allTeamsWithStats.length; i++) {
+      if (allTeamsWithStats[i].points === currentGroup[0].points) {
+        currentGroup.push(allTeamsWithStats[i]);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [allTeamsWithStats[i]];
       }
-    });
-
-    const wildCards = resolveTie(remainingTeams, games).slice(0, 3);
-    const qualifiedTeams = [...poolWinners, ...wildCards];
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
     
-    if (qualifiedTeams.length < 6) return [];
-    return resolveTie(qualifiedTeams, games).slice(0, 6);
+    // Apply tie-breaker logic to each group and flatten the results
+    const sortedTeams = groups.flatMap(group => resolveTie(group, games));
+    
+    // Return top 6 teams
+    return sortedTeams.slice(0, 6);
   }, [teams, games, pools]);
 
   if (playoffTeams.length < 6) {
@@ -140,6 +146,52 @@ export const PlayoffsTab = ({ teams, games, pools }: PlayoffsTabProps) => {
             <Printer className="w-4 h-4 mr-2" />
             Print Bracket
           </Button>
+        </div>
+      </div>
+
+      {/* Playoff Rankings Table */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mb-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">Playoff Rankings</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 px-3 font-semibold text-gray-700">Rank</th>
+                <th className="text-left py-2 px-3 font-semibold text-gray-700">Team</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">W</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">L</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">T</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">PTS</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">RF</th>
+                <th className="text-center py-2 px-3 font-semibold text-gray-700">RA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {playoffTeams.map((team, index) => (
+                <tr key={team.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center">
+                      <span className="font-bold text-gray-900">{index + 1}</span>
+                      {index < 3 && (
+                        <Medal className={`w-4 h-4 ml-2 ${
+                          index === 0 ? 'text-yellow-500' :
+                          index === 1 ? 'text-gray-400' :
+                          'text-orange-600'
+                        }`} />
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-3 font-medium text-gray-900">{team.name}</td>
+                  <td className="text-center py-2 px-3">{team.wins}</td>
+                  <td className="text-center py-2 px-3">{team.losses}</td>
+                  <td className="text-center py-2 px-3">{team.ties}</td>
+                  <td className="text-center py-2 px-3 font-bold">{team.points}</td>
+                  <td className="text-center py-2 px-3">{team.runsFor}</td>
+                  <td className="text-center py-2 px-3">{team.runsAgainst}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
