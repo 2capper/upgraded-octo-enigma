@@ -42,8 +42,8 @@ export const teams = pgTable("teams", {
 
 export const games = pgTable("games", {
   id: text("id").primaryKey(),
-  homeTeamId: text("home_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  awayTeamId: text("away_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  homeTeamId: text("home_team_id").references(() => teams.id, { onDelete: "cascade" }),
+  awayTeamId: text("away_team_id").references(() => teams.id, { onDelete: "cascade" }),
   status: text("status").notNull().default("scheduled"), // "scheduled" | "completed"
   homeScore: integer("home_score"),
   awayScore: integer("away_score"),
@@ -56,6 +56,7 @@ export const games = pgTable("games", {
   time: text("time").notNull(),
   location: text("location").notNull(),
   subVenue: text("sub_venue"),
+  isPlayoff: boolean("is_playoff").notNull().default(false),
 });
 
 // Relations
