@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Edit, MoreVertical } from 'lucide-react';
+import { Trash2, Edit, MoreVertical, Eye } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -49,6 +50,7 @@ interface TournamentManagerProps {
 export function TournamentManager({ tournaments }: TournamentManagerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
 
@@ -149,6 +151,10 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setLocation(`/tournament/${tournament.id}`)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Tournament
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEdit(tournament)}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
