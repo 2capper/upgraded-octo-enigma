@@ -8,8 +8,89 @@ import {
   insertTeamSchema, 
   insertGameSchema 
 } from "@shared/schema";
+import { sessionConfig, requireAdmin, verifyPassword, hashPassword, checkAdminExists, createInitialAdmin } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply session middleware
+  app.use(sessionConfig);
+  
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password required" });
+      }
+      
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      const isValid = await verifyPassword(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      req.session.userId = user.id;
+      req.session.isAdmin = user.id === 1; // First user is admin
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          username: user.username,
+          isAdmin: user.id === 1
+        } 
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+  
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ success: true });
+    });
+  });
+  
+  app.get("/api/auth/check", (req, res) => {
+    if (req.session.userId) {
+      res.json({ 
+        authenticated: true, 
+        userId: req.session.userId,
+        isAdmin: req.session.isAdmin || false
+      });
+    } else {
+      res.json({ authenticated: false });
+    }
+  });
+  
+  // Setup route - create initial admin if doesn't exist
+  app.post("/api/auth/setup", async (req, res) => {
+    try {
+      const adminExists = await checkAdminExists();
+      if (adminExists) {
+        return res.status(400).json({ error: "Admin already exists" });
+      }
+      
+      const { password } = req.body;
+      if (!password || password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+      
+      await createInitialAdmin(password);
+      res.json({ success: true, message: "Admin user created" });
+    } catch (error) {
+      console.error("Setup error:", error);
+      res.status(500).json({ error: "Setup failed" });
+    }
+  });
   // Tournament routes
   app.get("/api/tournaments", async (req, res) => {
     try {
@@ -34,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments", async (req, res) => {
+  app.post("/api/tournaments", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.createTournament(validatedData);
@@ -45,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tournaments/:id", async (req, res) => {
+  app.put("/api/tournaments/:id", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.partial().parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
@@ -56,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tournaments/:id", async (req, res) => {
+  app.delete("/api/tournaments/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteTournament(req.params.id);
       res.status(204).send();
@@ -127,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/teams", async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/teams", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTeamSchema.parse({
         ...req.body,
@@ -141,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/teams/:id", async (req, res) => {
+  app.put("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
       const team = await storage.updateTeam(req.params.id, req.body);
       res.json(team);
@@ -151,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/teams/:id", async (req, res) => {
+  app.delete("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
@@ -172,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/games", async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/games", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertGameSchema.parse({
         ...req.body,
@@ -196,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/games/:id", async (req, res) => {
+  app.delete("/api/games/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteGame(req.params.id);
       res.status(204).send();
@@ -207,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk operations for data import
-  app.post("/api/tournaments/:tournamentId/bulk-import", async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/bulk-import", requireAdmin, async (req, res) => {
     try {
       const { ageDivisions, pools, teams, games } = req.body;
       const tournamentId = req.params.tournamentId;

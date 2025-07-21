@@ -7,6 +7,8 @@ import Dashboard from "@/pages/dashboard";
 import CoachScoreInput from "@/pages/coach-score-input";
 import AdminPortal from "@/pages/admin-portal";
 import TournamentDashboard from "@/pages/tournament-dashboard";
+import Login from "@/pages/login";
+import Setup from "@/pages/setup";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -24,6 +26,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={RedirectToAdminPortal} />
+      <Route path="/login" component={Login} />
+      <Route path="/setup" component={Setup} />
       <Route path="/dashboard/:tournamentId" component={Dashboard} />
       <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
       <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />

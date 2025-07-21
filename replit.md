@@ -69,9 +69,13 @@ Preferred communication style: Simple, everyday language.
   - Donna Bombardier Diamond (DBD): 42.209259, -83.009798
 
 ### Authentication System
-- **Storage Interface**: Abstracted storage layer with in-memory fallback
-- **User Management**: Create, retrieve, and authenticate users
-- **Session Handling**: Express session management
+- **Storage Interface**: Abstracted storage layer with PostgreSQL implementation
+- **User Management**: Create, retrieve, and authenticate users with bcrypt password hashing
+- **Session Handling**: Express session management with PostgreSQL session store
+- **Access Control**: Role-based authentication with admin-only routes
+- **Login Flow**: Dedicated login page at `/login` with form validation
+- **Setup Flow**: Initial admin setup at `/setup` for first-time configuration
+- **Protected Routes**: Admin portal requires authentication and admin privileges
 
 ## Data Flow
 
@@ -158,6 +162,11 @@ Preferred communication style: Simple, everyday language.
 - Integrated TournamentManager component with dropdown menus for each tournament (January 2025)
 - Implemented edit dialog for updating tournament names and dates (January 2025)
 - Added delete confirmation dialog with cascade warning for safe tournament removal (January 2025)
+- Implemented role-based authentication system with bcrypt password hashing (January 2025)
+- Added admin login page and session management with express-session (January 2025)
+- Protected admin routes with requireAdmin middleware for secure access control (January 2025)
+- Created setup page for initial admin user creation with username "admin" (January 2025)
+- Added logout functionality in admin portal with session destruction (January 2025)
 
 ## Key Architectural Decisions
 

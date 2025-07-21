@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useParams } from 'wouter';
-import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'wouter';
+import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +12,7 @@ import { TournamentManager } from '@/components/tournament/tournament-manager';
 import { GameResultEditor } from '@/components/tournament/game-result-editor';
 import { CSVReimportTool } from '@/components/tournament/csv-reimport-tool';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminPortal() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -19,9 +20,32 @@ export default function AdminPortal() {
   const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('tournaments');
+  const [, setLocation] = useLocation();
+  const { isAuthenticated, isAdmin, isLoading: authLoading, logout } = useAuth();
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        toast({
+          title: "Authentication Required",
+          description: "Please login to access the admin portal.",
+          variant: "destructive",
+        });
+        setLocation("/login");
+      } else if (!isAdmin) {
+        toast({
+          title: "Access Denied",
+          description: "Admin privileges required.",
+          variant: "destructive",
+        });
+        setLocation("/");
+      }
+    }
+  }, [isAuthenticated, isAdmin, authLoading, setLocation, toast]);
 
   const handleNewTournament = () => {
     // Switch to tournaments tab where the creation form is
@@ -89,15 +113,20 @@ export default function AdminPortal() {
     });
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--falcons-green)] mx-auto mb-4" />
-          <p className="text-gray-600">Loading admin portal...</p>
+          <p className="text-gray-600">{authLoading ? "Checking authentication..." : "Loading admin portal..."}</p>
         </div>
       </div>
     );
+  }
+  
+  // Don't render admin content if not authenticated
+  if (!isAuthenticated || !isAdmin) {
+    return null;
   }
 
   if (error) {
@@ -126,16 +155,27 @@ export default function AdminPortal() {
       {/* Main Content */}
       <div className="px-4 py-4 md:py-8">
         
-        {/* Warning Banner */}
+        {/* Warning Banner with Logout */}
         <div className="mb-4 p-3 border border-red-200 bg-red-50 rounded-lg">
-          <div className="flex items-start">
-            <Shield className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-base font-semibold text-red-800">Admin Access Only</h3>
-              <p className="text-sm text-red-700 mt-1">
-                This portal is restricted to tournament administrators.
-              </p>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start">
+              <Shield className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-base font-semibold text-red-800">Admin Access Only</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  This portal is restricted to tournament administrators.
+                </p>
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={logout}
+              className="ml-4"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
 
