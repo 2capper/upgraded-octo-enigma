@@ -2,11 +2,16 @@ import { Link, useLocation } from 'wouter';
 import { Trophy, Home, FileText, Shield, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import fLogo from '@assets/519-fsu-falcons.webp';
 
 const NestLogo = () => (
   <div className="flex items-center">
-    <Trophy className="w-6 h-6 text-[var(--splash-orange)] mr-2" />
-    <span className="text-white font-bold text-lg">The Nest</span>
+    <img 
+      src={fLogo} 
+      alt="Forest Glade Falcons" 
+      className="h-10 w-auto mr-2"
+    />
+    <span className="text-[var(--yellow)] font-bold text-lg">The Nest</span>
   </div>
 );
 
