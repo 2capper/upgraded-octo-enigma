@@ -185,21 +185,40 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
     setRosterSearchResult(null);
   };
 
-  const handleAffiliateChange = async (affiliateNumber: string) => {
-    setSelectedAffiliate(affiliateNumber);
-    setSelectedOrganization('');
-    setOrganizationTeams({});
+  // Get all organizations that have teams in the current division across all affiliates
+  const getAllOrganizationsForDivision = (divisionName: string) => {
+    const organizations: Array<{org: string, affiliate: string, affiliateName: string}> = [];
+    
+    affiliates.forEach(affiliate => {
+      if (affiliate.organizations) {
+        Object.entries(affiliate.organizations).forEach(([org, divisions]) => {
+          // Check if any division string starts with the base division name
+          // e.g., "11U" matches "11U HS", "11U Rep", "11U AAA"
+          if (divisions.some(div => div.startsWith(divisionName))) {
+            organizations.push({
+              org,
+              affiliate: affiliate.number,
+              affiliateName: affiliate.name
+            });
+          }
+        });
+      }
+    });
+    
+    // Sort organizations alphabetically
+    return organizations.sort((a, b) => a.org.localeCompare(b.org));
   };
 
-  const handleOrganizationChange = async (organization: string) => {
-    setSelectedOrganization(organization);
+  const handleOrganizationSelect = async (org: string, affiliateNumber: string) => {
+    setSelectedOrganization(org);
+    setSelectedAffiliate(affiliateNumber);
     
-    if (!selectedAffiliate || !importingRosterTeam) return;
+    if (!importingRosterTeam) return;
 
     try {
       const division = getDivisionName(importingRosterTeam);
-      const response = await apiRequest('POST', `/api/organizations/${encodeURIComponent(organization)}/teams`, {
-        affiliateNumber: selectedAffiliate,
+      const response = await apiRequest('POST', `/api/organizations/${encodeURIComponent(org)}/teams`, {
+        affiliateNumber: affiliateNumber,
         division: division
       });
 
@@ -564,50 +583,35 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
             </div>
           )}
           
-          {showOrganizationSelect && !searchingRoster && (
+          {showOrganizationSelect && !searchingRoster && importingRosterTeam && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="affiliate">Select Affiliate</Label>
-                <Select value={selectedAffiliate} onValueChange={handleAffiliateChange}>
-                  <SelectTrigger id="affiliate">
-                    <SelectValue placeholder="Choose an affiliate..." />
+                <Label htmlFor="organization">Select Organization</Label>
+                <p className="text-sm text-gray-600 mb-2">
+                  Looking for teams in {getDivisionName(importingRosterTeam)} division across all affiliates
+                </p>
+                <Select value={selectedOrganization} onValueChange={(org) => {
+                  const orgData = getAllOrganizationsForDivision(getDivisionName(importingRosterTeam))
+                    .find(o => o.org === org);
+                  if (orgData) {
+                    handleOrganizationSelect(org, orgData.affiliate);
+                  }
+                }}>
+                  <SelectTrigger id="organization">
+                    <SelectValue placeholder="Choose an organization..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {affiliates.map((affiliate) => (
-                      <SelectItem key={affiliate.number} value={affiliate.number}>
-                        {affiliate.name}
+                    {getAllOrganizationsForDivision(getDivisionName(importingRosterTeam)).map((orgData) => (
+                      <SelectItem key={`${orgData.affiliate}-${orgData.org}`} value={orgData.org}>
+                        <div className="flex flex-col">
+                          <span>{orgData.org}</span>
+                          <span className="text-xs text-gray-500">{orgData.affiliateName}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
-              {selectedAffiliate && (
-                <div className="space-y-2">
-                  <Label htmlFor="organization">Select Organization</Label>
-                  <Select value={selectedOrganization} onValueChange={handleOrganizationChange}>
-                    <SelectTrigger id="organization">
-                      <SelectValue placeholder="Choose an organization..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {affiliates
-                        .find(a => a.number === selectedAffiliate)
-                        ?.organizations &&
-                        Object.entries(
-                          affiliates.find(a => a.number === selectedAffiliate)!.organizations
-                        )
-                        .filter(([org, divisions]) => 
-                          divisions.includes(getDivisionName(importingRosterTeam!))
-                        )
-                        .map(([org, divisions]) => (
-                          <SelectItem key={org} value={org}>
-                            {org}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               
               {selectedOrganization && Object.keys(organizationTeams).length > 0 && (
                 <div className="space-y-2">
