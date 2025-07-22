@@ -86,12 +86,22 @@ class OBARosterScraper:
         affiliate_organizations = {
             "2111": {  # SPBA - Sun Parlour
                 "Forest Glade Falcons": ["11U HS", "13U HS", "11U Rep", "13U Rep"],
+                "Forest Glade": ["11U HS", "13U HS", "11U Rep", "13U Rep"],  # Alternative name
+                "Turtle Club": ["11U HS", "13U HS", "15U HS", "11U Rep", "13U Rep"],
                 "Windsor Selects": ["11U HS", "13U HS", "15U HS"],
+                "Windsor Stars": ["11U HS", "13U HS", "11U AAA", "13U AAA"],
                 "LaSalle Athletics": ["11U HS", "13U HS", "15U Rep"],
+                "LaSalle Turtle Club": ["11U HS", "13U HS"],
                 "Tecumseh Thunder": ["11U HS", "13U HS"],
                 "South Woodslee Orioles": ["13U HS", "15U HS"],
                 "Kingsville": ["11U HS"],
-                "Amherstburg Royals": ["11U HS", "13U HS"]
+                "Amherstburg Royals": ["11U HS", "13U HS"],
+                "Essex Eagles": ["11U HS", "13U HS"],
+                "Belle River Canadians": ["11U HS", "13U HS"],
+                "Chatham Diamonds": ["11U HS", "13U HS", "15U HS"],
+                "Wallaceburg Cardinals": ["11U HS", "13U HS"],
+                "Leamington Lakers": ["11U HS", "13U HS"],
+                "Lakeshore Canadians": ["11U HS", "13U HS"]
             },
             "0700": {  # LDBA - London
                 "London Badgers": ["11U AAA", "13U AAA", "15U AAA"],
@@ -677,13 +687,12 @@ if __name__ == "__main__":
         # Return all affiliates with their organizations
         affiliates_data = []
         for affiliate_name, affiliate_number in scraper.affiliate_map.items():
-            if affiliate_name != "SPBA":  # Skip duplicate
-                organizations = scraper.get_affiliate_organizations(affiliate_number)
-                affiliates_data.append({
-                    "name": affiliate_name,
-                    "number": affiliate_number,
-                    "organizations": organizations
-                })
+            organizations = scraper.get_affiliate_organizations(affiliate_number)
+            affiliates_data.append({
+                "name": affiliate_name,
+                "number": affiliate_number,
+                "organizations": organizations
+            })
         print(json.dumps({"affiliates": affiliates_data}))
         sys.exit(0)
     
