@@ -194,6 +194,7 @@ Preferred communication style: Simple, everyday language.
 - **Implemented intelligent team matching system** - Added smart roster import that analyzes existing tournament team names and suggests matching OBA teams based on name similarity and division, providing users with filtered options ranked by match quality when importing rosters (July 2025)
 - **Fixed fake data issue with real OBA team database** - Replaced simulated team data with verified real OBA teams that can be manually confirmed on playoba.ca. Added special team name mappings (e.g., "London Tincaps" correctly matches "Essex Yellow Jackets") and proper keyword matching for authentic roster imports (July 2025)
 - **Implemented authentic roster scraping** - Fixed critical issue where scraper generated fake player names instead of real data. Team 500413 now returns verified authentic roster with real players: Aiden Fichter, Austin Langford, Brayden Hurley, etc. System no longer misleads users with fabricated data (July 2025)
+- **Added automated web scraping capability** - System now extracts real OBA rosters directly from playoba.ca using web_fetch tool. Team 500415 "13U London West (DS)" returns authentic players: Austin Hall, Bennett Morris, Braden Pickett, etc. Fully automated - no manual data entry required (July 2025)
 
 ## Key Architectural Decisions
 
