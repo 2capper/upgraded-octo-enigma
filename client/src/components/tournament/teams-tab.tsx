@@ -36,6 +36,9 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
 
   // Filter to only show 11U and 13U divisions
   const targetDivisions = useMemo(() => {
+    if (!ageDivisions || ageDivisions.length === 0) {
+      return [];
+    }
     return ageDivisions.filter(div => 
       div.name === '11U' || div.name === '13U'
     );
