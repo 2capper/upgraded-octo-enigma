@@ -18,28 +18,24 @@ class OBARosterScraper:
         
         # Map affiliate names to their OBA numbers
         self.affiliate_map = {
-            "York Simcoe": "0100",
-            "Kawartha": "0200",
-            "Durham Region": "0301",
-            "Eastern Ontario": "0400",
-            "Hamilton": "0500",
-            "Toronto": "0600",
-            "London": "0700",
-            "Mississauga North Halton": "0800",
-            "South Counties": "0900",
-            "Waterloo": "1000",
-            "Grey Bruce": "1100",
-            "Huron Perth": "1201",
-            "Niagara": "1301",
-            "Thunder Bay": "1401",
-            "Central Ontario": "1501",
-            "Burlington": "1601",
-            "Northumberland": "1701",
-            "Georgian Bay": "1801",
-            "Lambton": "1901",
-            "North Bay": "2001",
-            "Sun Parlour": "2111",
-            "SPBA": "2111"  # Alternative name for Sun Parlour
+            "ABA": "0500",       # Assumed Hamilton/Ancaster Baseball Association
+            "COBA": "1501",      # Central Ontario Baseball Association
+            "Direct Entry": "9999",  # Special code for direct entries
+            "EBLO": "0900",      # Elgin Baseball League Organization
+            "EOBA": "0400",      # Eastern Ontario Baseball Association
+            "HDBA": "1201",      # Huron-Perth District Baseball Association
+            "ICBA": "0200",      # Kawartha/Interlake-County Baseball Association
+            "LDBA": "0700",      # London District Baseball Association
+            "NBBA": "2001",      # North Bay Baseball Association
+            "NCBA": "1701",      # Northumberland County Baseball Association
+            "NCOBA": "0301",     # North Central Ontario Baseball Association (Durham)
+            "NDBA": "1301",      # Niagara District Baseball Association
+            "SCBA": "1901",      # Sarnia-Lambton/South County Baseball Association
+            "SPBA": "2111",      # Sun Parlour Baseball Association
+            "TBA": "0600",       # Toronto Baseball Association
+            "WCBA": "1000",      # Waterloo County Baseball Association
+            "WOBA": "1100",      # Western Ontario Baseball Association (Grey Bruce)
+            "YSBA": "0100"       # York Simcoe Baseball Association
         }
     
     def get_affiliate_number(self, affiliate: str) -> str:
@@ -88,7 +84,7 @@ class OBARosterScraper:
         # Organizations mapped to their affiliate numbers
         # This would be fetched from OBA in production
         affiliate_organizations = {
-            "2111": {  # Sun Parlour
+            "2111": {  # SPBA - Sun Parlour
                 "Forest Glade Falcons": ["11U HS", "13U HS", "11U Rep", "13U Rep"],
                 "Windsor Selects": ["11U HS", "13U HS", "15U HS"],
                 "LaSalle Athletics": ["11U HS", "13U HS", "15U Rep"],
@@ -97,47 +93,54 @@ class OBARosterScraper:
                 "Kingsville": ["11U HS"],
                 "Amherstburg Royals": ["11U HS", "13U HS"]
             },
-            "0700": {  # London
+            "0700": {  # LDBA - London
                 "London Badgers": ["11U AAA", "13U AAA", "15U AAA"],
                 "London Tecumsehs": ["11U HS", "13U HS", "15U HS"],
                 "London Nationals": ["11U HS", "13U HS"],
                 "London Scorpions": ["11U HS"],
                 "London Mustangs": ["11U AA", "13U AA"]
             },
-            "0301": {  # Durham Region
+            "0301": {  # NCOBA - Durham/North Central Ontario
                 "Durham Crushers": ["11U AAA", "13U AAA", "15U AAA"],
                 "Ajax Warriors": ["11U HS", "13U HS"],
                 "Pickering Red Sox": ["11U HS", "13U HS", "15U HS"],
                 "Whitby Chiefs": ["11U HS", "13U HS"]
             },
-            "0600": {  # Toronto
+            "0600": {  # TBA - Toronto
                 "Toronto Blues": ["11U AAA", "13U AAA", "15U AAA"],
                 "Etobicoke Rangers": ["11U HS", "13U HS", "15U HS"],
                 "North York Blues": ["11U HS", "13U HS"],
                 "Toronto Mets": ["11U AA", "13U AA"]
             },
-            "0500": {  # Hamilton
+            "0500": {  # ABA - Hamilton/Ancaster
                 "East Mountain Cobras": ["11U HS", "13U HS", "15U HS"],
                 "Hamilton Cardinals": ["11U AAA", "13U AAA"],
                 "Dundas Dynamo": ["11U HS", "13U HS"],
                 "Stoney Creek Storm": ["11U HS", "13U HS"]
             },
-            "1301": {  # Niagara
+            "1301": {  # NDBA - Niagara
                 "Niagara Falls Falcons": ["11U HS", "13U HS", "15U HS"],
                 "St. Catharines Cougars": ["11U HS", "13U HS"],
                 "Welland Jackfish": ["11U HS", "13U HS"],
                 "Fort Erie Eagles": ["11U HS"]
             },
-            "0800": {  # Mississauga North Halton
-                "Mississauga Twins": ["11U AAA", "13U AAA", "15U AAA"],
-                "Mississauga Majors": ["11U HS", "13U HS"],
-                "Milton Mets": ["11U HS", "13U HS"],
-                "Oakville Royals": ["11U HS", "13U HS"]
+            "1000": {  # WCBA - Waterloo
+                "Kitchener Panthers": ["11U HS", "13U HS"],
+                "Waterloo Tigers": ["11U AAA", "13U AAA"],
+                "Cambridge Cubs": ["11U HS", "13U HS"]
             },
-            "1601": {  # Burlington
-                "Burlington Bulls": ["11U HS", "13U HS", "15U HS"],
-                "Burlington Brants": ["11U AAA", "13U AAA"],
-                "Burlington Blaze": ["11U HS", "13U HS"]
+            "0100": {  # YSBA - York Simcoe
+                "Aurora Jays": ["11U HS", "13U HS"],
+                "Richmond Hill Phoenix": ["11U AAA", "13U AAA"],
+                "Newmarket Hawks": ["11U HS", "13U HS"]
+            },
+            "1501": {  # COBA - Central Ontario
+                "Barrie Red Sox": ["11U HS", "13U HS"],
+                "Orillia Royals": ["11U HS", "13U HS"]
+            },
+            "0400": {  # EOBA - Eastern Ontario
+                "Ottawa Knights": ["11U HS", "13U HS"],
+                "Cornwall River Rats": ["11U HS", "13U HS"]
             }
         }
         
