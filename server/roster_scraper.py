@@ -754,6 +754,23 @@ class OBARosterScraper:
                     {"number": "11", "name": "Maxwell Kim"},
                     {"number": "12", "name": "Skyler Young"},
                 ]
+            },
+            "503311": {
+                "team_name": "13U Lucan-Ilderton (DS)",
+                "players": [
+                    {"number": "1", "name": "Avery Lambercy"},
+                    {"number": "2", "name": "Chase Marier"},
+                    {"number": "3", "name": "Cole Dudgeon"},
+                    {"number": "4", "name": "Dallas Tate-Hill"},
+                    {"number": "5", "name": "Hadden Butler"},
+                    {"number": "6", "name": "Hudson Ardiel"},
+                    {"number": "7", "name": "Jack Phillips"},
+                    {"number": "8", "name": "Luke McCann"},
+                    {"number": "9", "name": "Mason Berry"},
+                    {"number": "10", "name": "Matthew Graves"},
+                    {"number": "11", "name": "Ryder Gottfried"},
+                    {"number": "12", "name": "Tyler Shea"},
+                ]
             }
         }
         
