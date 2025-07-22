@@ -15,6 +15,18 @@ class OBARosterScraper:
         self.teams_url = "https://www.playoba.ca/stats/teams"
         self.cache_duration_hours = 24
         self.init_database()
+        
+        # Map affiliate names to their OBA numbers
+        self.affiliate_map = {
+            "Sun Parlour": "2111",
+            "SPBA": "2111",  # Alternative name
+            # Add more affiliates as needed - there are 21 total
+            # Each affiliate has a unique number used in URLs
+        }
+    
+    def get_affiliate_number(self, affiliate: str) -> str:
+        """Get the OBA affiliate number from the affiliate name"""
+        return self.affiliate_map.get(affiliate, "2111")  # Default to Sun Parlour if not found
     
     def init_database(self):
         """Initialize SQLite database for caching"""
@@ -120,33 +132,36 @@ class OBARosterScraper:
         # If no teams found, return test data that matches typical OBA team names
         # This allows testing the fuzzy matching functionality
         if not teams:
+            # Get the affiliate number for URL construction
+            affiliate_number = self.get_affiliate_number(affiliate)
+            
             # Map division names to appropriate test teams with actual OBA URL structure
             # Using actual OBA team naming format: "11U HS Team Name"
             if "11U" in division:
                 teams = {
-                    "11U HS Belle River": f"{self.base_url}#/2111/team/500719/roster",
-                    "11U HS Forest Glade": f"{self.base_url}#/2111/team/500718/roster",
-                    "11U HS Kingsville": f"{self.base_url}#/2111/team/500720/roster",
-                    "11U HS Ottawa Petro Canada": f"{self.base_url}#/2111/team/500721/roster",
-                    "11U HS Pickering": f"{self.base_url}#/2111/team/500722/roster",
-                    "11U HS Niagara Falls": f"{self.base_url}#/2111/team/500723/roster",
-                    "11U HS Chatham-Kent": f"{self.base_url}#/2111/team/500724/roster",
-                    "11U HS Mississauga": f"{self.base_url}#/2111/team/500725/roster",
-                    "11U HS The Park 9": f"{self.base_url}#/2111/team/500726/roster",
-                    "11U HS Guelph": f"{self.base_url}#/2111/team/500727/roster"
+                    "11U HS Belle River": f"{self.base_url}#/{affiliate_number}/team/500719/roster",
+                    "11U HS Forest Glade": f"{self.base_url}#/{affiliate_number}/team/500718/roster",
+                    "11U HS Kingsville": f"{self.base_url}#/{affiliate_number}/team/500720/roster",
+                    "11U HS Ottawa Petro Canada": f"{self.base_url}#/{affiliate_number}/team/500721/roster",
+                    "11U HS Pickering": f"{self.base_url}#/{affiliate_number}/team/500722/roster",
+                    "11U HS Niagara Falls": f"{self.base_url}#/{affiliate_number}/team/500723/roster",
+                    "11U HS Chatham-Kent": f"{self.base_url}#/{affiliate_number}/team/500724/roster",
+                    "11U HS Mississauga": f"{self.base_url}#/{affiliate_number}/team/500725/roster",
+                    "11U HS The Park 9": f"{self.base_url}#/{affiliate_number}/team/500726/roster",
+                    "11U HS Guelph": f"{self.base_url}#/{affiliate_number}/team/500727/roster"
                 }
             elif "13U" in division:
                 teams = {
-                    "Durham Crushers - 13U": f"{self.base_url}#/2111/team/500800/roster",
-                    "Etobicoke Rangers - 13U": f"{self.base_url}#/2111/team/500801/roster",
-                    "Forest Glade Falcons - 13U Rep": f"{self.base_url}#/2111/team/500802/roster",
-                    "Milton Mets - 13U": f"{self.base_url}#/2111/team/500803/roster",
-                    "Mississauga Twins - 13U": f"{self.base_url}#/2111/team/500804/roster",
-                    "East Mountain Cobras - 13U": f"{self.base_url}#/2111/team/500805/roster",
-                    "Toronto Blues - 13U": f"{self.base_url}#/2111/team/500806/roster",
-                    "London Tecumsehs - 13U": f"{self.base_url}#/2111/team/500807/roster",
-                    "Ottawa Valley Crushers - 13U": f"{self.base_url}#/2111/team/500808/roster",
-                    "Burlington Bulls - 13U": f"{self.base_url}#/2111/team/500809/roster"
+                    "Durham Crushers - 13U": f"{self.base_url}#/{affiliate_number}/team/500800/roster",
+                    "Etobicoke Rangers - 13U": f"{self.base_url}#/{affiliate_number}/team/500801/roster",
+                    "Forest Glade Falcons - 13U Rep": f"{self.base_url}#/{affiliate_number}/team/500802/roster",
+                    "Milton Mets - 13U": f"{self.base_url}#/{affiliate_number}/team/500803/roster",
+                    "Mississauga Twins - 13U": f"{self.base_url}#/{affiliate_number}/team/500804/roster",
+                    "East Mountain Cobras - 13U": f"{self.base_url}#/{affiliate_number}/team/500805/roster",
+                    "Toronto Blues - 13U": f"{self.base_url}#/{affiliate_number}/team/500806/roster",
+                    "London Tecumsehs - 13U": f"{self.base_url}#/{affiliate_number}/team/500807/roster",
+                    "Ottawa Valley Crushers - 13U": f"{self.base_url}#/{affiliate_number}/team/500808/roster",
+                    "Burlington Bulls - 13U": f"{self.base_url}#/{affiliate_number}/team/500809/roster"
                 }
             else:
                 teams = {

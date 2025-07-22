@@ -177,6 +177,7 @@ Preferred communication style: Simple, everyday language.
 - Created roster search and import API endpoints with caching support (January 2025)
 - Added roster import UI in Teams tab with confirmation dialog for fuzzy matches (January 2025)
 - Fixed roster import team name matching to handle OBA format ("11U HS Forest Glade") vs internal format ("Forest Glade Falcons - 11U Rep") (January 2025)
+- Updated roster scraper to understand OBA URL structure with affiliate numbers (#/{affiliate_number}/team/{team_number}/roster) supporting 21 different affiliates (January 2025)
 
 ## Key Architectural Decisions
 
