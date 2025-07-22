@@ -209,9 +209,9 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
   };
 
   const generateRosterLink = (teamName: string) => {
-    // Generate the roster link for playoba.ca/stats
-    const formattedTeamName = teamName.toLowerCase().replace(/\s+/g, '-');
-    return `https://playoba.ca/stats/${formattedTeamName}`;
+    // Generate the roster link for playoba.ca/stats with proper hash routing
+    // This is a placeholder - actual team IDs would come from OBA
+    return `https://www.playoba.ca/stats#/2111/teams`;
   };
 
   if (teams.length === 0) {

@@ -309,18 +309,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       python.on("close", (code) => {
         if (code !== 0) {
-          console.error("Python script error:", error);
-          console.error("Python script output:", result);
+          console.error("Python script error code:", code);
+          console.error("Python script stderr:", error);
+          console.error("Python script stdout:", result);
           return res.status(500).json({ error: "Failed to search for team" });
         }
         
         try {
-          const data = JSON.parse(result);
+          // Clean the output in case there are extra whitespaces or newlines
+          const cleanedResult = result.trim();
+          const data = JSON.parse(cleanedResult);
           res.json(data);
         } catch (e) {
-          console.error("Failed to parse result:", e);
-          console.error("Raw output:", result);
-          console.error("Error output:", error);
+          console.error("Failed to parse JSON result:", e);
+          console.error("Raw stdout output:", result);
+          console.error("Raw stderr output:", error);
+          console.error("Result length:", result.length);
+          console.error("First 100 chars:", result.substring(0, 100));
           res.status(500).json({ error: "Failed to process search results" });
         }
       });
