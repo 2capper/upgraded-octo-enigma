@@ -123,7 +123,23 @@ export class DatabaseStorage implements IStorage {
 
   // Team methods
   async getTeams(tournamentId: string): Promise<Team[]> {
-    return await db.select().from(teams).where(eq(teams.tournamentId, tournamentId));
+    const allTeams = await db.select().from(teams).where(eq(teams.tournamentId, tournamentId));
+    
+    // Filter out placeholder teams for playoff games
+    const placeholderPatterns = [
+      /^Winner\s+Pool/i,
+      /^Loser\s+Pool/i,
+      /^Runner-up\s+Pool/i,
+      /^Winner\s+of/i,
+      /^Loser\s+of/i,
+      /^Runner-up\s+of/i,
+      /^TBD/i,
+      /^To\s+be\s+determined/i
+    ];
+    
+    return allTeams.filter(team => {
+      return !placeholderPatterns.some(pattern => pattern.test(team.name));
+    });
   }
 
   async createTeam(team: InsertTeam): Promise<Team> {
