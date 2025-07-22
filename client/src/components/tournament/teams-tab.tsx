@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Trash2, Download, ExternalLink, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, ExternalLink, Users, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -34,6 +34,9 @@ interface TeamsTabProps {
 export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
+  const [importingRosterTeam, setImportingRosterTeam] = useState<Team | null>(null);
+  const [rosterSearchResult, setRosterSearchResult] = useState<any>(null);
+  const [searchingRoster, setSearchingRoster] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     city: '',
@@ -138,6 +141,73 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
     console.log('Export teams');
   };
 
+  // Roster import functions
+  const handleImportRoster = async (team: Team) => {
+    setImportingRosterTeam(team);
+    setSearchingRoster(true);
+    setRosterSearchResult(null);
+
+    try {
+      const response = await apiRequest('POST', `/api/teams/${team.id}/roster/search`, {
+        affiliate: 'Sun Parlour', // TODO: Make this configurable
+        season: '2025',
+        division: getDivisionName(team),
+        teamName: team.name
+      });
+
+      const result = await response.json();
+      setRosterSearchResult(result);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to search for team roster",
+        variant: "destructive",
+      });
+      setImportingRosterTeam(null);
+    } finally {
+      setSearchingRoster(false);
+    }
+  };
+
+  const handleConfirmRosterImport = async () => {
+    if (!importingRosterTeam || !rosterSearchResult?.team_url) return;
+
+    try {
+      const response = await apiRequest('POST', `/api/teams/${importingRosterTeam.id}/roster/import`, {
+        teamUrl: rosterSearchResult.team_url
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `Roster imported successfully for ${importingRosterTeam.name}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/tournaments'] });
+        setImportingRosterTeam(null);
+        setRosterSearchResult(null);
+      } else {
+        throw new Error(result.error || 'Failed to import roster');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to import roster",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getDivisionName = (team: Team) => {
+    const pool = pools.find(p => p.id === team.poolId);
+    if (pool) {
+      const division = ageDivisions.find(d => d.id === pool.ageDivisionId);
+      return division?.name || 'Unknown';
+    }
+    return 'Unknown';
+  };
+
   const generateRosterLink = (teamName: string) => {
     // Generate the roster link for playoba.ca/stats
     const formattedTeamName = teamName.toLowerCase().replace(/\s+/g, '-');
@@ -218,12 +288,21 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
                   <button 
                     onClick={() => handleEditTeam(team)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Edit team"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
                   <button 
+                    onClick={() => handleImportRoster(team)}
+                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                    title="Import roster from OBA"
+                  >
+                    <FileDown className="w-4 h-4" />
+                  </button>
+                  <button 
                     onClick={() => handleDeleteTeam(team.id)}
                     className="text-gray-400 hover:text-red-600 transition-colors"
+                    title="Delete team"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -377,6 +456,83 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
             >
               {updateTeamMutation.isPending ? 'Saving...' : 'Save changes'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Roster Import Dialog */}
+      <Dialog open={!!importingRosterTeam} onOpenChange={(open) => !open && setImportingRosterTeam(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Import Roster from OBA</DialogTitle>
+            <DialogDescription>
+              {searchingRoster ? 'Searching for team roster...' : 
+               rosterSearchResult ? 'Review the match below and confirm to import.' :
+               'Search for team roster on playoba.ca'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {searchingRoster && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Searching for {importingRosterTeam?.name}...</p>
+              </div>
+            </div>
+          )}
+          
+          {rosterSearchResult && !searchingRoster && (
+            <div className="space-y-4">
+              {rosterSearchResult.success && rosterSearchResult.needs_confirmation ? (
+                <>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm font-medium mb-2">Found a match:</p>
+                    <p className="text-base font-semibold">{rosterSearchResult.matched_team}</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Confidence: {Math.round(rosterSearchResult.confidence)}%
+                    </p>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600">
+                    <p className="mb-1">Search term: "{rosterSearchResult.search_term}"</p>
+                    <p>Is this the correct team?</p>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm font-medium text-red-800">
+                    {rosterSearchResult.error || 'No matching team found'}
+                  </p>
+                  {rosterSearchResult.available_teams && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-600">Available teams in this division:</p>
+                      <ul className="text-xs text-gray-600 mt-1 max-h-32 overflow-y-auto">
+                        {rosterSearchResult.available_teams.map((team: string, idx: number) => (
+                          <li key={idx}>• {team}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setImportingRosterTeam(null);
+              setRosterSearchResult(null);
+            }}>
+              Cancel
+            </Button>
+            {rosterSearchResult?.success && rosterSearchResult?.needs_confirmation && (
+              <Button 
+                onClick={handleConfirmRosterImport}
+                className="bg-[var(--falcons-green)] hover:bg-[var(--falcons-dark-green)] text-[#262626]"
+              >
+                Yes, Import Roster
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

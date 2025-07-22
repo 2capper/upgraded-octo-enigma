@@ -172,6 +172,10 @@ Preferred communication style: Simple, everyday language.
 - Converted Teams page from card layout to table format with division filtering (January 2025)
 - Added new team data columns: Roster link, Pitch Count App Name, Pitch Count Name, Game Changer Name (January 2025)
 - Created API endpoint for populating team data fields based on team information (January 2025)
+- Implemented Automated Roster Import Tool with fuzzy team name matching from playoba.ca (January 2025)
+- Added Python-based web scraping service for OBA roster data extraction (January 2025)
+- Created roster search and import API endpoints with caching support (January 2025)
+- Added roster import UI in Teams tab with confirmation dialog for fuzzy matches (January 2025)
 
 ## Key Architectural Decisions
 

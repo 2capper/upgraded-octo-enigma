@@ -276,6 +276,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Roster import endpoints
+  app.post("/api/teams/:teamId/roster/search", requireAdmin, async (req, res) => {
+    try {
+      const { affiliate, season, division, teamName } = req.body;
+      
+      if (!affiliate || !season || !division || !teamName) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Call Python scraper
+      const { spawn } = await import("child_process");
+      const python = spawn("python", [
+        "server/roster_scraper.py",
+        "search",
+        affiliate,
+        season,
+        division,
+        teamName
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Python script error:", error);
+          return res.status(500).json({ error: "Failed to search for team" });
+        }
+        
+        try {
+          const data = JSON.parse(result);
+          res.json(data);
+        } catch (e) {
+          console.error("Failed to parse result:", e);
+          res.status(500).json({ error: "Failed to process search results" });
+        }
+      });
+    } catch (error) {
+      console.error("Error searching for roster:", error);
+      res.status(500).json({ error: "Failed to search for roster" });
+    }
+  });
+
+  app.post("/api/teams/:teamId/roster/import", requireAdmin, async (req, res) => {
+    try {
+      const { teamUrl } = req.body;
+      const { teamId } = req.params;
+      
+      if (!teamUrl) {
+        return res.status(400).json({ error: "Team URL required" });
+      }
+
+      // Call Python scraper to get roster
+      const { spawn } = await import("child_process");
+      const python = spawn("python", [
+        "server/roster_scraper.py",
+        "import",
+        teamUrl
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", async (code) => {
+        if (code !== 0) {
+          console.error("Python script error:", error);
+          return res.status(500).json({ error: "Failed to import roster" });
+        }
+        
+        try {
+          const data = JSON.parse(result);
+          if (data.success && data.roster) {
+            // Update team with roster link
+            const team = await storage.updateTeam(teamId, {
+              rosterLink: teamUrl,
+              rosterData: JSON.stringify(data.roster.players)
+            });
+            res.json({ success: true, team, roster: data.roster });
+          } else {
+            res.status(400).json({ error: data.error || "Failed to import roster" });
+          }
+        } catch (e) {
+          console.error("Failed to parse result:", e);
+          res.status(500).json({ error: "Failed to process import results" });
+        }
+      });
+    } catch (error) {
+      console.error("Error importing roster:", error);
+      res.status(500).json({ error: "Failed to import roster" });
+    }
+  });
+
   app.delete("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteTeam(req.params.id);

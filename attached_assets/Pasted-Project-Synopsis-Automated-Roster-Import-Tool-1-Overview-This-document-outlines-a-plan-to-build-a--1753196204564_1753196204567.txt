@@ -1,0 +1,125 @@
+Project Synopsis: Automated Roster Import Tool
+1. Overview
+This document outlines a plan to build a Smart Roster Assistant, a specialized software tool designed to automate the extraction of team rosters from the playoba.ca website. The primary goal is to eliminate the time-consuming and error-prone process of manual data entry for your tournaments.
+
+The system will intelligently handle discrepancies between coach-provided team names and official OBA listings, presenting you with the most likely match for a quick, one-click confirmation before importing the data directly into your tournament management application.
+
+2. The Core Problem
+Currently, your workflow involves manually visiting the OBA stats website, navigating through multiple dropdowns (Affiliate, Season, Division), locating a specific team, and then copying and pasting the roster. This process is slow and is complicated by the fact that team names provided during registration often don't perfectly match the official names, leading to failed searches and wasted time.
+
+3. The Proposed Solution: A "Smart Roster Assistant"
+I propose building a standalone backend application that acts as a bridge between playoba.ca and your tournament app. Your app will communicate with this assistant through a simple, custom API.
+
+Key Features:
+
+Simple Interface: Your tournament app will have a simple "Fetch Roster" function.
+
+Intelligent "Fuzzy" Team Matching: The tool won't need an exact name. It will find the most similar official team name within a given division.
+
+User-in-the-Loop Confirmation: To ensure 100% accuracy, it will present the suggested match to you for confirmation before importing.
+
+One-Click Roster Import: Once confirmed, the roster (player names, numbers) is automatically pulled and structured as clean JSON data, ready for your app.
+
+Performance Caching: The tool will temporarily save results to avoid re-scraping the same team multiple times, making it faster for you and more respectful to the OBA servers.
+
+4. How I Would Build It: The Technical Plan
+This project would be built in distinct phases using modern, reliable technology.
+
+Technology Stack:
+
+Language: Python (The industry standard for web scraping and data processing).
+
+Core Libraries:
+
+Requests: To make HTTP requests and download the web page content from playoba.ca.
+
+Beautiful Soup 4: To parse the raw HTML and pinpoint the exact location of team and player data.
+
+thefuzz (or fuzzywuzzy): To perform the "fuzzy" string matching and calculate similarity scores between team names.
+
+Flask or FastAPI: To create a lightweight web server that will expose our tool as a simple API for your tournament app to call.
+
+SQLite: A simple, file-based database to handle caching of scraped rosters.
+
+Build Phases:
+
+Phase 1: The Core Scraper Engine
+
+Goal: Prove we can successfully extract data from a known team page.
+
+Actions:
+
+Analyze the HTML structure of a typical roster page on playoba.ca. Identify the specific tags (<table>, <tr>, <td>, class names, etc.) that contain player names and numbers.
+
+Write a Python script that takes a hardcoded team URL as input.
+
+The script will use Requests to get the page's HTML and Beautiful Soup to parse it.
+
+It will extract the roster into a clean Python list or dictionary.
+
+Deliverable: A script that can reliably print the roster for any given team URL.
+
+Phase 2: The "Smart" Matching Logic
+
+Goal: Solve the team name discrepancy problem.
+
+Actions:
+
+Enhance the script to take a Division URL as input (e.g., the page for 18U Rep - Sun Parlour).
+
+The script will first scrape a list of all official team names and their corresponding links from that division page.
+
+It will then take a user-provided, "messy" team name as input (e.g., "Tecumseh Thunder 18U").
+
+Using the thefuzz library, it will calculate a similarity score between the messy input and every official team name.
+
+It will identify and return the official team with the highest score.
+
+Deliverable: A function that can take a division and a messy team name, and return the URL of the most likely correct team.
+
+Phase 3: The Application Interface (API Server)
+
+Goal: Make the scraper accessible to your tournament app.
+
+Actions:
+
+Wrap the logic from Phases 1 & 2 in a simple web server using Flask or FastAPI.
+
+Create a single API endpoint (e.g., /get-roster). This is a specific URL your app can call.
+
+This endpoint will accept parameters like season, affiliate, division, and team_name.
+
+When called, it will execute the fuzzy matching and scraping logic, and return the final roster data in a clean JSON format.
+
+Deliverable: A running local server. You could use a tool like Postman or a web browser to visit http://127.0.0.1:5000/get-roster?... and see the JSON roster output.
+
+Phase 4: Caching & Optimization
+
+Goal: Improve performance and reduce redundant scraping.
+
+Actions:
+
+Integrate SQLite. Before scraping any team, the server will first check its local database to see if that roster has been fetched recently (e.g., in the last 24 hours).
+
+If a fresh, cached version exists, it will be returned instantly.
+
+If not, the scraper will run, and the new result will be saved to the database with a timestamp before being returned.
+
+Deliverable: A faster, more efficient, and more robust final tool.
+
+5. Final User Workflow
+In your tournament app, you'd have a team that needs a roster (e.g., "Tecumseh Eagles 15U").
+
+You click a button like "Import Roster from OBA".
+
+Your app sends a request to the Smart Roster Assistant: (season=2025, affiliate=Sun Parlour, division=15U Rep, team_name=Tecumseh Eagles 15U).
+
+The assistant finds the best match: Tecumseh Eagles - Minor Bantam.
+
+Your app displays a confirmation: "Did you mean Tecumseh Eagles - Minor Bantam?"
+
+You click "Yes".
+
+The final, clean roster data is sent to your app and populates the team's roster automatically.
+
+This solution provides a powerful, custom-built tool that directly addresses your unique workflow challenges, saving you significant time and effort.
