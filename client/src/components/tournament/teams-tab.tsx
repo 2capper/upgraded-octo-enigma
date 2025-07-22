@@ -86,10 +86,7 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
   // Update team mutation
   const updateTeamMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Team> }) => {
-      await apiRequest(`/api/teams/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
+      await apiRequest('PUT', `/api/teams/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments'] });
