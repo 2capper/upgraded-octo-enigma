@@ -286,6 +286,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper endpoint to populate team data fields
+  app.post("/api/teams/:id/populate-data", requireAdmin, async (req, res) => {
+    try {
+      const teamId = req.params.id;
+      const { teamName } = req.body;
+      
+      // Generate suggested data based on team name
+      const formattedTeamName = teamName.toLowerCase().replace(/\s+/g, '-');
+      const rosterLink = `https://playoba.ca/stats/${formattedTeamName}`;
+      
+      // For now, we'll leave the other fields for manual entry
+      // In the future, this could be extended to fetch data from external sources
+      const suggestedData = {
+        rosterLink,
+        pitchCountAppName: '', // To be filled manually
+        pitchCountName: '',    // To be filled manually
+        gameChangerName: ''    // To be filled manually
+      };
+      
+      // Update the team with the suggested data
+      const updatedTeam = await storage.updateTeam(teamId, suggestedData);
+      
+      res.json({
+        team: updatedTeam,
+        suggestions: suggestedData
+      });
+    } catch (error) {
+      console.error("Error populating team data:", error);
+      res.status(400).json({ error: "Failed to populate team data" });
+    }
+  });
+
   // Game routes
   app.get("/api/tournaments/:tournamentId/games", async (req, res) => {
     try {

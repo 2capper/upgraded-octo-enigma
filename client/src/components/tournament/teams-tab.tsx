@@ -1,7 +1,15 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit, Trash2, Download, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, ExternalLink, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import type { Team, Pool, AgeDivision } from '@shared/schema';
 
 interface TeamsTabProps {
@@ -16,22 +24,11 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
 
   const getPoolName = (poolId: string) => pools.find(p => p.id === poolId)?.name || 'Unknown Pool';
 
-  const getTeamInitials = (teamName: string) => {
-    return teamName.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 3);
-  };
-
-  const getTeamColor = (index: number) => {
-    const colors = [
-      'from-blue-500 to-blue-600',
-      'from-green-500 to-green-600',
-      'from-purple-500 to-purple-600',
-      'from-orange-500 to-orange-600',
-      'from-red-500 to-red-600',
-      'from-indigo-500 to-indigo-600',
-      'from-pink-500 to-pink-600',
-      'from-teal-500 to-teal-600',
-    ];
-    return colors[index % colors.length];
+  // Get division for a team based on its pool
+  const getTeamDivision = (team: Team) => {
+    const pool = pools.find(p => p.id === team.poolId);
+    if (!pool) return null;
+    return ageDivisions.find(d => d.id === pool.ageDivisionId);
   };
 
   // Filter to only show 11U and 13U divisions
@@ -49,8 +46,11 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
     if (divisionFilter === 'all') {
       return teams;
     }
-    return teams.filter(team => team.divisionId === divisionFilter);
-  }, [teams, divisionFilter]);
+    return teams.filter(team => {
+      const division = getTeamDivision(team);
+      return division?.id === divisionFilter;
+    });
+  }, [teams, divisionFilter, pools, ageDivisions]);
 
   const handleAddTeam = () => {
     // TODO: Implement add team functionality
@@ -71,6 +71,12 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
     console.log('Export teams');
   };
 
+  const generateRosterLink = (teamName: string) => {
+    // Generate the roster link for playoba.ca/stats
+    const formattedTeamName = teamName.toLowerCase().replace(/\s+/g, '-');
+    return `https://playoba.ca/stats/${formattedTeamName}`;
+  };
+
   if (teams.length === 0) {
     return (
       <div className="p-6">
@@ -86,6 +92,82 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
       </div>
     );
   }
+
+  const renderTeamsTable = (teamsToRender: Team[]) => (
+    <div className="bg-white rounded-lg shadow-sm border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[200px]">Team Name</TableHead>
+            <TableHead>City</TableHead>
+            <TableHead>Pool</TableHead>
+            <TableHead>Coach</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>Roster</TableHead>
+            <TableHead>Pitch Count App</TableHead>
+            <TableHead>Pitch Count Name</TableHead>
+            <TableHead>Game Changer</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {teamsToRender.map((team) => (
+            <TableRow key={team.id}>
+              <TableCell className="font-medium">{team.name}</TableCell>
+              <TableCell>{team.city || 'Not specified'}</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  {getPoolName(team.poolId)}
+                </span>
+              </TableCell>
+              <TableCell>{team.coach || 'Not specified'}</TableCell>
+              <TableCell>{team.phone || 'Not specified'}</TableCell>
+              <TableCell>
+                {team.rosterLink ? (
+                  <a 
+                    href={team.rosterLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[var(--falcons-green)] hover:text-[var(--falcons-dark-green)] inline-flex items-center gap-1"
+                  >
+                    View <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <a 
+                    href={generateRosterLink(team.name)} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[var(--falcons-green)] hover:text-[var(--falcons-dark-green)] inline-flex items-center gap-1"
+                  >
+                    View <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </TableCell>
+              <TableCell>{team.pitchCountAppName || 'Not specified'}</TableCell>
+              <TableCell>{team.pitchCountName || 'Not specified'}</TableCell>
+              <TableCell>{team.gameChangerName || 'Not specified'}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end space-x-2">
+                  <button 
+                    onClick={() => handleEditTeam(team)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteTeam(team.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 
   return (
     <div className="p-6">
@@ -117,106 +199,12 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTeams.map((team, index) => (
-              <div key={team.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover-lift">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <div className={`w-12 h-12 bg-gradient-to-br ${getTeamColor(index)} rounded-full flex items-center justify-center mr-3`}>
-                  <span className="text-white font-bold text-sm">{getTeamInitials(team.name)}</span>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">{team.name}</h4>
-                  <p className="text-sm text-gray-500">{team.city || 'Unknown City'}</p>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <button 
-                  onClick={() => handleEditTeam(team)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => handleDeleteTeam(team.id)}
-                  className="text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Pool</span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  {getPoolName(team.poolId)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Coach</span>
-                <span className="text-sm text-gray-900">{team.coach || 'Not specified'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Contact</span>
-                <span className="text-sm text-gray-900">{team.phone || 'Not specified'}</span>
-              </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {renderTeamsTable(filteredTeams)}
         </TabsContent>
 
         {targetDivisions.map((division) => (
           <TabsContent key={division.id} value={division.id} className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTeams.map((team, index) => (
-                <div key={team.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover-lift">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className={`w-12 h-12 bg-gradient-to-br ${getTeamColor(index)} rounded-full flex items-center justify-center mr-3`}>
-                        <span className="text-white font-bold text-sm">{getTeamInitials(team.name)}</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{team.name}</h4>
-                        <p className="text-sm text-gray-500">{team.city || 'Unknown City'}</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleEditTeam(team)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteTeam(team.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Pool</span>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        {getPoolName(team.poolId)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Coach</span>
-                      <span className="text-sm text-gray-900">{team.coach || 'Not specified'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Contact</span>
-                      <span className="text-sm text-gray-900">{team.phone || 'Not specified'}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {renderTeamsTable(filteredTeams)}
           </TabsContent>
         ))}
       </Tabs>

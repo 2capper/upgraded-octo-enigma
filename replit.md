@@ -169,6 +169,9 @@ Preferred communication style: Simple, everyday language.
 - Added logout functionality in admin portal with session destruction (January 2025)
 - Fixed production authentication issue by implementing PostgreSQL session storage (January 2025)
 - Added placeholder team filtering to exclude "seed", "Winner Pool X", "TBD" etc. from standings and dropdowns (January 2025)
+- Converted Teams page from card layout to table format with division filtering (January 2025)
+- Added new team data columns: Roster link, Pitch Count App Name, Pitch Count Name, Game Changer Name (January 2025)
+- Created API endpoint for populating team data fields based on team information (January 2025)
 
 ## Key Architectural Decisions
 

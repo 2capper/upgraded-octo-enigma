@@ -45,6 +45,10 @@ export const teams = pgTable("teams", {
   phone: text("phone"),
   tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   poolId: text("pool_id").notNull().references(() => pools.id, { onDelete: "cascade" }),
+  rosterLink: text("roster_link"),
+  pitchCountAppName: text("pitch_count_app_name"),
+  pitchCountName: text("pitch_count_name"),
+  gameChangerName: text("game_changer_name"),
 });
 
 export const games = pgTable("games", {
