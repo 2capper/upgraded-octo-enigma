@@ -254,13 +254,8 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
           description: `Imported ${result.player_count} players from ${obaTeamName}`,
         });
         
-        // Update the team with the roster data
-        updateTeamMutation.mutate({
-          id: importingRosterTeam.id,
-          data: {
-            rosterData: JSON.stringify(result.players)
-          }
-        });
+        // Refresh the teams list to show the updated roster data
+        queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${importingRosterTeam.tournamentId}/teams`] });
         
         setImportingRosterTeam(null);
       } else {

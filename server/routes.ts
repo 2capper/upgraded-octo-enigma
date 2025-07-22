@@ -268,7 +268,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
-      const team = await storage.updateTeam(req.params.id, req.body);
+      // Handle both direct data and wrapped data formats
+      const updateData = req.body.data || req.body;
+      console.log("Team update request body:", req.body);
+      console.log("Update data to use:", updateData);
+      
+      if (!updateData || Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No data provided for update" });
+      }
+      
+      const team = await storage.updateTeam(req.params.id, updateData);
       res.json(team);
     } catch (error) {
       console.error("Error updating team:", error);
