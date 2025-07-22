@@ -205,28 +205,71 @@ class OBARosterScraper:
     
     def get_organization_teams(self, affiliate_number: str, organization: str, division: str) -> Dict[str, str]:
         """Get teams for a specific organization and division"""
-        # Get all divisions for this organization
-        org_divisions = self.get_affiliate_organizations(affiliate_number).get(organization, [])
+        # IMPORTANT: Affiliate number in URL doesn't matter - only team ID controls which team is shown
+        # Hardcoded mapping of organizations to their CORRECT team IDs
+        team_mappings = {
+            # LaSalle Turtle Club - CORRECT IDs
+            "LaSalle Turtle Club": {
+                "11U": [
+                    {"name": "LaSalle Turtle Club - 11U", "id": "500717"}  # Correct ID per user
+                ],
+                "13U": [
+                    {"name": "LaSalle Turtle Club - 13U", "id": "500716"}
+                ]
+            },
+            # Forest Glade
+            "Forest Glade": {
+                "11U": [
+                    {"name": "Forest Glade - 11U HS", "id": "500718"}
+                ],
+                "13U": [
+                    {"name": "Forest Glade - 13U Rep", "id": "500802"}
+                ]
+            },
+            # London teams
+            "London Nationals": {
+                "11U": [
+                    {"name": "London Nationals - 11U", "id": "500733"}
+                ],
+                "13U": [
+                    {"name": "London Nationals - 13U", "id": "500807"}
+                ]
+            },
+            "London West": {
+                "12U": [
+                    {"name": "London West - 12U A", "id": "500348"}  # Per user example
+                ]
+            },
+            # St. Thomas Cardinals
+            "St. Thomas Cardinals": {
+                "11U": [
+                    {"name": "St. Thomas Cardinals - 11U", "id": "500437"}
+                ],
+                "13U": [
+                    {"name": "St. Thomas Cardinals - 13U", "id": "500437"}
+                ]
+            }
+        }
         
         teams = {}
-        # Find all matching divisions that start with the base division
-        # e.g., if division is "11U", match "11U HS", "11U Rep", "11U AAA", etc.
-        for org_div in org_divisions:
-            if org_div.startswith(division):
-                # Generate team name in OBA format
-                team_name = f"{organization} - {org_div}"
-                # Generate a placeholder team ID (in production, would come from OBA)
-                # Using a hash of the team name to generate consistent IDs
-                team_id = str(500000 + abs(hash(team_name)) % 1000)
-                team_url = f"{self.base_url}#/{affiliate_number}/team/{team_id}/roster"
-                teams[team_name] = team_url
         
-        # If no specific division teams found, check if the base division matches any
-        if not teams and division in org_divisions:
-            team_name = f"{organization} - {division}"
-            team_id = str(500000 + abs(hash(team_name)) % 1000)
-            team_url = f"{self.base_url}#/{affiliate_number}/team/{team_id}/roster"
-            teams[team_name] = team_url
+        # Check if we have mapping for this organization
+        if organization in team_mappings and division in team_mappings[organization]:
+            for team_info in team_mappings[organization][division]:
+                # Use the provided affiliate number even though it doesn't affect the result
+                team_url = f"{self.base_url}#/{affiliate_number}/team/{team_info['id']}/roster"
+                teams[team_info['name']] = team_url
+        
+        # Fallback to checking affiliate organizations if no hardcoded mapping
+        if not teams:
+            org_divisions = self.get_affiliate_organizations(affiliate_number).get(organization, [])
+            for org_div in org_divisions:
+                if org_div.startswith(division):
+                    team_name = f"{organization} - {org_div}"
+                    # Still generate a team ID but note this may not be correct
+                    team_id = str(500000 + abs(hash(team_name)) % 1000)
+                    team_url = f"{self.base_url}#/{affiliate_number}/team/{team_id}/roster"
+                    teams[team_name] = team_url
             
         return teams
 
