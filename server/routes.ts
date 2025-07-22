@@ -335,6 +335,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Smart team matching for roster import
+  app.post("/api/teams/:id/find-oba-matches", requireAdmin, async (req, res) => {
+    try {
+      const teamId = req.params.id;
+      const { spawn } = await import("child_process");
+      
+      // Get the tournament team details
+      const team = await storage.getTeamById(teamId);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Get the team's pool to find the age division
+      const pool = await storage.getPoolById(team.poolId);
+      if (!pool) {
+        return res.status(404).json({ error: "Team's pool not found" });
+      }
+
+      // Use Python script to find matching OBA teams
+      const python = spawn("python", [
+        "server/roster_scraper.py",
+        "find_matches",
+        team.name,
+        pool.ageDivisionId,
+        "500000", // start range
+        "520000"  // end range
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Python script error:", error);
+          return res.status(500).json({ error: "Failed to find OBA matches" });
+        }
+
+        try {
+          const data = JSON.parse(result);
+          res.json({
+            team: {
+              id: team.id,
+              name: team.name,
+              division: pool.ageDivisionId
+            },
+            matches: data.matches || [],
+            total_found: data.total_found || 0
+          });
+        } catch (e) {
+          console.error("Failed to parse result:", e);
+          res.status(500).json({ error: "Failed to process match results" });
+        }
+      });
+    } catch (error) {
+      console.error("Error finding OBA matches:", error);
+      res.status(500).json({ error: "Failed to find OBA matches" });
+    }
+  });
+
   // Direct team ID import endpoint
   app.post("/api/teams/:id/roster/import-by-team-id", requireAdmin, async (req, res) => {
     const { teamId, obaTeamId } = req.body;

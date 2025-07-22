@@ -301,6 +301,86 @@ class OBARosterScraper:
                 
         return discovered_teams
     
+    def find_matching_teams(self, target_team_name: str, target_division: str, start_id: int = 500000, end_id: int = 520000) -> Dict:
+        """Find OBA teams that match the target team name and division"""
+        matches = []
+        total_scanned = 0
+        
+        # Extract key words from target team name for matching
+        # Remove common suffixes and prefixes
+        clean_name = target_team_name.lower()
+        clean_name = re.sub(r'\b(falcons?|baseball|team|club|-|rep|hs|aa+|a|b|c|d)\b', '', clean_name)
+        clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+        
+        # Common name variations to check
+        name_keywords = []
+        if 'turtle' in clean_name:
+            name_keywords.extend(['turtle', 'lasalle'])
+        if 'forest' in clean_name and 'glade' in clean_name:
+            name_keywords.extend(['forest', 'glade'])
+        if 'london' in clean_name:
+            name_keywords.append('london')
+        if 'windsor' in clean_name:
+            name_keywords.append('windsor')
+        
+        # If no specific keywords found, use the cleaned name
+        if not name_keywords:
+            name_keywords = clean_name.split()
+        
+        # Extract division (11U, 13U, etc.)
+        division_match = re.search(r'(\d+)u', target_division.lower())
+        target_age = division_match.group(1) if division_match else None
+        
+        print(f"Searching for teams matching '{target_team_name}' in division '{target_division}'", file=sys.stderr)
+        print(f"Keywords to match: {name_keywords}", file=sys.stderr)
+        print(f"Target age: {target_age}U", file=sys.stderr)
+        
+        # Scan range for matches
+        for team_id in range(start_id, end_id + 1):
+            total_scanned += 1
+            
+            if total_scanned % 1000 == 0:
+                print(f"Scanned {total_scanned} teams, found {len(matches)} matches", file=sys.stderr)
+            
+            team_info = self.probe_team_id(str(team_id))
+            if team_info and team_info.get('exists'):
+                team_name_lower = team_info['name'].lower()
+                team_division = team_info.get('division', '')
+                
+                # Check if any keyword matches the team name
+                name_match = any(keyword in team_name_lower for keyword in name_keywords if keyword)
+                
+                # Check if division matches
+                division_match = target_age and target_age in team_division.lower()
+                
+                if name_match and division_match:
+                    # Calculate match score
+                    score = 0
+                    for keyword in name_keywords:
+                        if keyword and keyword in team_name_lower:
+                            score += 1
+                    
+                    matches.append({
+                        'id': str(team_id),
+                        'name': team_info['name'],
+                        'division': team_info['division'],
+                        'city': team_info.get('city', 'Unknown'),
+                        'classification': team_info.get('classification', 'Unknown'),
+                        'url': f"https://www.playoba.ca/stats#/2111/team/{team_id}/roster",
+                        'match_score': score
+                    })
+        
+        # Sort by match score (highest first)
+        matches.sort(key=lambda x: x['match_score'], reverse=True)
+        
+        return {
+            'matches': matches,
+            'total_found': len(matches),
+            'total_scanned': total_scanned,
+            'search_keywords': name_keywords,
+            'target_division': target_division
+        }
+    
     def get_organization_teams(self, affiliate_number: str, organization: str, division: str) -> Dict[str, str]:
         """Get teams for a specific organization and division"""
         # Use our discovered teams database
@@ -947,6 +1027,19 @@ if __name__ == "__main__":
             "scanned_range": f"{start_id}-{min(start_id + batch_size - 1, end_id)}",
             "total_found": len(discovered)
         }))
+    
+    elif command == "find_matches":
+        if len(sys.argv) < 6:
+            print(json.dumps({"success": False, "error": "Missing parameters for find_matches"}))
+            sys.exit(1)
+        
+        target_team_name = sys.argv[2]
+        target_division = sys.argv[3]
+        start_id = int(sys.argv[4])
+        end_id = int(sys.argv[5])
+        
+        result = scraper.find_matching_teams(target_team_name, target_division, start_id, end_id)
+        print(json.dumps(result))
     
     else:
         print(json.dumps({"success": False, "error": f"Unknown command: {command}"}))

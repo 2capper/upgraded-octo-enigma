@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Edit, Trash2, Download, ExternalLink, Users, FileDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, ExternalLink, Users, FileDown, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -30,6 +30,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { SmartRosterImport } from './smart-roster-import';
 import type { Team, Pool, AgeDivision } from '@shared/schema';
 
 interface TeamsTabProps {
@@ -48,6 +49,7 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [importingRosterTeam, setImportingRosterTeam] = useState<Team | null>(null);
+  const [smartImportingTeam, setSmartImportingTeam] = useState<Team | null>(null);
   const [rosterSearchResult, setRosterSearchResult] = useState<any>(null);
   const [searchingRoster, setSearchingRoster] = useState(false);
   const [showOrganizationSelect, setShowOrganizationSelect] = useState(false);
@@ -380,9 +382,16 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
                     <Edit className="w-4 h-4" />
                   </button>
                   <button 
+                    onClick={() => setSmartImportingTeam(team)}
+                    className="text-gray-400 hover:text-green-600 transition-colors"
+                    title="Smart roster import from OBA"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                  <button 
                     onClick={() => handleImportRoster(team)}
                     className="text-gray-400 hover:text-blue-600 transition-colors"
-                    title="Import roster from OBA"
+                    title="Manual roster import from OBA"
                   >
                     <FileDown className="w-4 h-4" />
                   </button>
@@ -652,6 +661,14 @@ export const TeamsTab = ({ teams, pools, ageDivisions }: TeamsTabProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Smart Roster Import Dialog */}
+      {smartImportingTeam && (
+        <SmartRosterImport
+          team={smartImportingTeam}
+          onClose={() => setSmartImportingTeam(null)}
+        />
+      )}
     </div>
   );
 };

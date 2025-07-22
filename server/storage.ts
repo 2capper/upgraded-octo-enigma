@@ -40,10 +40,12 @@ export interface IStorage {
   
   // Pool methods
   getPools(tournamentId: string): Promise<Pool[]>;
+  getPoolById(id: string): Promise<Pool | undefined>;
   createPool(pool: InsertPool): Promise<Pool>;
   
   // Team methods
   getTeams(tournamentId: string): Promise<Team[]>;
+  getTeamById(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team>;
   deleteTeam(id: string): Promise<void>;
@@ -121,6 +123,11 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(pools).where(eq(pools.tournamentId, tournamentId));
   }
 
+  async getPoolById(id: string): Promise<Pool | undefined> {
+    const [pool] = await db.select().from(pools).where(eq(pools.id, id));
+    return pool || undefined;
+  }
+
   async createPool(pool: InsertPool): Promise<Pool> {
     const [result] = await db.insert(pools).values(pool).returning();
     return result;
@@ -147,6 +154,11 @@ export class DatabaseStorage implements IStorage {
     return allTeams.filter(team => {
       return !placeholderPatterns.some(pattern => pattern.test(team.name));
     });
+  }
+
+  async getTeamById(id: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
   }
 
   async createTeam(team: InsertTeam): Promise<Team> {
