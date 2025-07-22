@@ -1,3 +1,4 @@
+import sys
 import requests
 from bs4 import BeautifulSoup, Tag
 from thefuzz import fuzz, process
@@ -113,7 +114,8 @@ class OBARosterScraper:
                     teams[team_name] = full_url
                     
         except Exception as e:
-            print(f"Error getting division teams: {e}")
+            # Log errors to stderr, not stdout
+            print(f"Error getting division teams: {e}", file=sys.stderr)
             
         # If no teams found, return test data that matches typical OBA team names
         # This allows testing the fuzzy matching functionality
@@ -245,7 +247,7 @@ class OBARosterScraper:
             return roster_data
             
         except Exception as e:
-            print(f"Error scraping roster: {e}")
+            print(f"Error scraping roster: {e}", file=sys.stderr)
             
             # Return test roster data for demonstration
             # This allows testing the full workflow
