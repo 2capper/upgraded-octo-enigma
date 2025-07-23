@@ -1,0 +1,16 @@
+500413|13U Delaware Komoka Mt. Brydges (DS)
+500415|13U London West (DS)
+500718|Forest Glade Falcons - 11U HS
+500802|Forest Glade Falcons - 13U Rep
+500717|LaSalle Turtle Club - 11U HS
+500992|LaSalle Turtle Club - 11U Rep
+500733|London Nationals - 11U AAA
+500807|London Nationals - 13U AAA
+500348|Essex Yellow Jackets - 11U HS
+500437|St. Thomas Cardinals - 11U AA
+500745|Windsor Selects - 11U Rep
+500500|11U Team Example
+500501|13U Team Example  
+500600|Another 11U Team
+500700|London Area Team
+500800|Windsor Area Team

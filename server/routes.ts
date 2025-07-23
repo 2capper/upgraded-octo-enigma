@@ -576,15 +576,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing teamName or division" });
       }
 
-      // Call Python scraper to find matching teams
+      // Call simple team matcher to find matching teams
       const { spawn } = await import("child_process");
       const python = spawn("python", [
-        "server/roster_scraper.py",
-        "find_matches",
+        "server/simple_team_matcher.py",
+        "search",
         teamName,
-        division,
-        "500000", // start range  
-        "505000"  // end range
+        division
       ]);
 
       let result = "";
@@ -620,6 +618,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error finding team matches:", error);
       res.status(500).json({ error: "Failed to find team matches" });
+    }
+  });
+
+  // Start comprehensive team scanning
+  app.post("/api/admin/scan-oba-teams", requireAdmin, async (req, res) => {
+    try {
+      const { startId = 500000, endId = 510000 } = req.body;
+      
+      // Start the scanning process in background
+      const { spawn } = await import("child_process");
+      const python = spawn("python", [
+        "server/team_discovery.py",
+        "scan",
+        startId.toString(),
+        endId.toString()
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Team scanning error:", error);
+        } else {
+          console.log("Team scanning completed:", result);
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Team scanning started",
+        range: { startId, endId }
+      });
+    } catch (error) {
+      console.error("Failed to start team scanning:", error);
+      res.status(500).json({ error: "Failed to start team scanning" });
+    }
+  });
+
+  // Get scanning statistics
+  app.get("/api/admin/oba-teams/stats", requireAdmin, async (req, res) => {
+    try {
+      const { spawn } = await import("child_process");
+      const python = spawn("python", [
+        "server/team_discovery.py",
+        "stats"
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Stats error:", error);
+          return res.status(500).json({ error: "Failed to get statistics" });
+        }
+        
+        res.json({ success: true, stats: result.trim() });
+      });
+    } catch (error) {
+      console.error("Statistics error:", error);
+      res.status(500).json({ error: "Failed to get scanning statistics" });
     }
   });
 
