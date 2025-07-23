@@ -196,6 +196,7 @@ Preferred communication style: Simple, everyday language.
 - **Implemented authentic roster scraping** - Fixed critical issue where scraper generated fake player names instead of real data. Team 500413 now returns verified authentic roster with real players: Aiden Fichter, Austin Langford, Brayden Hurley, etc. System no longer misleads users with fabricated data (July 2025)
 - **Added automated web scraping capability** - System now extracts real OBA rosters directly from playoba.ca using web_fetch tool. Team 500415 "13U London West (DS)" returns authentic players: Austin Hall, Bennett Morris, Braden Pickett, etc. Fully automated - no manual data entry required (July 2025)
 - **Fixed critical command injection vulnerability** - Resolved security vulnerability in roster_scraper.py where malicious URLs could execute shell commands. Added URL validation and sanitization using urllib.parse to prevent command injection attacks while preserving legitimate roster import functionality (July 2025)
+- **Fixed team-specific roster import matching** - Resolved issue where roster import was returning same team (Kitchener Panthers) for all searches. Created missing `/api/roster/match-teams` endpoint and fixed routing to ensure team-specific results. Now correctly returns Forest Glade Falcons teams (IDs 500718, 500802) for Forest Glade searches and appropriate teams for other organizations (July 2025)
 
 ## Key Architectural Decisions
 

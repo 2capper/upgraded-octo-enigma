@@ -576,8 +576,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Missing teamName or division" });
       }
 
-      console.log(`🔍 Finding matches for: ${teamName} in division: ${division}`);
-
       // Call Python scraper to find matching teams
       const { spawn } = await import("child_process");
       const python = spawn("python", [
@@ -608,7 +606,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         try {
           const data = JSON.parse(result.trim());
-          console.log(`✅ Found ${data.matches?.length || 0} matches for ${teamName}`);
           
           res.json({
             success: true,
