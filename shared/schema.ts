@@ -40,6 +40,7 @@ export const pools = pgTable("pools", {
 export const teams = pgTable("teams", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  division: text("division"),
   city: text("city"),
   coach: text("coach"),
   phone: text("phone"),
