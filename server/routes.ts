@@ -567,6 +567,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team matching endpoint for roster import
+  app.post("/api/roster/match-teams", async (req, res) => {
+    try {
+      const { teamName, division } = req.body;
+      
+      if (!teamName || !division) {
+        return res.status(400).json({ error: "Missing teamName or division" });
+      }
+
+      console.log(`🔍 Finding matches for: ${teamName} in division: ${division}`);
+
+      // Call Python scraper to find matching teams
+      const { spawn } = await import("child_process");
+      const python = spawn("python", [
+        "server/roster_scraper.py",
+        "find_matches",
+        teamName,
+        division,
+        "500000", // start range  
+        "505000"  // end range
+      ]);
+
+      let result = "";
+      let error = "";
+
+      python.stdout.on("data", (data) => {
+        result += data.toString();
+      });
+
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+
+      python.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Python script error:", error);
+          return res.status(500).json({ error: "Failed to find team matches" });
+        }
+        
+        try {
+          const data = JSON.parse(result.trim());
+          console.log(`✅ Found ${data.matches?.length || 0} matches for ${teamName}`);
+          
+          res.json({
+            success: true,
+            matches: data.matches || [],
+            total_found: data.total_found || 0
+          });
+        } catch (e) {
+          console.error("Failed to parse match results:", e);
+          res.status(500).json({ error: "Failed to process match results" });
+        }
+      });
+    } catch (error) {
+      console.error("Error finding team matches:", error);
+      res.status(500).json({ error: "Failed to find team matches" });
+    }
+  });
+
   app.post("/api/teams/:teamId/roster/search", requireAdmin, async (req, res) => {
     try {
       const { affiliate, season, division, teamName } = req.body;
