@@ -49,6 +49,22 @@ def get_authentic_roster_data(team_id):
                 {"number": "17", "name": "Ryder Hebert"}
             ]
         },
+        "500722": {
+            "team_name": "15U HS Forest Glade",
+            "players": [
+                {"number": "7", "name": "Austin drouillard"},
+                {"number": "5", "name": "Brody Lemay"},
+                {"number": "7", "name": "Brody Tyson"},
+                {"number": "15", "name": "Cooper MacDonald"},
+                {"number": "28", "name": "Keegan Davis"},
+                {"number": "4", "name": "Kieran Delaney"},
+                {"number": "2", "name": "Kobe Guyton"},
+                {"number": "40", "name": "Liam Simpson"},
+                {"number": "6", "name": "Logan Mailloux"},
+                {"number": "99", "name": "McCallum Anderson"},
+                {"number": "88", "name": "Nolan Bain"}
+            ]
+        },
         "500726": {
             "team_name": "18U HS Forest Glade",
             "players": [
