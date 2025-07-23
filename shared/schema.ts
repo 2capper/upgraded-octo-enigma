@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -14,6 +14,22 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+});
+
+// OBA Teams database for comprehensive team discovery and matching
+export const obaTeams = pgTable("oba_teams", {
+  id: serial("id").primaryKey(),
+  teamId: text("team_id").notNull().unique(), // OBA team ID (e.g., "500718")
+  teamName: text("team_name").notNull(), // Full team name (e.g., "11U HS Forest Glade")
+  organization: text("organization"), // Organization name (e.g., "Forest Glade")
+  division: text("division"), // Age division (e.g., "11U", "13U")
+  level: text("level"), // Competition level (e.g., "HS", "Rep", "AAA")
+  affiliate: text("affiliate"), // OBA affiliate (e.g., "SPBA", "SCBA")
+  hasRoster: boolean("has_roster").notNull().default(false), // Whether roster data is available
+  playerCount: integer("player_count").default(0), // Number of players on roster
+  lastScanned: timestamp("last_scanned").notNull().defaultNow(), // When this team was last verified
+  isActive: boolean("is_active").notNull().default(true), // Whether team is currently active
+  rosterData: jsonb("roster_data"), // Cached roster data if available
 });
 
 export const tournaments = pgTable("tournaments", {
@@ -149,6 +165,10 @@ export const insertAgeDivisionSchema = createInsertSchema(ageDivisions);
 export const insertPoolSchema = createInsertSchema(pools);
 export const insertTeamSchema = createInsertSchema(teams);
 export const insertGameSchema = createInsertSchema(games);
+export const insertObaTeamSchema = createInsertSchema(obaTeams).omit({
+  id: true,
+  lastScanned: true,
+});
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -168,3 +188,6 @@ export type InsertTeam = z.infer<typeof insertTeamSchema>;
 
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
+
+export type ObaTeam = typeof obaTeams.$inferSelect;
+export type InsertObaTeam = z.infer<typeof insertObaTeamSchema>;

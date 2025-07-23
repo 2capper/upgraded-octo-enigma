@@ -48,7 +48,9 @@ export interface IStorage {
   getTeamById(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team>;
+  updateTeamRoster(id: string, rosterData: string): Promise<Team>;
   deleteTeam(id: string): Promise<void>;
+  getUserCount(): Promise<number>;
   
   // Game methods
   getGames(tournamentId: string): Promise<Game[]>;
@@ -171,8 +173,21 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async updateTeamRoster(id: string, rosterData: string): Promise<Team> {
+    const [result] = await db.update(teams)
+      .set({ rosterData })
+      .where(eq(teams.id, id))
+      .returning();
+    return result;
+  }
+
   async deleteTeam(id: string): Promise<void> {
     await db.delete(teams).where(eq(teams.id, id));
+  }
+  
+  async getUserCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+    return result[0].count;
   }
 
   // Game methods

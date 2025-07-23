@@ -50,62 +50,28 @@ function RosterImport({ team, onSuccess }: RosterImportProps) {
     
     setIsSearching(true);
     try {
-      const response = await fetch('/api/roster/match-teams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamName: team.name,
-          division: team.division
-        })
-      });
+      // Extract division from team.division (e.g., "aug-classic_div_11U" -> "11U")
+      const divisionMatch = team.division.match(/(\d+U)/);
+      const division = divisionMatch ? divisionMatch[1] : '';
+      
+      const response = await fetch(`/api/roster/teams/search?query=${encodeURIComponent(team.name)}&division=${division}`);
       
       const data = await response.json();
-      if (data.success && data.matches) {
-        setMatchedTeams(data.matches);
+      if (data.success && data.teams) {
+        setMatchedTeams(data.teams.map((t: any) => ({
+          team_id: t.teamId,
+          team_name: t.teamName,
+          division: division,
+          player_count: t.playerCount,
+          has_roster: t.hasRoster,
+          match_score: t.matchScore
+        })));
       } else {
-        // Fallback to verified teams if matching fails
-        setMatchedTeams([
-          {
-            team_id: '499919',
-            team_name: '11U - Kitchener Panthers HS SEL',
-            division: '11U',
-            player_count: 14,
-            sample_players: ['Brycyn MacIntyre', 'Cameron Volcic', 'Dawson Sangster']
-          },
-          {
-            team_id: '500413', 
-            team_name: '13U Delaware Komoka Mt. Brydges (DS)',
-            division: '13U',
-            player_count: 12,
-            sample_players: ['Aiden Fichter', 'Austin Langford', 'Brayden Hurley']
-          },
-          {
-            team_id: '500415',
-            team_name: '13U London West (DS)', 
-            division: '13U',
-            player_count: 12,
-            sample_players: ['Austin Hall', 'Bennett Morris', 'Braden Pickett']
-          },
-          {
-            team_id: '503311',
-            team_name: '13U Lucan-Ilderton (DS)',
-            division: '13U', 
-            player_count: 12,
-            sample_players: ['Avery Lambercy', 'Chase Marier', 'Cole Dudgeon']
-          }
-        ]);
+        setMatchedTeams([]);
       }
     } catch (error) {
-      // Use fallback teams on error
-      setMatchedTeams([
-        {
-          team_id: '499919',
-          team_name: '11U - Kitchener Panthers HS SEL',
-          division: '11U',
-          player_count: 14,
-          sample_players: ['Brycyn MacIntyre', 'Cameron Volcic', 'Dawson Sangster']
-        }
-      ]);
+      console.error('Error searching teams:', error);
+      setMatchedTeams([]);
     } finally {
       setIsSearching(false);
     }
@@ -124,13 +90,13 @@ function RosterImport({ team, onSuccess }: RosterImportProps) {
     setIsImporting(true);
     
     try {
-      const response = await fetch(`/api/teams/${team.id}/roster/import`, {
+      const response = await fetch(`/api/roster/teams/${selectedTeam}/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          obaTeamId: selectedTeam
+          tournamentTeamId: team.id
         })
       });
 
@@ -139,7 +105,7 @@ function RosterImport({ team, onSuccess }: RosterImportProps) {
       if (data.success) {
         toast({
           title: "Roster Imported Successfully",
-          description: `Imported ${data.players_imported} authentic players from OBA`,
+          description: `Imported ${data.playerCount} authentic players from OBA`,
         });
         
         setIsOpen(false);

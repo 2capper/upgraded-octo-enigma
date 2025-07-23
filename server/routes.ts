@@ -983,6 +983,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OBA Roster API Routes - Comprehensive database-driven roster matching
+  app.get("/api/roster/teams/search", async (req, res) => {
+    try {
+      const { query, division } = req.query;
+      const { spawn } = await import("child_process");
+      
+      const args = ["oba_roster_service.py", "search"];
+      if (query) args.push(query as string);
+      if (division) args.push(division as string);
+      
+      const python = spawn("python", args, { cwd: "server" });
+      let output = "";
+      let error = "";
+      
+      python.stdout.on("data", (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+      
+      python.on("close", (code) => {
+        if (code === 0) {
+          // Parse the output to extract team data
+          const lines = output.split('\n').filter(line => line.trim());
+          const teams = [];
+          
+          for (const line of lines) {
+            const match = line.match(/^\s*(\d+):\s*([^(]+)\s*\(([^)]+)\)\s*\(match:\s*(\d+)%\)/);
+            if (match) {
+              const [, teamId, teamName, playerInfo, matchScore] = match;
+              const playerCount = playerInfo.includes('players') ? 
+                parseInt(playerInfo.match(/(\d+) players/)?.[1] || '0') : 0;
+              const hasRoster = !playerInfo.includes('no roster');
+              
+              teams.push({
+                teamId,
+                teamName: teamName.trim(),
+                hasRoster,
+                playerCount,
+                matchScore: parseInt(matchScore)
+              });
+            }
+          }
+          
+          res.json({ success: true, teams });
+        } else {
+          console.error("Python script error:", error);
+          res.status(500).json({ success: false, error: "Failed to search teams" });
+        }
+      });
+    } catch (error) {
+      console.error("Roster search error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/roster/teams/:teamId", async (req, res) => {
+    try {
+      const { teamId } = req.params;
+      const { noCache } = req.query;
+      const { spawn } = await import("child_process");
+      
+      const args = ["oba_roster_service.py", "roster", teamId];
+      if (noCache === "true") args.push("--no-cache");
+      
+      const python = spawn("python", args, { cwd: "server" });
+      let output = "";
+      let error = "";
+      
+      python.stdout.on("data", (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+      
+      python.on("close", (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            res.json(result);
+          } catch (parseError) {
+            console.error("Failed to parse roster data:", parseError);
+            res.status(500).json({ success: false, error: "Invalid response format" });
+          }
+        } else {
+          console.error("Python script error:", error);
+          res.status(500).json({ success: false, error: "Failed to fetch roster" });
+        }
+      });
+    } catch (error) {
+      console.error("Roster fetch error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+  
+  app.post("/api/roster/teams/:teamId/import", requireAdmin, async (req, res) => {
+    try {
+      const { teamId } = req.params;
+      const { tournamentTeamId } = req.body;
+      
+      if (!tournamentTeamId) {
+        return res.status(400).json({ success: false, error: "Tournament team ID required" });
+      }
+      
+      // Fetch roster data
+      const { spawn } = await import("child_process");
+      const python = spawn("python", ["oba_roster_service.py", "roster", teamId], { cwd: "server" });
+      
+      let output = "";
+      let error = "";
+      
+      python.stdout.on("data", (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on("data", (data) => {
+        error += data.toString();
+      });
+      
+      python.on("close", async (code) => {
+        if (code === 0) {
+          try {
+            const rosterData = JSON.parse(output);
+            
+            if (rosterData.success && rosterData.players) {
+              // Update the tournament team with roster data
+              await storage.updateTeamRoster(tournamentTeamId, JSON.stringify(rosterData.players));
+              
+              res.json({ 
+                success: true, 
+                message: `Imported ${rosterData.players.length} players from ${rosterData.team_name}`,
+                playerCount: rosterData.players.length
+              });
+            } else {
+              res.status(400).json({ 
+                success: false, 
+                error: rosterData.error || "No roster data available" 
+              });
+            }
+          } catch (parseError) {
+            console.error("Failed to parse roster data:", parseError);
+            res.status(500).json({ success: false, error: "Invalid response format" });
+          }
+        } else {
+          console.error("Python script error:", error);
+          res.status(500).json({ success: false, error: "Failed to fetch roster" });
+        }
+      });
+    } catch (error) {
+      console.error("Roster import error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
