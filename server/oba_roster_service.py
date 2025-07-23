@@ -111,17 +111,38 @@ class OBARosterService:
         try:
             players = []
             
-            # Look for player table rows
-            player_pattern = r'<tr[^>]*>.*?<td[^>]*>(\d*)</td>.*?<a[^>]*>([^<]+)</a>.*?</tr>'
-            matches = re.findall(player_pattern, content, re.DOTALL)
+            # Look for player table rows with various patterns
+            patterns = [
+                # Pattern 1: Table rows with number and player link
+                r'<tr[^>]*>.*?<td[^>]*>(\d*)</td>.*?<a[^>]*>([^<]+)</a>.*?</tr>',
+                # Pattern 2: Player links directly
+                r'<a[^>]*href[^>]*player/\d+[^>]*>([^<]+)</a>',
+                # Pattern 3: Table cells with player names (no links)
+                r'<td[^>]*class[^>]*player[^>]*>([^<]+)</td>'
+            ]
             
-            for match in matches:
-                number, name = match
-                if name and name.strip():
-                    players.append({
-                        'number': number.strip() if number else '',
-                        'name': name.strip()
-                    })
+            for pattern in patterns:
+                matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+                
+                for match in matches:
+                    if isinstance(match, tuple):
+                        # Pattern with number and name
+                        if len(match) == 2:
+                            number, name = match
+                            name = name.strip()
+                        else:
+                            name = match[0].strip()
+                            number = ''
+                    else:
+                        # Just the name
+                        name = match.strip()
+                        number = ''
+                    
+                    if name and len(name) > 2 and name not in [p['name'] for p in players]:
+                        players.append({
+                            'number': number if number else str(len(players) + 1),
+                            'name': name
+                        })
             
             return players
             
@@ -129,42 +150,95 @@ class OBARosterService:
             print(f"Error extracting roster: {e}")
             return []
     
-    def fetch_roster_data(self, team_id: str) -> Optional[Dict]:
-        """Fetch fresh roster data from OBA website"""
+    def _extract_roster_alternative(self, content: str) -> List[Dict]:
+        """Alternative roster extraction method for different page formats"""
         try:
-            url = f"https://www.playoba.ca/stats#/2111/team/{team_id}/roster"
-            response = requests.get(url, headers=self.headers, timeout=15)
+            players = []
+            import re
             
-            if response.status_code == 200:
-                players = self.extract_roster_from_page(response.text)
-                
-                if players:
-                    return {
-                        'team_id': team_id,
-                        'players': players,
-                        'player_count': len(players),
-                        'source': 'live_oba',
-                        'success': True
-                    }
+            # Look for player names in various contexts
+            name_patterns = [
+                # Names in quotes or specific tags
+                r'"([A-Z][a-z]+ [A-Z][a-z]+)"',
+                # Names in table cells
+                r'<td[^>]*>([A-Z][a-z]+ [A-Z][a-z]+)</td>',
+                # Names following number patterns
+                r'\d+\s+([A-Z][a-z]+ [A-Z][a-z]+)',
+                # Names in roster context
+                r'roster[^>]*>([A-Z][a-z]+ [A-Z][a-z]+)'
+            ]
             
-            return {
-                'team_id': team_id,
-                'players': [],
-                'player_count': 0,
-                'source': 'live_oba',
-                'success': False,
-                'error': 'No roster data found'
-            }
+            for pattern in name_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for name in matches:
+                    clean_name = name.strip()
+                    # Validate it looks like a real name
+                    if (len(clean_name) > 4 and ' ' in clean_name and 
+                        clean_name not in [p['name'] for p in players] and
+                        not any(word in clean_name.lower() for word in 
+                               ['team', 'stats', 'roster', 'home', 'page', 'www', 'http'])):
+                        players.append({
+                            'number': str(len(players) + 1),
+                            'name': clean_name
+                        })
+            
+            return players[:20]  # Limit to reasonable roster size
             
         except Exception as e:
-            return {
-                'team_id': team_id,
-                'players': [],
-                'player_count': 0,
-                'source': 'live_oba',
-                'success': False,
-                'error': str(e)
-            }
+            print(f"Error in alternative extraction: {e}")
+            return []
+    
+    def fetch_roster_data(self, team_id: str) -> Optional[Dict]:
+        """Fetch fresh roster data from OBA website with multiple affiliate attempts"""
+        # Try multiple affiliate numbers as OBA URLs are flexible
+        affiliate_numbers = ['2111', '0700', '2100', '0900', '1200', '1500', '1800', '2000']
+        
+        for affiliate in affiliate_numbers:
+            try:
+                url = f"https://www.playoba.ca/stats#/{affiliate}/team/{team_id}/roster"
+                print(f"Trying roster fetch from: {url}")
+                
+                response = requests.get(url, headers=self.headers, timeout=12)
+                
+                if response.status_code == 200:
+                    content = response.text
+                    
+                    # Try the current extraction method first
+                    players = self.extract_roster_from_page(content)
+                    
+                    # If no players found, try alternative extraction methods
+                    if not players:
+                        players = self._extract_roster_alternative(content)
+                    
+                    if players:
+                        # Get team name from page
+                        import re
+                        team_name_match = re.search(r'<title[^>]*>([^<]*)</title>', content)
+                        team_name = team_name_match.group(1).strip() if team_name_match else f"Team {team_id}"
+                        
+                        return {
+                            'team_id': team_id,
+                            'team_name': team_name,
+                            'players': players,
+                            'player_count': len(players),
+                            'source': f'live_oba_affiliate_{affiliate}',
+                            'success': True,
+                            'url_used': url
+                        }
+                        
+            except Exception as e:
+                print(f"Error with affiliate {affiliate} for team {team_id}: {e}")
+                continue
+        
+        # If no roster found with any affiliate
+        return {
+            'team_id': team_id,
+            'players': [],
+            'player_count': 0,
+            'source': 'live_oba',
+            'success': False,
+            'error': f'No roster data found across {len(affiliate_numbers)} affiliate attempts'
+        }
     
     def cache_roster_data(self, team_id: str, roster_data: Dict):
         """Cache roster data in the database"""
