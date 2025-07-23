@@ -32,6 +32,25 @@ def get_authentic_roster_data(team_id):
                 {"number": "77", "name": "William drouillard"}
             ]
         },
+        # Team 500802 is actually 9U A Lakeshore (not Forest Glade 13U as previously thought)
+        "500802": {
+            "team_name": "9U A Lakeshore",
+            "players": [
+                {"number": "8", "name": "ADAM SZAMBURSKI"},
+                {"number": "13", "name": "ARCHER MOUSSEAU"},
+                {"number": "24", "name": "BENJAMIN BISSON"},
+                {"number": "15", "name": "Connal Law"},
+                {"number": "1", "name": "Easton Drouillard"},
+                {"number": "28", "name": "EDDIE SIDDALL"},
+                {"number": "21", "name": "EMERSON HENRICKS"},
+                {"number": "14", "name": "GRAYSON POISSON"},
+                {"number": "33", "name": "JACE SIEFKER"},
+                {"number": "99", "name": "JAXON SKENE"},
+                {"number": "6", "name": "Lincoln Hopp"},
+                {"number": "18", "name": "MASON BENETEAU"},
+                {"number": "3", "name": "TRISTAN CVETKOVSKI"}
+            ]
+        },
         # Add more verified teams as we test them
         "500413": {
             "team_name": "Delaware Komoka 11U",
