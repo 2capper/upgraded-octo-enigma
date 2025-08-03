@@ -173,13 +173,56 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
         return acc;
       }, {} as Record<number, any[]>);
 
-      // Sort and resolve ties for overall standings
-      const overallStandings = Object.keys(groups)
-        .sort((a, b) => Number(b) - Number(a))
-        .flatMap(points => resolveTie(groups[Number(points)], games));
+      // Calculate pool standings first to identify pool winners
+      const poolWinners: any[] = [];
+      const nonPoolWinners: any[] = [];
+      
+      sortedPools.forEach(pool => {
+        const poolTeams = teamStats.filter(t => t.poolId === pool.id);
+        
+        // Group pool teams by points for tie-breaking
+        const poolGroups = poolTeams.reduce((acc, team) => {
+          const points = team.points;
+          if (!acc[points]) acc[points] = [];
+          acc[points].push(team);
+          return acc;
+        }, {} as Record<number, any[]>);
 
+        // Sort and resolve ties for pool standings
+        const sortedPoolTeams = Object.keys(poolGroups)
+          .sort((a, b) => Number(b) - Number(a))
+          .flatMap(points => resolveTie(poolGroups[Number(points)], games));
+        
+        if (sortedPoolTeams.length > 0) {
+          // Mark the pool winner
+          const poolWinner = { ...sortedPoolTeams[0], isPoolWinner: true };
+          poolWinners.push(poolWinner);
+          // Add non-winners to separate array
+          nonPoolWinners.push(...sortedPoolTeams.slice(1));
+        }
+      });
+      
+      // Sort pool winners by RA/DIP (best defensive performance first)
+      poolWinners.sort((a, b) => a.runsAgainstPerInning - b.runsAgainstPerInning);
+      
+      // Sort non-pool winners by regular standings logic (points first, then tie-breakers)
+      const nonWinnerGroups = nonPoolWinners.reduce((acc, team) => {
+        const points = team.points;
+        if (!acc[points]) acc[points] = [];
+        acc[points].push(team);
+        return acc;
+      }, {} as Record<number, any[]>);
+      
+      const sortedNonWinners = Object.keys(nonWinnerGroups)
+        .sort((a, b) => Number(b) - Number(a))
+        .flatMap(points => resolveTie(nonWinnerGroups[Number(points)], games));
+      
+      // Combine: Pool winners first (ranked by RA/DIP), then everyone else
+      const overallStandings = [...poolWinners, ...sortedNonWinners];
+
+      // Now calculate individual pool standings for display
       // Sort pools in ascending order
-      const sortedPools = [...divisionPools].sort((a, b) => {
+      const sortedPoolsForDisplay = [...divisionPools].sort((a, b) => {
         // Extract the pool identifier (number or letter) from the name
         const extractIdentifier = (name: string) => {
           const match = name.match(/Pool\s*([A-Za-z0-9]+)/i);
@@ -202,8 +245,8 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
         }
       });
 
-      // Calculate pool standings
-      const poolStandings = sortedPools.map(pool => {
+      // Calculate pool standings for display
+      const poolStandings = sortedPoolsForDisplay.map(pool => {
         const poolTeams = teamStats.filter(t => t.poolId === pool.id);
         
         // Group pool teams by points for tie-breaking
@@ -227,7 +270,7 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
 
       return {
         division,
-        pools: sortedPools,
+        pools: sortedPoolsForDisplay,
         overallStandings,
         poolStandings
       };
@@ -258,6 +301,11 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                 <div>
                   <div className="flex items-center">
                     <span className="font-semibold text-gray-900">{team.name}</span>
+                    {team.isPoolWinner && (
+                      <span className="ml-2 px-2 py-1 bg-[var(--falcons-green)] text-white text-xs rounded-full font-bold">
+                        POOL WINNER
+                      </span>
+                    )}
                     {team.forfeitLosses > 0 && (
                       <AlertTriangle className="w-4 h-4 ml-2 text-red-500" />
                     )}
@@ -321,6 +369,11 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                     <div className="ml-4">
                       <div className="flex items-center">
                         <span className="text-sm font-medium text-gray-900">{team.name}</span>
+                        {team.isPoolWinner && (
+                          <span className="ml-2 px-2 py-1 bg-[var(--falcons-green)] text-white text-xs rounded-full font-bold">
+                            POOL WINNER
+                          </span>
+                        )}
                         {team.forfeitLosses > 0 && (
                           <span title="Team has a forfeit loss">
                             <AlertTriangle className="w-4 h-4 ml-2 text-red-500" />
