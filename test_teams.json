@@ -1,0 +1,56 @@
+[
+  {
+    "id": "st_thomas",
+    "name": "St Thomas",
+    "poolId": "pool1",
+    "division": "13U"
+  },
+  {
+    "id": "team_a",
+    "name": "Team A",
+    "poolId": "pool1",
+    "division": "13U"
+  },
+  {
+    "id": "team_b",
+    "name": "Team B",
+    "poolId": "pool1",
+    "division": "13U"
+  },
+  {
+    "id": "southwest_london",
+    "name": "Southwest London",
+    "poolId": "pool2",
+    "division": "13U"
+  },
+  {
+    "id": "team_c",
+    "name": "Team C",
+    "poolId": "pool2",
+    "division": "13U"
+  },
+  {
+    "id": "team_d",
+    "name": "Team D",
+    "poolId": "pool2",
+    "division": "13U"
+  },
+  {
+    "id": "east_mountain",
+    "name": "East Mountain",
+    "poolId": "pool3",
+    "division": "13U"
+  },
+  {
+    "id": "team_e",
+    "name": "Team E",
+    "poolId": "pool3",
+    "division": "13U"
+  },
+  {
+    "id": "team_f",
+    "name": "Team F",
+    "poolId": "pool3",
+    "division": "13U"
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "g1",
+    "homeTeamId": "st_thomas",
+    "awayTeamId": "team_a",
+    "homeScore": 8,
+    "awayScore": 3,
+    "status": "completed"
+  },
+  {
+    "id": "g2",
+    "homeTeamId": "st_thomas",
+    "awayTeamId": "team_b",
+    "homeScore": 6,
+    "awayScore": 2,
+    "status": "completed"
+  },
+  {
+    "id": "g3",
+    "homeTeamId": "team_a",
+    "awayTeamId": "team_b",
+    "homeScore": 5,
+    "awayScore": 4,
+    "status": "completed"
+  },
+  {
+    "id": "g4",
+    "homeTeamId": "southwest_london",
+    "awayTeamId": "team_c",
+    "homeScore": 7,
+    "awayScore": 1,
+    "status": "completed"
+  },
+  {
+    "id": "g5",
+    "homeTeamId": "southwest_london",
+    "awayTeamId": "team_d",
+    "homeScore": 9,
+    "awayScore": 2,
+    "status": "completed"
+  },
+  {
+    "id": "g6",
+    "homeTeamId": "team_c",
+    "awayTeamId": "team_d",
+    "homeScore": 6,
+    "awayScore": 3,
+    "status": "completed"
+  },
+  {
+    "id": "g7",
+    "homeTeamId": "east_mountain",
+    "awayTeamId": "team_e",
+    "homeScore": 5,
+    "awayScore": 0,
+    "status": "completed"
+  },
+  {
+    "id": "g8",
+    "homeTeamId": "east_mountain",
+    "awayTeamId": "team_f",
+    "homeScore": 8,
+    "awayScore": 1,
+    "status": "completed"
+  },
+  {
+    "id": "g9",
+    "homeTeamId": "team_e",
+    "awayTeamId": "team_f",
+    "homeScore": 4,
+    "awayScore": 2,
+    "status": "completed"
+  }
+]
