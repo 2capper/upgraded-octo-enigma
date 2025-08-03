@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features & Design
 - **Tournament Dashboard**: Main interface for tournament management.
-- **Standings Table**: Real-time standings with tie-breaker logic and division toggle.
+- **Standings Table**: Real-time standings with tie-breaker logic, division toggle, and proper pool-based tournament seeding where pool winners rank 1-3 by RA/DIP followed by pool runners-up in positions 4-6.
 - **Admin Portal**: Comprehensive administrative functions including tournament creation, data import/export, game result editing, and robust access control.
 - **Hierarchical Score Input**: Step-by-step score submission workflow.
 - **Authentication System**: Role-based authentication with bcrypt hashing, session management, and protected routes.
