@@ -30,6 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **Migrations**: Drizzle Kit
 
 ### Key Architectural Decisions
+- **Authentication System**: Migrated from custom bcrypt-based authentication to Replit Auth using OpenID Connect for seamless user management and secure authentication.
 - **Monorepo Structure**: Unified TypeScript configuration and shared schema for type safety and code reuse across frontend and backend.
 - **Database Choice**: Switched to PostgreSQL with Drizzle ORM for better relational data handling, performance, and SQL querying capabilities.
 - **Storage Abstraction**: Interface-based storage layer allowing for flexible data storage options and easier testing.
@@ -41,7 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Standings Table**: Real-time standings with tie-breaker logic, division toggle, and proper pool-based tournament seeding where pool winners rank 1-3 by RA/DIP followed by pool runners-up in positions 4-6.
 - **Admin Portal**: Comprehensive administrative functions including tournament creation, data import/export, game result editing, and robust access control.
 - **Hierarchical Score Input**: Step-by-step score submission workflow.
-- **Authentication System**: Role-based authentication with bcrypt hashing, session management, and protected routes.
+- **Authentication System**: Replit Auth integration with OpenID Connect, automatic user provisioning, and session management with PostgreSQL session store.
 - **Theming**: Professional baseball styling with Forest Green and Yellow colors, Oswald and Roboto fonts, and uppercase headings.
 - **Location Integration**: Display of diamond GPS coordinates for game venues with Google Maps integration.
 - **Roster Management**: Automated roster import tool with fuzzy team name matching from playoba.ca, comprehensive OBA team discovery, and authentic roster scraping.
@@ -54,6 +55,21 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS
 - **Forms**: React Hook Form with Zod validation
 - **Date Handling**: `date-fns`
-- **Session Management**: `connect-pg-simple`
-- **Authentication**: `bcrypt`, `express-session`
+- **Session Management**: `connect-pg-simple`, `express-session`
+- **Authentication**: `openid-client`, `passport`, `memoizee`
 - **Web Scraping**: Python-based service for OBA roster data (utilizes `urllib.parse` for security)
+
+## Recent Changes
+
+### August 2025 - Replit Auth Integration
+- **Migration to Replit Auth**: Replaced custom bcrypt-based authentication system with Replit Auth using OpenID Connect
+- **Updated User Schema**: Modified user table to support Replit user claims (id, email, firstName, lastName, profileImageUrl)
+- **Session Management**: Updated to PostgreSQL session store compatible with Replit Auth
+- **Frontend Updates**: 
+  - New landing page for unauthenticated users with "Sign In with Replit" button
+  - Updated authentication hooks and routing logic
+  - Protected routes now redirect to Replit login automatically
+- **Backend Updates**:
+  - Implemented Replit Auth middleware with automatic user provisioning
+  - Updated all protected routes to use `isAuthenticated` middleware
+  - Removed legacy login/setup pages and routes

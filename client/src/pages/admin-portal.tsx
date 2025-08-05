@@ -15,6 +15,7 @@ import { TeamIdScanner } from '@/components/tournament/team-id-scanner';
 import { PasswordResetTool } from '@/components/tournament/password-reset-tool';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { isUnauthorizedError } from '@/lib/authUtils';
 
 export default function AdminPortal() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -23,31 +24,25 @@ export default function AdminPortal() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('tournaments');
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isAdmin, isLoading: authLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Check authentication
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated) {
-        toast({
-          title: "Authentication Required",
-          description: "Please login to access the admin portal.",
-          variant: "destructive",
-        });
-        setLocation("/login");
-      } else if (!isAdmin) {
-        toast({
-          title: "Access Denied",
-          description: "Admin privileges required.",
-          variant: "destructive",
-        });
-        setLocation("/");
-      }
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
     }
-  }, [isAuthenticated, isAdmin, authLoading, setLocation, toast]);
+  }, [isAuthenticated, authLoading, toast]);
 
   const handleNewTournament = () => {
     // Switch to tournaments tab where the creation form is
@@ -127,7 +122,7 @@ export default function AdminPortal() {
   }
   
   // Don't render admin content if not authenticated
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -172,7 +167,7 @@ export default function AdminPortal() {
             <Button
               variant="outline"
               size="sm"
-              onClick={logout}
+              onClick={() => window.location.href = "/api/logout"}
               className="ml-4"
             >
               <LogOut className="w-4 h-4 mr-2" />

@@ -8,201 +8,21 @@ import {
   insertTeamSchema, 
   insertGameSchema 
 } from "@shared/schema";
-import { sessionConfig, requireAdmin, verifyPassword, hashPassword, checkAdminExists, createInitialAdmin } from "./auth";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Apply session middleware
-  app.use(sessionConfig);
+  // Auth middleware
+  await setupAuth(app);
   
-  // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      console.log("=== LOGIN ATTEMPT DEBUG ===");
-      console.log("Environment:", process.env.NODE_ENV);
-      console.log("Replit Domains:", process.env.REPLIT_DOMAINS);
-      console.log("Repl Slug:", process.env.REPL_SLUG);
-      console.log("Database URL exists:", !!process.env.DATABASE_URL);
-      console.log("Session ID before login:", req.sessionID);
-      console.log("Request headers:", {
-        'user-agent': req.headers['user-agent'],
-        'x-forwarded-proto': req.headers['x-forwarded-proto'],
-        'x-forwarded-host': req.headers['x-forwarded-host'],
-        'host': req.headers['host']
-      });
-      
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        console.log("Missing credentials");
-        return res.status(400).json({ error: "Username and password required" });
-      }
-      
-      console.log("Looking for user:", username);
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        console.log("User not found:", username);
-        // Check if any users exist at all
-        const userCount = await storage.getUserCount();
-        console.log("Total users in database:", userCount);
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      
-      console.log("User found, verifying password");
-      const isValid = await verifyPassword(password, user.password);
-      if (!isValid) {
-        console.log("Password verification failed");
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      
-      req.session.userId = user.id;
-      req.session.isAdmin = user.id === 1; // First user is admin
-      
-      console.log("Session data set:", { userId: req.session.userId, isAdmin: req.session.isAdmin });
-      
-      // Save session explicitly
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ error: "Failed to save session", details: err.message });
-        }
-        
-        console.log("Session saved successfully, ID:", req.sessionID);
-        console.log("Session cookie will be sent with domain:", req.session.cookie?.domain || "default");
-        console.log("Session cookie secure:", req.session.cookie?.secure);
-        console.log("Session cookie sameSite:", req.session.cookie?.sameSite);
-        
-        res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username,
-            isAdmin: user.id === 1
-          },
-          debug: {
-            sessionId: req.sessionID,
-            environment: process.env.NODE_ENV,
-            cookieSecure: req.session.cookie?.secure,
-            cookieSameSite: req.session.cookie?.sameSite
-          }
-        });
-      });
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
     } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed", details: error.message });
-    }
-  });
-  
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Logout failed" });
-      }
-      res.json({ success: true });
-    });
-  });
-  
-  app.get("/api/auth/check", (req, res) => {
-    console.log("Auth check - Session ID:", req.sessionID);
-    console.log("Auth check - Session data:", req.session);
-    console.log("Auth check - Cookie header:", req.headers.cookie);
-    
-    if (req.session.userId) {
-      res.json({ 
-        authenticated: true, 
-        userId: req.session.userId,
-        isAdmin: req.session.isAdmin || false
-      });
-    } else {
-      res.json({ authenticated: false });
-    }
-  });
-  
-  // Setup route - create initial admin if doesn't exist
-  app.post("/api/auth/setup", async (req, res) => {
-    try {
-      const adminExists = await checkAdminExists();
-      if (adminExists) {
-        return res.status(400).json({ error: "Admin already exists" });
-      }
-      
-      const { password } = req.body;
-      if (!password || password.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
-      }
-      
-      await createInitialAdmin(password);
-      res.json({ success: true, message: "Admin user created" });
-    } catch (error) {
-      console.error("Setup error:", error);
-      res.status(500).json({ error: "Setup failed" });
-    }
-  });
-
-  // Comprehensive diagnostic route to check authentication status
-  app.get("/api/auth/diagnostic", async (req, res) => {
-    try {
-      const userCount = await storage.getUserCount();
-      const adminExists = await checkAdminExists();
-      
-      // Check session store connectivity
-      let sessionStoreStatus = "unknown";
-      try {
-        if (process.env.DATABASE_URL) {
-          sessionStoreStatus = "PostgreSQL configured";
-        } else {
-          sessionStoreStatus = "Memory store (no DATABASE_URL)";
-        }
-      } catch (e) {
-        sessionStoreStatus = `Error: ${e.message}`;
-      }
-      
-      res.json({
-        userCount: userCount.toString(),
-        adminExists,
-        sessionStore: sessionStoreStatus,
-        environment: process.env.NODE_ENV || "unknown",
-        sessionConfig: {
-          secure: process.env.NODE_ENV === "production" && (process.env.REPLIT_DOMAINS !== undefined || process.env.REPL_SLUG !== undefined),
-          sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
-          domain: process.env.NODE_ENV === "production" && process.env.REPL_SLUG ? `.${process.env.REPL_SLUG}.replit.app` : "none"
-        },
-        envVars: {
-          hasReplitDomains: !!process.env.REPLIT_DOMAINS,
-          hasReplSlug: !!process.env.REPL_SLUG,
-          hasDatabaseUrl: !!process.env.DATABASE_URL,
-          hasSessionSecret: !!process.env.SESSION_SECRET
-        }
-      });
-    } catch (error) {
-      console.error("Diagnostic error:", error);
-      res.status(500).json({ error: "Diagnostic check failed" });
-    }
-  });
-
-  // Password reset utility for deployment troubleshooting
-  app.post("/api/auth/reset-admin-password", async (req, res) => {
-    try {
-      const { newPassword, confirmPassword } = req.body;
-      
-      if (!newPassword || newPassword.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
-      }
-      
-      if (newPassword !== confirmPassword) {
-        return res.status(400).json({ error: "Passwords do not match" });
-      }
-      
-      // Hash the new password
-      const hashedPassword = await hashPassword(newPassword);
-      
-      // Update the admin user's password directly in the database
-      const result = await storage.updateUserPassword(1, hashedPassword);
-      
-      console.log("Admin password reset successfully");
-      res.json({ success: true, message: "Admin password reset successfully" });
-    } catch (error) {
-      console.error("Password reset error:", error);
-      res.status(500).json({ error: "Password reset failed", details: error.message });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
   // Tournament routes
@@ -229,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments", requireAdmin, async (req, res) => {
+  app.post("/api/tournaments", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.createTournament(validatedData);
@@ -240,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tournaments/:id", requireAdmin, async (req, res) => {
+  app.put("/api/tournaments/:id", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.partial().parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
@@ -251,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tournaments/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/tournaments/:id", isAuthenticated, async (req, res) => {
     try {
       await storage.deleteTournament(req.params.id);
       res.status(204).send();
@@ -322,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/teams", requireAdmin, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/teams", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertTeamSchema.parse({
         ...req.body,
@@ -336,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/teams/:id", requireAdmin, async (req, res) => {
+  app.put("/api/teams/:id", isAuthenticated, async (req, res) => {
     try {
       // Handle both direct data and wrapped data formats
       const updateData = req.body.data || req.body;
@@ -356,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Scan team ID range endpoint
-  app.post("/api/roster/scan-range", requireAdmin, async (req, res) => {
+  app.post("/api/roster/scan-range", isAuthenticated, async (req, res) => {
     const { startId, endId, batchSize = 10 } = req.body;
     
     if (!startId || !endId) {
@@ -406,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // COBA Team Scanner - Import all COBA teams to database using web data
-  app.post("/api/roster/scan-coba-web", requireAdmin, async (req, res) => {
+  app.post("/api/roster/scan-coba-web", isAuthenticated, async (req, res) => {
     try {
       console.log("🚀 Starting COBA web scan...");
       
@@ -520,7 +340,7 @@ Waterdown 10U AA
   });
 
   // COBA Team Scanner - Import all COBA teams to database using static data
-  app.post("/api/roster/scan-coba", requireAdmin, async (req, res) => {
+  app.post("/api/roster/scan-coba", isAuthenticated, async (req, res) => {
     try {
       const { spawn } = await import("child_process");
       
@@ -628,7 +448,7 @@ Waterdown 10U AA
   });
 
   // Direct team ID import endpoint
-  app.post("/api/teams/:id/roster/import-by-team-id", requireAdmin, async (req, res) => {
+  app.post("/api/teams/:id/roster/import-by-team-id", isAuthenticated, async (req, res) => {
     const { teamId, obaTeamId } = req.body;
     
     if (!teamId || !obaTeamId) {
@@ -703,7 +523,7 @@ Waterdown 10U AA
 
   // Roster import endpoints
   // Get all affiliates with their organizations
-  app.get("/api/affiliates", requireAdmin, async (req, res) => {
+  app.get("/api/affiliates", isAuthenticated, async (req, res) => {
     try {
       const { spawn } = await import("child_process");
       const python = spawn("python", [
@@ -743,7 +563,7 @@ Waterdown 10U AA
   });
 
   // Get teams for a specific organization and division
-  app.post("/api/organizations/:organization/teams", requireAdmin, async (req, res) => {
+  app.post("/api/organizations/:organization/teams", isAuthenticated, async (req, res) => {
     try {
       const { organization } = req.params;
       const { affiliateNumber, division } = req.body;
@@ -847,7 +667,7 @@ Waterdown 10U AA
   });
 
   // Start comprehensive team scanning
-  app.post("/api/admin/scan-oba-teams", requireAdmin, async (req, res) => {
+  app.post("/api/admin/scan-oba-teams", isAuthenticated, async (req, res) => {
     try {
       const { startId = 500000, endId = 510000 } = req.body;
       
@@ -891,7 +711,7 @@ Waterdown 10U AA
   });
 
   // Get scanning statistics
-  app.get("/api/admin/oba-teams/stats", requireAdmin, async (req, res) => {
+  app.get("/api/admin/oba-teams/stats", isAuthenticated, async (req, res) => {
     try {
       const { spawn } = await import("child_process");
       const python = spawn("python", [
@@ -924,7 +744,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post("/api/teams/:teamId/roster/search", requireAdmin, async (req, res) => {
+  app.post("/api/teams/:teamId/roster/search", isAuthenticated, async (req, res) => {
     try {
       const { affiliate, season, division, teamName } = req.body;
       
@@ -982,7 +802,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post("/api/teams/:teamId/roster/import", requireAdmin, async (req, res) => {
+  app.post("/api/teams/:teamId/roster/import", isAuthenticated, async (req, res) => {
     try {
       const { teamUrl, obaTeamId } = req.body;
       const { teamId } = req.params;
@@ -1083,7 +903,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete("/api/teams/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/teams/:id", isAuthenticated, async (req, res) => {
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
@@ -1094,7 +914,7 @@ Waterdown 10U AA
   });
 
   // Helper endpoint to populate team data fields
-  app.post("/api/teams/:id/populate-data", requireAdmin, async (req, res) => {
+  app.post("/api/teams/:id/populate-data", isAuthenticated, async (req, res) => {
     try {
       const teamId = req.params.id;
       const { teamName } = req.body;
@@ -1136,7 +956,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/games", requireAdmin, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/games", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertGameSchema.parse({
         ...req.body,
@@ -1160,7 +980,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete("/api/games/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/games/:id", isAuthenticated, async (req, res) => {
     try {
       await storage.deleteGame(req.params.id);
       res.status(204).send();
@@ -1171,7 +991,7 @@ Waterdown 10U AA
   });
 
   // Bulk operations for data import
-  app.post("/api/tournaments/:tournamentId/bulk-import", requireAdmin, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/bulk-import", isAuthenticated, async (req, res) => {
     try {
       const { ageDivisions, pools, teams, games } = req.body;
       const tournamentId = req.params.tournamentId;
@@ -1307,7 +1127,7 @@ Waterdown 10U AA
     }
   });
   
-  app.post("/api/roster/teams/:teamId/import", requireAdmin, async (req, res) => {
+  app.post("/api/roster/teams/:teamId/import", isAuthenticated, async (req, res) => {
     try {
       const { teamId } = req.params;
       const { tournamentTeamId } = req.body;
