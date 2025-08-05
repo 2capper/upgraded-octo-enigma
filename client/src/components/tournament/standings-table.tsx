@@ -115,13 +115,49 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
   
   // (b)(1) Head to head record among tied teams (only for 2 teams)
   if (sortedTeams.length === 2) {
-    const team1Stats = calculateStats(sortedTeams[0].id, allGames, [sortedTeams[1].id]);
-    const team2Stats = calculateStats(sortedTeams[1].id, allGames, [sortedTeams[0].id]);
+    const team1Id = sortedTeams[0].id;
+    const team2Id = sortedTeams[1].id;
     
-    if (team1Stats.wins > team1Stats.losses) {
+    // Find the direct head-to-head game between these two teams
+    let team1HeadToHeadWins = 0;
+    let team2HeadToHeadWins = 0;
+    
+    for (const game of allGames) {
+      if (game.status === 'completed') {
+        const { homeTeamId, awayTeamId, homeScore, awayScore } = game;
+        
+        // Check if this is a head-to-head game between the tied teams
+        if ((homeTeamId === team1Id && awayTeamId === team2Id) || 
+            (homeTeamId === team2Id && awayTeamId === team1Id)) {
+          
+          const home = Number(homeScore) || 0;
+          const away = Number(awayScore) || 0;
+          
+          if (home > away) {
+            // Home team won
+            if (homeTeamId === team1Id) {
+              team1HeadToHeadWins++;
+            } else {
+              team2HeadToHeadWins++;
+            }
+          } else if (away > home) {
+            // Away team won
+            if (awayTeamId === team1Id) {
+              team1HeadToHeadWins++;
+            } else {
+              team2HeadToHeadWins++;
+            }
+          }
+          // Ties don't count as wins
+        }
+      }
+    }
+    
+    // Apply head-to-head tie-breaker
+    if (team1HeadToHeadWins > team2HeadToHeadWins) {
       return [...[sortedTeams[0], sortedTeams[1]], ...ineligibleTeams];
     }
-    if (team2Stats.wins > team2Stats.losses) {
+    if (team2HeadToHeadWins > team1HeadToHeadWins) {
       return [...[sortedTeams[1], sortedTeams[0]], ...ineligibleTeams];
     }
     // If tied in head-to-head, continue to next tie-breaker
