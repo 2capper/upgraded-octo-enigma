@@ -569,36 +569,196 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }:
                     <h4 className="text-lg font-bold text-white text-center uppercase tracking-wider">Semifinals</h4>
                     
                     {/* SF Game 1 */}
-                    <div className="bg-gray-900 rounded-lg shadow-lg p-4 border-2 border-blue-600">
-                      <div className="text-center text-xs font-bold text-blue-400 uppercase mb-3">Semi 1</div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between bg-blue-900 text-white p-3 rounded border border-blue-700 hover:bg-blue-800 transition-colors">
-                          <span className="font-bold">2. {seed2.name}</span>
-                          <span className="font-bold text-xl">-</span>
+                    {(() => {
+                      // Find QF winners
+                      const qf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed3.id && g.awayTeamId === seed6.id) ||
+                         (g.homeTeamId === seed6.id && g.awayTeamId === seed3.id))
+                      );
+                      const qf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed4.id && g.awayTeamId === seed5.id) ||
+                         (g.homeTeamId === seed5.id && g.awayTeamId === seed4.id))
+                      );
+
+                      // Determine QF winners
+                      let qf1Winner = null;
+                      let qf2Winner = null;
+                      
+                      if (qf1Game?.status === 'completed' && qf1Game.homeScore !== null && qf1Game.awayScore !== null) {
+                        const homeScore = Number(qf1Game.homeScore);
+                        const awayScore = Number(qf1Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.awayTeamId);
+                        }
+                      }
+                      
+                      if (qf2Game?.status === 'completed' && qf2Game.homeScore !== null && qf2Game.awayScore !== null) {
+                        const homeScore = Number(qf2Game.homeScore);
+                        const awayScore = Number(qf2Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.awayTeamId);
+                        }
+                      }
+
+                      // Find SF1 game
+                      const sf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed2.id && qf1Winner && g.awayTeamId === qf1Winner.id) ||
+                         (qf1Winner && g.homeTeamId === qf1Winner.id && g.awayTeamId === seed2.id))
+                      );
+                      const isCompleted = sf1Game?.status === 'completed';
+                      
+                      return (
+                        <div 
+                          className={`bg-gray-900 rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all ${
+                            isCompleted ? 'border-green-500' : qf1Winner ? 'border-blue-600 hover:border-[var(--falcons-green)]' : 'border-gray-600'
+                          }`}
+                          onClick={() => sf1Game && qf1Winner && setSelectedGame(sf1Game)}
+                        >
+                          <div className="text-center text-xs font-bold text-blue-400 uppercase mb-3 flex items-center justify-center">
+                            Semi 1
+                            {isCompleted ? (
+                              <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
+                            ) : qf1Winner ? (
+                              <Edit3 className="w-3 h-3 ml-1 text-gray-400" />
+                            ) : null}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-blue-900 text-white p-3 rounded border border-blue-700">
+                              <span className="font-bold">2. {seed2.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && sf1Game ? 
+                                  (sf1Game.homeTeamId === seed2.id ? sf1Game.homeScore : sf1Game.awayScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                            <div className="text-center text-gray-400 text-xs">VS</div>
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">{qf1Winner ? `${qf1Winner.name}` : 'Winner Game 1'}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && sf1Game && qf1Winner ? 
+                                  (sf1Game.homeTeamId === qf1Winner.id ? sf1Game.homeScore : sf1Game.awayScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                          {!isCompleted && qf1Winner && (
+                            <div className="text-center mt-2 text-xs text-gray-400">
+                              Click to enter score
+                            </div>
+                          )}
+                          {!qf1Winner && (
+                            <div className="text-center mt-2 text-xs text-gray-500">
+                              Waiting for Game 1 result
+                            </div>
+                          )}
                         </div>
-                        <div className="text-center text-gray-400 text-xs">VS</div>
-                        <div className="flex items-center justify-between bg-gray-700 text-gray-300 p-3 rounded border border-gray-600">
-                          <span className="font-medium italic">Winner Game 1</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* SF Game 2 */}
-                    <div className="bg-gray-900 rounded-lg shadow-lg p-4 border-2 border-blue-600">
-                      <div className="text-center text-xs font-bold text-blue-400 uppercase mb-3">Semi 2</div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between bg-blue-900 text-white p-3 rounded border border-blue-700 hover:bg-blue-800 transition-colors">
-                          <span className="font-bold">1. {seed1.name}</span>
-                          <span className="font-bold text-xl">-</span>
+                    {(() => {
+                      // Find QF winners
+                      const qf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed3.id && g.awayTeamId === seed6.id) ||
+                         (g.homeTeamId === seed6.id && g.awayTeamId === seed3.id))
+                      );
+                      const qf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed4.id && g.awayTeamId === seed5.id) ||
+                         (g.homeTeamId === seed5.id && g.awayTeamId === seed4.id))
+                      );
+
+                      // Determine QF winners
+                      let qf1Winner = null;
+                      let qf2Winner = null;
+                      
+                      if (qf1Game?.status === 'completed' && qf1Game.homeScore !== null && qf1Game.awayScore !== null) {
+                        const homeScore = Number(qf1Game.homeScore);
+                        const awayScore = Number(qf1Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.awayTeamId);
+                        }
+                      }
+                      
+                      if (qf2Game?.status === 'completed' && qf2Game.homeScore !== null && qf2Game.awayScore !== null) {
+                        const homeScore = Number(qf2Game.homeScore);
+                        const awayScore = Number(qf2Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.awayTeamId);
+                        }
+                      }
+
+                      // Find SF2 game
+                      const sf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed1.id && qf2Winner && g.awayTeamId === qf2Winner.id) ||
+                         (qf2Winner && g.homeTeamId === qf2Winner.id && g.awayTeamId === seed1.id))
+                      );
+                      const isCompleted = sf2Game?.status === 'completed';
+                      
+                      return (
+                        <div 
+                          className={`bg-gray-900 rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all ${
+                            isCompleted ? 'border-green-500' : qf2Winner ? 'border-blue-600 hover:border-[var(--falcons-green)]' : 'border-gray-600'
+                          }`}
+                          onClick={() => sf2Game && qf2Winner && setSelectedGame(sf2Game)}
+                        >
+                          <div className="text-center text-xs font-bold text-blue-400 uppercase mb-3 flex items-center justify-center">
+                            Semi 2
+                            {isCompleted ? (
+                              <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
+                            ) : qf2Winner ? (
+                              <Edit3 className="w-3 h-3 ml-1 text-gray-400" />
+                            ) : null}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-blue-900 text-white p-3 rounded border border-blue-700">
+                              <span className="font-bold">1. {seed1.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && sf2Game ? 
+                                  (sf2Game.homeTeamId === seed1.id ? sf2Game.homeScore : sf2Game.awayScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                            <div className="text-center text-gray-400 text-xs">VS</div>
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">{qf2Winner ? `${qf2Winner.name}` : 'Winner Game 2'}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && sf2Game && qf2Winner ? 
+                                  (sf2Game.homeTeamId === qf2Winner.id ? sf2Game.homeScore : sf2Game.awayScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                          {!isCompleted && qf2Winner && (
+                            <div className="text-center mt-2 text-xs text-gray-400">
+                              Click to enter score
+                            </div>
+                          )}
+                          {!qf2Winner && (
+                            <div className="text-center mt-2 text-xs text-gray-500">
+                              Waiting for Game 2 result
+                            </div>
+                          )}
                         </div>
-                        <div className="text-center text-gray-400 text-xs">VS</div>
-                        <div className="flex items-center justify-between bg-gray-700 text-gray-300 p-3 rounded border border-gray-600">
-                          <span className="font-medium italic">Winner Game 2</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Finals */}
@@ -606,27 +766,159 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }:
                     <h4 className="text-lg font-bold text-white text-center uppercase tracking-wider">Championship</h4>
                     
                     {/* Championship Game */}
-                    <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-lg shadow-xl p-4 border-2 border-yellow-500">
-                      <div className="text-center text-xs font-bold text-white uppercase mb-3">Final</div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between bg-gray-900/80 backdrop-blur-sm text-white p-3 rounded border border-yellow-600">
-                          <span className="font-medium italic">Winner Semi 1</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                        <div className="text-center text-white text-xs font-bold">VS</div>
-                        <div className="flex items-center justify-between bg-gray-900/80 backdrop-blur-sm text-white p-3 rounded border border-yellow-600">
-                          <span className="font-medium italic">Winner Semi 2</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      // Find QF winners first
+                      const qf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed3.id && g.awayTeamId === seed6.id) ||
+                         (g.homeTeamId === seed6.id && g.awayTeamId === seed3.id))
+                      );
+                      const qf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed4.id && g.awayTeamId === seed5.id) ||
+                         (g.homeTeamId === seed5.id && g.awayTeamId === seed4.id))
+                      );
 
-                    {/* Championship Trophy */}
-                    <div className="text-center">
-                      <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-4 drop-shadow-lg" />
-                      <h5 className="text-xl font-bold text-white uppercase">Champion</h5>
-                      <p className="text-sm text-gray-400">To be determined</p>
-                    </div>
+                      // Determine QF winners
+                      let qf1Winner = null;
+                      let qf2Winner = null;
+                      
+                      if (qf1Game?.status === 'completed' && qf1Game.homeScore !== null && qf1Game.awayScore !== null) {
+                        const homeScore = Number(qf1Game.homeScore);
+                        const awayScore = Number(qf1Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf1Winner = teams.find(t => t.id === qf1Game.awayTeamId);
+                        }
+                      }
+                      
+                      if (qf2Game?.status === 'completed' && qf2Game.homeScore !== null && qf2Game.awayScore !== null) {
+                        const homeScore = Number(qf2Game.homeScore);
+                        const awayScore = Number(qf2Game.awayScore);
+                        if (homeScore > awayScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          qf2Winner = teams.find(t => t.id === qf2Game.awayTeamId);
+                        }
+                      }
+
+                      // Find SF winners
+                      const sf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed2.id && qf1Winner && g.awayTeamId === qf1Winner.id) ||
+                         (qf1Winner && g.homeTeamId === qf1Winner.id && g.awayTeamId === seed2.id))
+                      );
+                      const sf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed1.id && qf2Winner && g.awayTeamId === qf2Winner.id) ||
+                         (qf2Winner && g.homeTeamId === qf2Winner.id && g.awayTeamId === seed1.id))
+                      );
+
+                      let sf1Winner = null;
+                      let sf2Winner = null;
+
+                      if (sf1Game?.status === 'completed' && sf1Game.homeScore !== null && sf1Game.awayScore !== null) {
+                        const homeScore = Number(sf1Game.homeScore);
+                        const awayScore = Number(sf1Game.awayScore);
+                        if (homeScore > awayScore) {
+                          sf1Winner = teams.find(t => t.id === sf1Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          sf1Winner = teams.find(t => t.id === sf1Game.awayTeamId);
+                        }
+                      }
+
+                      if (sf2Game?.status === 'completed' && sf2Game.homeScore !== null && sf2Game.awayScore !== null) {
+                        const homeScore = Number(sf2Game.homeScore);
+                        const awayScore = Number(sf2Game.awayScore);
+                        if (homeScore > awayScore) {
+                          sf2Winner = teams.find(t => t.id === sf2Game.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          sf2Winner = teams.find(t => t.id === sf2Game.awayTeamId);
+                        }
+                      }
+
+                      // Find Championship game
+                      const champGame = games.find(g => 
+                        g.isPlayoff && 
+                        sf1Winner && sf2Winner &&
+                        ((g.homeTeamId === sf1Winner.id && g.awayTeamId === sf2Winner.id) ||
+                         (g.homeTeamId === sf2Winner.id && g.awayTeamId === sf1Winner.id))
+                      );
+                      const isCompleted = champGame?.status === 'completed';
+                      const canPlay = sf1Winner && sf2Winner;
+
+                      let champion = null;
+                      if (isCompleted && champGame && champGame.homeScore !== null && champGame.awayScore !== null) {
+                        const homeScore = Number(champGame.homeScore);
+                        const awayScore = Number(champGame.awayScore);
+                        if (homeScore > awayScore) {
+                          champion = teams.find(t => t.id === champGame.homeTeamId);
+                        } else if (awayScore > homeScore) {
+                          champion = teams.find(t => t.id === champGame.awayTeamId);
+                        }
+                      }
+
+                      return (
+                        <div>
+                          <div 
+                            className={`bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-lg shadow-xl p-4 border-2 cursor-pointer transition-all ${
+                              isCompleted ? 'border-green-400' : canPlay ? 'border-yellow-500 hover:border-[var(--falcons-green)]' : 'border-gray-600'
+                            }`}
+                            onClick={() => champGame && canPlay && setSelectedGame(champGame)}
+                          >
+                            <div className="text-center text-xs font-bold text-white uppercase mb-3 flex items-center justify-center">
+                              Final
+                              {isCompleted ? (
+                                <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
+                              ) : canPlay ? (
+                                <Edit3 className="w-3 h-3 ml-1 text-white" />
+                              ) : null}
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between bg-gray-900/80 backdrop-blur-sm text-white p-3 rounded border border-yellow-600">
+                                <span className="font-bold">{sf1Winner ? sf1Winner.name : 'Winner Semi 1'}</span>
+                                <span className="font-bold text-xl">
+                                  {isCompleted && champGame && sf1Winner ? 
+                                    (champGame.homeTeamId === sf1Winner.id ? champGame.homeScore : champGame.awayScore) : 
+                                    '-'
+                                  }
+                                </span>
+                              </div>
+                              <div className="text-center text-white text-xs font-bold">VS</div>
+                              <div className="flex items-center justify-between bg-gray-900/80 backdrop-blur-sm text-white p-3 rounded border border-yellow-600">
+                                <span className="font-bold">{sf2Winner ? sf2Winner.name : 'Winner Semi 2'}</span>
+                                <span className="font-bold text-xl">
+                                  {isCompleted && champGame && sf2Winner ? 
+                                    (champGame.homeTeamId === sf2Winner.id ? champGame.homeScore : champGame.awayScore) : 
+                                    '-'
+                                  }
+                                </span>
+                              </div>
+                            </div>
+                            {!isCompleted && canPlay && (
+                              <div className="text-center mt-2 text-xs text-white">
+                                Click to enter championship score
+                              </div>
+                            )}
+                            {!canPlay && (
+                              <div className="text-center mt-2 text-xs text-gray-300">
+                                Waiting for semifinal results
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Championship Trophy */}
+                          <div className="text-center mt-6">
+                            <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-4 drop-shadow-lg" />
+                            <h5 className="text-xl font-bold text-white uppercase">Champion</h5>
+                            <p className="text-sm text-gray-400">
+                              {champion ? champion.name : 'To be determined'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
