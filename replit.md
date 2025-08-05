@@ -61,9 +61,26 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### August 2025 - Authentication & Authorization System Update
+- **Public Route Access**: Made tournament viewing publicly accessible without authentication
+  - Dashboard, Tournament Dashboard, and Coach Score Input are now public routes
+  - Users can view standings, games, teams, and playoffs without signing in
+- **Admin-Only Restrictions**: Implemented role-based access control
+  - Added `isAdmin` field to user schema with database migration
+  - Created `requireAdmin` middleware for sensitive operations
+  - Restricted admin-only functions: tournament management, team editing, game score updates, roster importing
+  - **Playoff Score Editing**: Now requires admin authentication - users must be signed in as administrators to edit playoff game scores
+- **Enhanced Landing Page**: Created informative landing page for unauthenticated users
+  - Clear explanation of public vs admin access levels
+  - Professional tournament management feature showcase
+- **Route Protection Updates**:
+  - Admin Portal requires authentication and redirects to landing page if not signed in
+  - All game score editing endpoints require admin privileges
+  - Bulk data operations restricted to admin users only
+
 ### August 2025 - Replit Auth Integration
 - **Migration to Replit Auth**: Replaced custom bcrypt-based authentication system with Replit Auth using OpenID Connect
-- **Updated User Schema**: Modified user table to support Replit user claims (id, email, firstName, lastName, profileImageUrl)
+- **Updated User Schema**: Modified user table to support Replit user claims (id, email, firstName, lastName, profileImageUrl, isAdmin)
 - **Session Management**: Updated to PostgreSQL session store compatible with Replit Auth
 - **Frontend Updates**: 
   - New landing page for unauthenticated users with "Sign In with Replit" button

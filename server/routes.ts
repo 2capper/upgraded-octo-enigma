@@ -8,7 +8,7 @@ import {
   insertTeamSchema, 
   insertGameSchema 
 } from "@shared/schema";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -49,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments", isAuthenticated, async (req, res) => {
+  app.post("/api/tournaments", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.createTournament(validatedData);
@@ -60,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tournaments/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/tournaments/:id", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTournamentSchema.partial().parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
@@ -71,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tournaments/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/tournaments/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteTournament(req.params.id);
       res.status(204).send();
@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/age-divisions", async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/age-divisions", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertAgeDivisionSchema.parse({
         ...req.body,
@@ -117,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/pools", async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/pools", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertPoolSchema.parse({
         ...req.body,
@@ -142,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/teams", isAuthenticated, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/teams", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTeamSchema.parse({
         ...req.body,
@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/teams/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
       // Handle both direct data and wrapped data formats
       const updateData = req.body.data || req.body;
@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Scan team ID range endpoint
-  app.post("/api/roster/scan-range", isAuthenticated, async (req, res) => {
+  app.post("/api/roster/scan-range", requireAdmin, async (req, res) => {
     const { startId, endId, batchSize = 10 } = req.body;
     
     if (!startId || !endId) {
@@ -802,7 +802,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post("/api/teams/:teamId/roster/import", isAuthenticated, async (req, res) => {
+  app.post("/api/teams/:teamId/roster/import", requireAdmin, async (req, res) => {
     try {
       const { teamUrl, obaTeamId } = req.body;
       const { teamId } = req.params;
@@ -855,7 +855,7 @@ Waterdown 10U AA
             console.log(`✅ Found ${players.length} authentic players`);
             
             // Verify we have real player data (not navigation text)
-            const validPlayers = players.filter(p => 
+            const validPlayers = players.filter((p: any) => 
               p.name && 
               p.name.length > 3 &&
               !p.name.toLowerCase().includes('skip') &&
@@ -903,7 +903,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete("/api/teams/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteTeam(req.params.id);
       res.status(204).send();
@@ -956,7 +956,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post("/api/tournaments/:tournamentId/games", isAuthenticated, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/games", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertGameSchema.parse({
         ...req.body,
@@ -970,7 +970,7 @@ Waterdown 10U AA
     }
   });
 
-  app.put("/api/games/:id", async (req, res) => {
+  app.put("/api/games/:id", requireAdmin, async (req, res) => {
     try {
       const game = await storage.updateGame(req.params.id, req.body);
       res.json(game);
@@ -980,7 +980,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete("/api/games/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/games/:id", requireAdmin, async (req, res) => {
     try {
       await storage.deleteGame(req.params.id);
       res.status(204).send();
@@ -991,7 +991,7 @@ Waterdown 10U AA
   });
 
   // Bulk operations for data import
-  app.post("/api/tournaments/:tournamentId/bulk-import", isAuthenticated, async (req, res) => {
+  app.post("/api/tournaments/:tournamentId/bulk-import", requireAdmin, async (req, res) => {
     try {
       const { ageDivisions, pools, teams, games } = req.body;
       const tournamentId = req.params.tournamentId;

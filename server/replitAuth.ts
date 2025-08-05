@@ -155,3 +155,45 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+export const requireAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  // First check if user is authenticated
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized - Please login first" });
+  }
+
+  // Refresh token if needed
+  const now = Math.floor(Date.now() / 1000);
+  if (now > user.expires_at) {
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Unauthorized - Session expired" });
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+    } catch (error) {
+      return res.status(401).json({ message: "Unauthorized - Session expired" });
+    }
+  }
+
+  // Check if user has admin privileges
+  try {
+    const { storage } = await import("./storage");
+    const userId = user.claims.sub;
+    const dbUser = await storage.getUser(userId);
+    
+    if (!dbUser || !dbUser.isAdmin) {
+      return res.status(403).json({ message: "Forbidden - Admin access required" });
+    }
+
+    return next();
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

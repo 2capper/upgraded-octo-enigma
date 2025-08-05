@@ -54,17 +54,25 @@ function Router() {
 
   return (
     <Switch>
+      {/* Public routes - always accessible */}
+      <Route path="/dashboard/:tournamentId" component={Dashboard} />
+      <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
+      <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />
+      
+      {/* Protected admin routes */}
+      {isLoading || !isAuthenticated ? (
+        <Route path="/admin-portal/:tournamentId?" component={Landing} />
+      ) : (
+        <Route path="/admin-portal/:tournamentId?" component={AdminPortal} />
+      )}
+      
+      {/* Default routes */}
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
-        <>
-          <Route path="/" component={RedirectToAdminPortal} />
-          <Route path="/dashboard/:tournamentId" component={Dashboard} />
-          <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
-          <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />
-          <Route path="/admin-portal/:tournamentId?" component={AdminPortal} />
-        </>
+        <Route path="/" component={RedirectToAdminPortal} />
       )}
+      
       <Route component={NotFound} />
     </Switch>
   );

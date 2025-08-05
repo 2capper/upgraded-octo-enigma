@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle } from 'lucide-react';
+import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 interface PlayoffsTabProps {
@@ -25,7 +27,7 @@ const calculateStats = (teamId: string, games: Game[], teamIdFilter?: string[]) 
     if (!isInGame || g.status !== 'completed') return false;
     if (teamIdFilter) {
       const otherTeamId = g.homeTeamId === teamId ? g.awayTeamId : g.homeTeamId;
-      return teamIdFilter.includes(otherTeamId);
+      return otherTeamId && teamIdFilter.includes(otherTeamId);
     }
     return true;
   });
@@ -278,6 +280,7 @@ const PlayoffScoreDialog = ({
 
 export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }: PlayoffsTabProps) => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const { isAuthenticated } = useAuth();
   const divisionPlayoffTeams = useMemo(() => {
     if (!teams.length || !games.length || !ageDivisions.length) return {};
     
@@ -295,6 +298,7 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }:
       // Get games for teams in this division
       const divisionTeamIds = divisionTeams.map(t => t.id);
       const divisionGames = games.filter(g => 
+        g.homeTeamId && g.awayTeamId && 
         divisionTeamIds.includes(g.homeTeamId) && divisionTeamIds.includes(g.awayTeamId)
       );
       
@@ -469,7 +473,13 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }:
                           className={`bg-gray-900 rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all ${
                             isCompleted ? 'border-green-500' : 'border-gray-700 hover:border-[var(--falcons-green)]'
                           }`}
-                          onClick={() => qf1Game && setSelectedGame(qf1Game)}
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              alert('Please sign in as an administrator to edit playoff scores.');
+                              return;
+                            }
+                            qf1Game && setSelectedGame(qf1Game);
+                          }}
                         >
                           <div className="text-center text-xs font-bold text-yellow-400 uppercase mb-3 flex items-center justify-center">
                             Game 1
