@@ -158,6 +158,7 @@ export default function TournamentDashboard() {
               teams={teams}
               pools={pools}
               ageDivisions={ageDivisions}
+              tournamentId={tournamentId}
             />
           </TabsContent>
         </Tabs>

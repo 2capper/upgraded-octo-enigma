@@ -1,7 +1,13 @@
-import { useMemo } from 'react';
-import { Medal, Trophy, RefreshCw, Printer } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 import { Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 interface PlayoffsTabProps {
@@ -9,6 +15,7 @@ interface PlayoffsTabProps {
   games: Game[];
   pools: Pool[];
   ageDivisions: AgeDivision[];
+  tournamentId: string;
 }
 
 // Reuse the same calculation logic from the original code
@@ -27,16 +34,16 @@ const calculateStats = (teamId: string, games: Game[], teamIdFilter?: string[]) 
   
   relevantGames.forEach(g => {
     const isHome = g.homeTeamId === teamId;
-    stats.runsFor += isHome ? (g.homeScore || 0) : (g.awayScore || 0);
-    stats.runsAgainst += isHome ? (g.awayScore || 0) : (g.homeScore || 0);
-    stats.offensiveInnings += isHome ? (g.homeInningsBatted || 0) : (g.awayInningsBatted || 0);
-    stats.defensiveInnings += isHome ? (g.awayInningsBatted || 0) : (g.homeInningsBatted || 0);
+    stats.runsFor += isHome ? (Number(g.homeScore) || 0) : (Number(g.awayScore) || 0);
+    stats.runsAgainst += isHome ? (Number(g.awayScore) || 0) : (Number(g.homeScore) || 0);
+    stats.offensiveInnings += isHome ? (Number(g.homeInningsBatted) || 0) : (Number(g.awayInningsBatted) || 0);
+    stats.defensiveInnings += isHome ? (Number(g.awayInningsBatted) || 0) : (Number(g.homeInningsBatted) || 0);
 
     const forfeited = (isHome && g.forfeitStatus === 'home') || (!isHome && g.forfeitStatus === 'away');
     if (forfeited) { stats.losses++; stats.forfeitLosses++; return; }
 
-    const homeScore = g.homeScore || 0;
-    const awayScore = g.awayScore || 0;
+    const homeScore = Number(g.homeScore) || 0;
+    const awayScore = Number(g.awayScore) || 0;
     
     if (homeScore > awayScore) isHome ? stats.wins++ : stats.losses++;
     else if (awayScore > homeScore) isHome ? stats.losses++ : stats.wins++;
@@ -81,7 +88,196 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
   return sortedTeams.sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export const PlayoffsTab = ({ teams, games, pools, ageDivisions }: PlayoffsTabProps) => {
+// Playoff Score Dialog Component
+const PlayoffScoreDialog = ({ 
+  game, 
+  teams, 
+  tournamentId, 
+  onClose 
+}: { 
+  game: Game | null; 
+  teams: Team[]; 
+  tournamentId: string; 
+  onClose: () => void; 
+}) => {
+  const [homeScore, setHomeScore] = useState('');
+  const [awayScore, setAwayScore] = useState('');
+  const [homeInnings, setHomeInnings] = useState('7');
+  const [awayInnings, setAwayInnings] = useState('7');
+  const [forfeitStatus, setForfeitStatus] = useState('none');
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const updateGameMutation = useMutation({
+    mutationFn: async (updateData: any) => {
+      const response = await fetch(`/api/games/${game?.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+      if (!response.ok) throw new Error('Failed to update game');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Playoff Game Updated",
+        description: "Game score has been successfully submitted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
+      onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update game score. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!homeScore || !awayScore || !homeInnings || !awayInnings) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateGameMutation.mutate({
+      homeScore: Number(homeScore),
+      awayScore: Number(awayScore),
+      homeInningsBatted: Number(homeInnings),
+      awayInningsBatted: Number(awayInnings),
+      forfeitStatus,
+      status: 'completed'
+    });
+  };
+
+  if (!game) return null;
+
+  const homeTeam = teams.find(t => t.id === game.homeTeamId);
+  const awayTeam = teams.find(t => t.id === game.awayTeamId);
+
+  return (
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center">
+          <Trophy className="w-5 h-5 mr-2 text-[var(--falcons-green)]" />
+          Submit Playoff Game Score
+        </DialogTitle>
+      </DialogHeader>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="text-center p-4 bg-gray-50 rounded-lg">
+          <div className="font-semibold text-lg">
+            {awayTeam?.name || 'TBD'} @ {homeTeam?.name || 'TBD'}
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            {game.date} at {game.time} - {game.location}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="awayScore">Away Score</Label>
+            <Input
+              id="awayScore"
+              type="number"
+              min="0"
+              value={awayScore}
+              onChange={(e) => setAwayScore(e.target.value)}
+              placeholder="0"
+              required
+            />
+            <div className="text-xs text-gray-500 mt-1">{awayTeam?.name || 'TBD'}</div>
+          </div>
+          
+          <div>
+            <Label htmlFor="homeScore">Home Score</Label>
+            <Input
+              id="homeScore"
+              type="number"
+              min="0"
+              value={homeScore}
+              onChange={(e) => setHomeScore(e.target.value)}
+              placeholder="0"
+              required
+            />
+            <div className="text-xs text-gray-500 mt-1">{homeTeam?.name || 'TBD'}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="awayInnings">Away Innings</Label>
+            <Input
+              id="awayInnings"
+              type="number"
+              step="0.1"
+              min="0"
+              value={awayInnings}
+              onChange={(e) => setAwayInnings(e.target.value)}
+              required
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="homeInnings">Home Innings</Label>
+            <Input
+              id="homeInnings"
+              type="number"
+              step="0.1"
+              min="0"
+              value={homeInnings}
+              onChange={(e) => setHomeInnings(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="forfeit">Forfeit Status</Label>
+          <Select value={forfeitStatus} onValueChange={setForfeitStatus}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Forfeit</SelectItem>
+              <SelectItem value="home">Home Team Forfeit</SelectItem>
+              <SelectItem value="away">Away Team Forfeit</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={updateGameMutation.isPending}
+            className="flex-1 bg-[var(--falcons-green)] hover:bg-[var(--falcons-green)]/90"
+          >
+            {updateGameMutation.isPending ? 'Updating...' : 'Submit Score'}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  );
+};
+
+export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId }: PlayoffsTabProps) => {
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const divisionPlayoffTeams = useMemo(() => {
     if (!teams.length || !games.length || !ageDivisions.length) return {};
     
@@ -258,36 +454,114 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions }: PlayoffsTabPr
                     <h4 className="text-lg font-bold text-white text-center uppercase tracking-wider">Quarterfinals</h4>
                     
                     {/* QF Game 1 */}
-                    <div className="bg-gray-900 rounded-lg shadow-lg p-4 border-2 border-gray-700">
-                      <div className="text-center text-xs font-bold text-yellow-400 uppercase mb-3">Game 1</div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600 hover:bg-gray-600 transition-colors">
-                          <span className="font-bold">3. {seed3.name}</span>
-                          <span className="font-bold text-xl">-</span>
+                    {(() => {
+                      const qf1Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed3.id && g.awayTeamId === seed6.id) ||
+                         (g.homeTeamId === seed6.id && g.awayTeamId === seed3.id))
+                      );
+                      const isCompleted = qf1Game?.status === 'completed';
+                      const homeTeam = teams.find(t => t.id === qf1Game?.homeTeamId);
+                      const awayTeam = teams.find(t => t.id === qf1Game?.awayTeamId);
+                      
+                      return (
+                        <div 
+                          className={`bg-gray-900 rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all ${
+                            isCompleted ? 'border-green-500' : 'border-gray-700 hover:border-[var(--falcons-green)]'
+                          }`}
+                          onClick={() => qf1Game && setSelectedGame(qf1Game)}
+                        >
+                          <div className="text-center text-xs font-bold text-yellow-400 uppercase mb-3 flex items-center justify-center">
+                            Game 1
+                            {isCompleted ? (
+                              <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
+                            ) : (
+                              <Edit3 className="w-3 h-3 ml-1 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">3. {seed3.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && qf1Game ? 
+                                  (qf1Game.awayTeamId === seed3.id ? qf1Game.awayScore : qf1Game.homeScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                            <div className="text-center text-gray-400 text-xs">VS</div>
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">6. {seed6.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && qf1Game ? 
+                                  (qf1Game.awayTeamId === seed6.id ? qf1Game.awayScore : qf1Game.homeScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                          {!isCompleted && (
+                            <div className="text-center mt-2 text-xs text-gray-400">
+                              Click to enter score
+                            </div>
+                          )}
                         </div>
-                        <div className="text-center text-gray-400 text-xs">VS</div>
-                        <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600 hover:bg-gray-600 transition-colors">
-                          <span className="font-bold">6. {seed6.name}</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* QF Game 2 */}
-                    <div className="bg-gray-900 rounded-lg shadow-lg p-4 border-2 border-gray-700">
-                      <div className="text-center text-xs font-bold text-yellow-400 uppercase mb-3">Game 2</div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600 hover:bg-gray-600 transition-colors">
-                          <span className="font-bold">4. {seed4.name}</span>
-                          <span className="font-bold text-xl">-</span>
+                    {(() => {
+                      const qf2Game = games.find(g => 
+                        g.isPlayoff && 
+                        ((g.homeTeamId === seed4.id && g.awayTeamId === seed5.id) ||
+                         (g.homeTeamId === seed5.id && g.awayTeamId === seed4.id))
+                      );
+                      const isCompleted = qf2Game?.status === 'completed';
+                      
+                      return (
+                        <div 
+                          className={`bg-gray-900 rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all ${
+                            isCompleted ? 'border-green-500' : 'border-gray-700 hover:border-[var(--falcons-green)]'
+                          }`}
+                          onClick={() => qf2Game && setSelectedGame(qf2Game)}
+                        >
+                          <div className="text-center text-xs font-bold text-yellow-400 uppercase mb-3 flex items-center justify-center">
+                            Game 2
+                            {isCompleted ? (
+                              <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
+                            ) : (
+                              <Edit3 className="w-3 h-3 ml-1 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">4. {seed4.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && qf2Game ? 
+                                  (qf2Game.awayTeamId === seed4.id ? qf2Game.awayScore : qf2Game.homeScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                            <div className="text-center text-gray-400 text-xs">VS</div>
+                            <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600">
+                              <span className="font-bold">5. {seed5.name}</span>
+                              <span className="font-bold text-xl">
+                                {isCompleted && qf2Game ? 
+                                  (qf2Game.awayTeamId === seed5.id ? qf2Game.awayScore : qf2Game.homeScore) : 
+                                  '-'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                          {!isCompleted && (
+                            <div className="text-center mt-2 text-xs text-gray-400">
+                              Click to enter score
+                            </div>
+                          )}
                         </div>
-                        <div className="text-center text-gray-400 text-xs">VS</div>
-                        <div className="flex items-center justify-between bg-gray-700 text-white p-3 rounded border border-gray-600 hover:bg-gray-600 transition-colors">
-                          <span className="font-bold">5. {seed5.name}</span>
-                          <span className="font-bold text-xl">-</span>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Semifinals */}
@@ -360,6 +634,16 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions }: PlayoffsTabPr
           );
         })}
       </Tabs>
+
+      {/* Score Dialog */}
+      <Dialog open={!!selectedGame} onOpenChange={() => setSelectedGame(null)}>
+        <PlayoffScoreDialog
+          game={selectedGame}
+          teams={teams}
+          tournamentId={tournamentId}
+          onClose={() => setSelectedGame(null)}
+        />
+      </Dialog>
     </div>
   );
 };
