@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { useHostnameContext } from "@/hooks/useHostnameContext";
 import Home from "@/pages/home";
 import OrganizationPage from "@/pages/organization";
 import Dashboard from "@/pages/dashboard";
@@ -46,11 +47,28 @@ function RequireAuth({ component: Component }: { component: any }) {
   return <Component />;
 }
 
+function HostnameAwareHome() {
+  const { isStorefront, isLoading } = useHostnameContext();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return isStorefront ? <PublicDirectory /> : <Home />;
+}
+
 function Router() {
   return (
     <Switch>
       {/* Public routes - always accessible */}
-      <Route path="/" component={Home} />
+      <Route path="/" component={HostnameAwareHome} />
       <Route path="/directory" component={PublicDirectory} />
       <Route path="/org/:slug" component={OrganizationPage} />
       <Route path="/dashboard/:tournamentId" component={Dashboard} />
