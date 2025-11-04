@@ -388,6 +388,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public tournament directory endpoint (no auth required)
+  app.get("/api/public/tournaments", async (req, res) => {
+    try {
+      // Get all tournaments
+      let tournaments = await storage.getTournaments();
+      
+      // Filter to only public tournaments
+      tournaments = tournaments.filter(t => t.visibility === 'public');
+      
+      // Get organization details for each tournament
+      const tournamentsWithOrgs = await Promise.all(
+        tournaments.map(async (tournament) => {
+          const org = tournament.organizationId 
+            ? await storage.getOrganization(tournament.organizationId)
+            : null;
+          
+          return {
+            id: tournament.id,
+            name: tournament.name,
+            startDate: tournament.startDate,
+            endDate: tournament.endDate,
+            type: tournament.type,
+            primaryColor: tournament.primaryColor,
+            secondaryColor: tournament.secondaryColor,
+            logoUrl: tournament.logoUrl,
+            organization: org ? {
+              id: org.id,
+              name: org.name,
+              slug: org.slug,
+              logoUrl: org.logoUrl,
+            } : null,
+          };
+        })
+      );
+      
+      res.json(tournamentsWithOrgs);
+    } catch (error) {
+      console.error("Error fetching public tournaments:", error);
+      res.status(500).json({ error: "Failed to fetch public tournaments" });
+    }
+  });
+
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {

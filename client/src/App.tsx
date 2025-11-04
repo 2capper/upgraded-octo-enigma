@@ -11,6 +11,7 @@ import CoachScoreInput from "@/pages/coach-score-input";
 import AdminPortal from "@/pages/admin-portal";
 import TournamentDashboard from "@/pages/tournament-dashboard";
 import ValidationReport from "@/pages/validation-report";
+import PublicDirectory from "@/pages/public-directory";
 import TournamentRegistrationComingSoon from "@/pages/coming-soon/tournament-registration";
 import TournamentCommsComingSoon from "@/pages/coming-soon/tournament-comms";
 import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
@@ -50,6 +51,7 @@ function Router() {
     <Switch>
       {/* Public routes - always accessible */}
       <Route path="/" component={Home} />
+      <Route path="/directory" component={PublicDirectory} />
       <Route path="/org/:slug" component={OrganizationPage} />
       <Route path="/dashboard/:tournamentId" component={Dashboard} />
       <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
