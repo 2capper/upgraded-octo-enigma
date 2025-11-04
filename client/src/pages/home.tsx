@@ -81,15 +81,27 @@ export default function Home() {
             
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link href="/directory">
+                <Button 
+                  size="lg" 
+                  className="min-h-[48px] px-8 text-base font-semibold"
+                  style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                  data-testid="button-browse-directory"
+                >
+                  <Trophy className="w-5 h-5 mr-2" />
+                  Browse Public Tournaments
+                </Button>
+              </Link>
               <Button 
                 size="lg" 
-                className="min-h-[48px] px-8 text-base font-semibold"
-                style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                variant="outline"
+                className="min-h-[48px] px-8 text-base font-semibold bg-white hover:bg-gray-100"
+                style={{ color: 'var(--deep-navy)' }}
                 onClick={() => document.getElementById('tournaments-section')?.scrollIntoView({ behavior: 'smooth' })}
-                data-testid="button-view-tournaments"
+                data-testid="button-view-organizations"
               >
-                <Trophy className="w-5 h-5 mr-2" />
-                Explore Tournaments
+                <Building2 className="w-5 h-5 mr-2" />
+                View Organizations
               </Button>
               <a href="/api/login">
                 <Button 

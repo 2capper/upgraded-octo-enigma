@@ -1,6 +1,6 @@
 import { useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Calendar, Users, Trophy, TrendingUp, FileText } from 'lucide-react';
+import { Loader2, Calendar, Users, Trophy, TrendingUp, FileText, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,10 +11,12 @@ import { TeamsTab } from '@/components/tournament/teams-tab';
 import { PlayoffsTab } from '@/components/tournament/playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { useTournamentData } from '@/hooks/use-tournament-data';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function TournamentDashboard() {
   const params = useParams();
   const tournamentId = params.tournamentId as string;
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const { data: tournament, isLoading: tournamentLoading } = useQuery({
     queryKey: ['/api/tournaments', tournamentId],
@@ -32,7 +34,7 @@ export default function TournamentDashboard() {
     error
   } = useTournamentData(tournamentId);
 
-  if (tournamentLoading || isLoading) {
+  if (tournamentLoading || isLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -72,6 +74,40 @@ export default function TournamentDashboard() {
           <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-700">No Tournament Selected</h2>
           <p className="text-gray-500">Please select a tournament to view.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Access control: Check if user can view this tournament
+  const tournamentVisibility = currentTournament.visibility ?? 'private';
+  if (tournamentVisibility === 'private' && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-4">
+            <Lock className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+            <h2 className="text-xl font-semibold text-gray-700">Private Tournament</h2>
+          </div>
+          <p className="text-gray-600 mb-6">
+            This tournament is private and requires authentication to view. Please sign in to access it.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button 
+              onClick={() => window.location.href = '/api/login'} 
+              className="bg-[var(--forest-green)] text-white hover:bg-[var(--forest-green)]/90"
+              data-testid="button-sign-in"
+            >
+              Sign In
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/'} 
+              variant="outline"
+              data-testid="button-home"
+            >
+              Back to Home
+            </Button>
+          </div>
         </div>
       </div>
     );
