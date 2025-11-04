@@ -1,0 +1,103 @@
+just described the standard, professional way to scale a SaaS (Software as a Service) application.
+
+Your thinking is perfectly correct:
+
+www.dugoutdesk.com (The Storefront): This is your marketing website. Its job is to attract new organizations, explain the features (Tournaments, Expenses, Bookings), show pricing, and get new admins to sign up.
+
+app.dugoutdesk.ca (The Application): This is the product itself. This is where users log in to use the tools you've built.
+
+The challenge you've identified is that your Tournament App has two different audiences:
+
+Audience 1 (Private): An Admin from "LaSalle Baseball" who logs into app.dugoutdesk.ca to create and manage their tournament.
+
+Audience 2 (Public): A Coach from "Windsor Hawks" (who doesn't have an account) who just wants to find and view the LaSalle tournament.
+
+You can and should serve both from the same system. The solution is to add a simple "Visibility" setting to your tournaments.
+
+Here is the complete game plan to achieve this.
+
+The "Public Directory" Game Plan
+This plan lets your app be both a private admin tool and a public directory.
+
+Step 1: Add "Visibility" to Your Database
+In your Drizzle schema, add one new column to your tournaments table. This is the "master switch."
+
+TypeScript
+
+// drizzle/schema.ts
+export const tournaments = pgTable('tournaments', {
+  // ... all your existing columns like id, name, organizationId ...
+  
+  // --- ADD THIS COLUMN ---
+  visibility: text('visibility', { enum: ['private', 'public', 'unlisted'] })
+    .notNull()
+    .default('private'),
+});
+Here's what these settings mean:
+
+private (Default): The tournament is hidden. Only logged-in members of the organization that created it can see it.
+
+public: The tournament is visible to everyone and will appear in your new "Public Directory."
+
+unlisted: (A "nice-to-have" feature) The tournament is hidden from the directory, but anyone with the direct link can view the schedule and standings.
+
+Step 2: Update Your Admin Panel
+In your app.dugoutdesk.ca admin panel, find the "Create Tournament" / "Edit Tournament" form.
+
+Add a new radio button group that updates this visibility field.
+
+Tournament Visibility:
+
+(•) Private: Only members of my organization can find this. ( ) Public: List this tournament in the public directory for any team to find. ( ) Unlisted: Anyone with the direct link can view (but not listed publicly).
+
+Step 3: Create the Public Directory Page (On Your "Storefront")
+Now, you create a new page on your www.dugoutdesk.com site. This will be your "storefront" for teams.
+
+Create a New Page: www.dugoutdesk.com/tournaments
+
+Create a New Public API Endpoint: You need a new API endpoint that is not protected by authentication.
+
+TypeScript
+
+// server/routes.ts
+
+// This endpoint is OPEN to the public. No auth needed.
+app.get('/api/public/tournaments', async (req, res) => {
+  // Find all tournaments that are marked 'public'
+  const publicTournaments = await db.query.tournaments.findMany({
+    where: (tournaments, { eq }) => eq(tournaments.visibility, 'public'),
+    with: {
+      organization: {
+        columns: { name: true } // Also send back the org's name
+      }
+    }
+  });
+  res.json(publicTournaments);
+});
+Build the UI: On your /tournaments page, fetch data from this new /api/public/tournaments endpoint and display them as a list of "Tournament Cards."
+
+Each card would show:
+
+Tournament Name
+
+Hosting Organization (e.g., "Hosted by Forest Glade Baseball")
+
+Dates
+
+Age Divisions
+
+A "View Schedule" button that links to the public dashboard: app.dugoutdesk.ca/dashboard/[tournament_id]
+
+Your New, Unified Structure
+This plan gives you the "best of both worlds":
+
+Site	Purpose	Who Uses It?
+www.dugoutdesk.com	Storefront (Marketing)	Organization Admins looking to buy your software.
+www.dugoutdesk.com/tournaments	Public Directory (Search)	Team Coaches/Parents looking to find tournaments.
+app.dugoutdesk.ca	The Application (Product)	Logged-in Users who are managing tournaments, expenses, or bookings.
+
+Export to Sheets
+
+This model is powerful because your private admin app (app.dugoutdesk.ca) becomes the engine that populates your public-facing directory (www.dugoutdesk.com/tournaments). It all works together from one database.
+
+Would you like to start by sketching out the Drizzle schema for that visibility column and the API endpoint to fetch public tournaments?
