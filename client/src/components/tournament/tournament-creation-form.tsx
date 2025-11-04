@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Calendar, Type, Loader2, Users, Trophy, Palette, Image, Building2 } from 'lucide-react';
+import { Plus, Calendar, Type, Loader2, Users, Trophy, Palette, Image, Building2, Eye, Lock, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
     primaryColor: '#22c55e',
     secondaryColor: '#ffffff',
     logoUrl: '',
+    visibility: 'private' as 'private' | 'public' | 'unlisted',
   });
   const [isOpen, setIsOpen] = useState(showForm);
   const lastPopulatedOrgIdRef = useRef<string | null>(null);
@@ -120,6 +121,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
         primaryColor: '#22c55e',
         secondaryColor: '#ffffff',
         logoUrl: '',
+        visibility: 'private' as 'private' | 'public' | 'unlisted',
       });
       lastPopulatedOrgIdRef.current = null; // Reset tracking for next tournament
       setIsOpen(false);
@@ -545,6 +547,60 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
                 />
               </div>
             )}
+          </div>
+          
+          {/* Visibility & Access Section */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-900 flex items-center">
+              <Eye className="w-4 h-4 mr-2" />
+              Visibility & Access
+            </h3>
+            
+            <div>
+              <Label htmlFor="visibility">Who can view this tournament?</Label>
+              <Select 
+                value={formData.visibility} 
+                onValueChange={(value) => handleInputChange('visibility', value)}
+              >
+                <SelectTrigger className="mt-1" data-testid="select-visibility">
+                  <SelectValue placeholder="Select visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">
+                    <div className="flex items-center">
+                      <Lock className="w-4 h-4 mr-2" />
+                      <div>
+                        <div className="font-medium">Private</div>
+                        <div className="text-xs text-gray-500">Only members of your organization</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="public">
+                    <div className="flex items-center">
+                      <Eye className="w-4 h-4 mr-2" />
+                      <div>
+                        <div className="font-medium">Public</div>
+                        <div className="text-xs text-gray-500">Listed in public directory for everyone</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="unlisted">
+                    <div className="flex items-center">
+                      <Link className="w-4 h-4 mr-2" />
+                      <div>
+                        <div className="font-medium">Unlisted</div>
+                        <div className="text-xs text-gray-500">Viewable with link, not in directory</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.visibility === 'private' && 'Only logged-in members of your organization can view this tournament'}
+                {formData.visibility === 'public' && 'Anyone can find and view this tournament in the public directory'}
+                {formData.visibility === 'unlisted' && 'Anyone with the direct link can view, but not listed publicly'}
+              </p>
+            </div>
           </div>
           
           <div>

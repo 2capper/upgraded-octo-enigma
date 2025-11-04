@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Edit, MoreVertical, Eye } from 'lucide-react';
+import { Trash2, Edit, MoreVertical, Eye, Lock, Link } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +57,7 @@ interface Tournament {
   primaryColor?: string | null;
   secondaryColor?: string | null;
   logoUrl?: string | null;
+  visibility?: 'private' | 'public' | 'unlisted' | null;
 }
 
 interface TournamentManagerProps {
@@ -159,6 +160,7 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
       primaryColor: '#22c55e',
       secondaryColor: '#ffffff',
       logoUrl: '',
+      visibility: 'private',
     },
   });
 
@@ -179,6 +181,7 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
       primaryColor: tournament.primaryColor || '#22c55e',
       secondaryColor: tournament.secondaryColor || '#ffffff',
       logoUrl: tournament.logoUrl || '',
+      visibility: tournament.visibility || 'private',
     });
   };
 
@@ -612,6 +615,47 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
                         placeholder="https://example.com/logo.png" 
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Visibility</FormLabel>
+                    <Select 
+                      value={field.value ?? 'private'} 
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-visibility-edit">
+                          <SelectValue placeholder="Select visibility" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="private">
+                          <div className="flex items-center">
+                            <Lock className="w-4 h-4 mr-2" />
+                            <span>Private - Only your organization</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="public">
+                          <div className="flex items-center">
+                            <Eye className="w-4 h-4 mr-2" />
+                            <span>Public - Listed in directory</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="unlisted">
+                          <div className="flex items-center">
+                            <Link className="w-4 h-4 mr-2" />
+                            <span>Unlisted - Link only</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
