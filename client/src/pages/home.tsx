@@ -3,14 +3,16 @@ import { Link } from "wouter";
 import type { Organization, Tournament } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp } from "lucide-react";
+import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp, Shield, BarChart3, Smartphone } from "lucide-react";
 import { format } from "date-fns";
 import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png";
 import { FeatureShowcase } from "@/components/feature-showcase";
 import { useHostnameContext } from "@/hooks/useHostnameContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const { isStorefront } = useHostnameContext();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   
   const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
     queryKey: ['/api/organizations'],
@@ -35,91 +37,204 @@ export default function Home() {
   const totalOrgs = organizations?.length || 0;
   const totalTeams = allTournaments?.reduce((sum, t) => sum + (t.numberOfTeams || 0), 0) || 0;
 
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--light-gray)' }}>
-      {/* Hero Section */}
-      <div className="text-white" style={{ backgroundColor: 'var(--deep-navy)' }}>
-        <div className="container mx-auto px-4 py-12 md:py-16">
-          <div className="max-w-5xl mx-auto text-center">
-            {/* Logo */}
-            <img 
-              src={dugoutDeskLogo} 
-              alt="Dugout Desk Logo" 
-              className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6"
-              data-testid="img-dugout-desk-logo"
-            />
-            
-            {/* Title & Tagline */}
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4" data-testid="text-homepage-title">
-              DUGOUT DESK
-            </h1>
-            <p className="text-xl md:text-2xl mb-3 font-medium" data-testid="text-homepage-subtitle">
-              Your Tournament Command Center
-            </p>
-            <p className="text-base md:text-lg mb-8 opacity-90 max-w-2xl mx-auto">
-              Organize. Track. Win. Built for Ontario Baseball.
-            </p>
-            
-            {/* Platform Stats */}
-            <div className="grid grid-cols-3 gap-4 md:gap-8 max-w-2xl mx-auto mb-8">
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--clay-red)' }}>
-                  {totalOrgs}
-                </div>
-                <div className="text-xs md:text-sm opacity-80 uppercase tracking-wide">Organizations</div>
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--light-gray)' }}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--field-green)', borderTopColor: 'transparent' }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--deep-navy)' }}>
+        {/* Header */}
+        <header className="border-b border-white/10 py-4">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src={dugoutDeskLogo} alt="Dugout Desk" className="h-10 w-auto" />
+                <h1 className="text-xl md:text-2xl font-bold text-white font-['Oswald']">
+                  Dugout Desk
+                </h1>
               </div>
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--field-green)' }}>
-                  {totalTournaments}
-                </div>
-                <div className="text-xs md:text-sm opacity-80 uppercase tracking-wide">Tournaments</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--clay-red)' }}>
-                  {totalTeams}
-                </div>
-                <div className="text-xs md:text-sm opacity-80 uppercase tracking-wide">Teams</div>
-              </div>
-            </div>
-            
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               {!isStorefront && (
                 <Link href="/directory">
-                  <Button 
-                    size="lg" 
-                    className="min-h-[48px] px-8 text-base font-semibold"
-                    style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
-                    data-testid="button-browse-directory"
+                  <Button
+                    variant="outline"
+                    className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                    data-testid="button-public-directory"
                   >
-                    <Trophy className="w-5 h-5 mr-2" />
-                    Browse Public Tournaments
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Public Directory
                   </Button>
                 </Link>
               )}
+            </div>
+          </div>
+        </header>
+
+        {/* Login Hero */}
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="max-w-2xl w-full text-center">
+            <img 
+              src={dugoutDeskLogo} 
+              alt="Dugout Desk Logo" 
+              className="w-32 h-32 md:w-40 md:h-40 mx-auto mb-8 drop-shadow-2xl"
+              data-testid="img-login-logo"
+            />
+            
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 font-['Oswald']" data-testid="text-login-title">
+              Admin Portal
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-white/90 mb-3 font-medium">
+              Tournament Command Center
+            </p>
+            
+            <p className="text-base md:text-lg text-white/70 mb-12 max-w-xl mx-auto">
+              Manage tournaments, track scores, and update standings in real-time. 
+              Built for baseball tournament directors and coaches.
+            </p>
+
+            {/* Login Button */}
+            <a href="/api/login">
               <Button 
-                size="lg" 
+                size="lg"
+                className="bg-[var(--clay-red)] text-white hover:bg-[var(--clay-red)]/90 text-lg px-12 py-7 shadow-2xl font-semibold"
+                data-testid="button-admin-login-main"
+              >
+                <Shield className="w-6 h-6 mr-3" />
+                Sign In with Replit
+              </Button>
+            </a>
+
+            {/* Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-3xl mx-auto">
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <Smartphone className="w-10 h-10 text-[var(--field-green)] mx-auto mb-3" />
+                <h3 className="text-white font-semibold mb-2 font-['Oswald']">Mobile-First</h3>
+                <p className="text-white/70 text-sm">
+                  Manage from anywhere, on any device
+                </p>
+              </div>
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <BarChart3 className="w-10 h-10 text-[var(--field-green)] mx-auto mb-3" />
+                <h3 className="text-white font-semibold mb-2 font-['Oswald']">Real-Time</h3>
+                <p className="text-white/70 text-sm">
+                  Live scores and instant standings updates
+                </p>
+              </div>
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <Trophy className="w-10 h-10 text-[var(--field-green)] mx-auto mb-3" />
+                <h3 className="text-white font-semibold mb-2 font-['Oswald']">Complete Solution</h3>
+                <p className="text-white/70 text-sm">
+                  Pool play, playoffs, and brackets
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="border-t border-white/10 py-6">
+          <div className="container mx-auto px-4 text-center text-white/60 text-sm">
+            <p>&copy; 2025 Dugout Desk. Professional tournament management for Ontario Baseball.</p>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // Show authenticated dashboard
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--light-gray)' }}>
+      {/* Header with Logo */}
+      <header className="border-b shadow-sm" style={{ backgroundColor: 'var(--deep-navy)', borderColor: 'var(--deep-navy)' }}>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={dugoutDeskLogo} alt="Dugout Desk" className="h-12 w-auto" data-testid="img-header-logo" />
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-white font-['Oswald']">
+                  Dugout Desk
+                </h1>
+                <p className="text-xs text-white/70">Tournament Command Center</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 md:gap-3">
+              {!isStorefront && (
+                <Link href="/directory">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                    data-testid="button-browse-public"
+                  >
+                    <Trophy className="w-4 h-4 mr-0 sm:mr-2" />
+                    <span className="hidden sm:inline">Public Directory</span>
+                  </Button>
+                </Link>
+              )}
+              <Button
                 variant="outline"
-                className="min-h-[48px] px-8 text-base font-semibold bg-white hover:bg-gray-100"
-                style={{ color: 'var(--deep-navy)' }}
+                size="sm"
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20"
                 onClick={() => document.getElementById('tournaments-section')?.scrollIntoView({ behavior: 'smooth' })}
                 data-testid="button-view-organizations"
               >
-                <Building2 className="w-5 h-5 mr-2" />
-                View Organizations
+                <Building2 className="w-4 h-4 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">Organizations</span>
               </Button>
-              <a href="/api/login">
-                <Button 
-                  size="lg" 
+              <a href="/api/logout">
+                <Button
                   variant="outline"
-                  className="min-h-[48px] px-8 text-base font-semibold bg-white hover:bg-gray-100"
-                  style={{ color: 'var(--deep-navy)' }}
-                  data-testid="button-admin-login"
+                  size="sm"
+                  className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                  data-testid="button-logout"
                 >
-                  <LogIn className="w-5 h-5 mr-2" />
-                  Admin Login
+                  <LogIn className="w-4 h-4 mr-0 sm:mr-2" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
               </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Stats Banner */}
+      <div className="text-white" style={{ backgroundColor: 'var(--deep-navy)' }}>
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center font-['Oswald']" data-testid="text-dashboard-title">
+              Platform Overview
+            </h2>
+            
+            {/* Platform Stats */}
+            <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto">
+              <div className="text-center bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <div className="text-3xl md:text-5xl font-bold mb-2" style={{ color: 'var(--clay-red)' }}>
+                  {totalOrgs}
+                </div>
+                <div className="text-sm md:text-base opacity-90 font-medium">Organizations</div>
+              </div>
+              <div className="text-center bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <div className="text-3xl md:text-5xl font-bold mb-2" style={{ color: 'var(--field-green)' }}>
+                  {totalTournaments}
+                </div>
+                <div className="text-sm md:text-base opacity-90 font-medium">Tournaments</div>
+              </div>
+              <div className="text-center bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                <div className="text-3xl md:text-5xl font-bold mb-2" style={{ color: 'var(--clay-red)' }}>
+                  {totalTeams}
+                </div>
+                <div className="text-sm md:text-base opacity-90 font-medium">Teams</div>
+              </div>
             </div>
           </div>
         </div>
