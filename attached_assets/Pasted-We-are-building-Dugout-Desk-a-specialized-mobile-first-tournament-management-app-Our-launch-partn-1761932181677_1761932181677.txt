@@ -1,0 +1,50 @@
+We are building Dugout Desk, a specialized, mobile-first tournament management app. Our launch partner is the Ontario Baseball Association (OBA), so our brand must be authentic, credible, and highly functional.
+
+1. Core Brand Philosophy: "The Digital Dugout"
+The name "Dugout Desk" is our North Star. It combines two powerful concepts:
+
+The Dugout: The strategic, real-time "command center" of a baseball game.
+
+The Desk: The organized, administrative "hub" where the work gets done.
+
+The app's UI/UX must feel like a smart, organized assistant, not a complex piece of software. Our user is likely a busy parent or volunteer at the ballpark, on their phone, trying to input a score or check a schedule in bright sunlight.
+
+Our UI/UX Mantra: "Get in, get it done, get back to the game."
+
+2. Color Palette: "Modern Ballpark"
+This palette avoids clichés (no bright white baseball stitching). It's professional, high-contrast, and authentic to the sport.
+
+Primary (Structure & Trust): ~#2B3A4A (Deep Navy)
+
+Use: Main app headers, bottom navigation, primary text. This is our "professional" color.
+
+Secondary (Brand Accent): ~#3A6B35 (Field Green)
+
+Use: Secondary buttons, active states, "Success" or "Final" status tags, and key brand accents.
+
+Tertiary (Action/CTA): ~#B94E48 (Clay Red)
+
+Use: All primary "Call to Action" buttons (e.g., "Log Score," "Save," "Submit"). Also for "Live" status tags or alerts. It's high-visibility and implies action.
+
+Neutrals (UI & Readability):
+
+Light Background: ~#F4F5F6 (Very Light Gray). Use this instead of pure white to reduce glare in sunlight.
+
+Card Background: ~#FFFFFF (White). For clean, scannable cards.
+
+Text (Dark): ~#2B3A4A (Deep Navy). Use this, not pure black, for text. It's easier on the eyes.
+
+3. Typography: "Clear & Strong"
+We need a mix of "brand voice" (strong) and "UI clarity" (legible).
+
+Headings & Brand Font: Oswald or Anton
+
+Why: These are strong, condensed, and have a "varsity" or "league standings" feel. They give the app a sporty personality without being cartoony.
+
+Use: H1/H2, page titles (e.g., "Standings," "Schedule").
+
+Body & UI Font: Inter or Roboto
+
+Why: This is our workhorse. We need a font that is exceptionally legible at small sizes on a mobile screen. The numbers (for scores and times) must be clear.
+
+Use: All body text, button text, labels, and score inputs.

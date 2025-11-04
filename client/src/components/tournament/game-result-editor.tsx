@@ -54,6 +54,10 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
     awayInningsBatted: '',
     forfeitStatus: 'none',
     status: 'scheduled',
+    date: '',
+    time: '',
+    location: '',
+    subVenue: '',
   });
   
   // Filter states
@@ -143,13 +147,17 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
       awayInningsBatted: game.awayInningsBatted?.toString() || '',
       forfeitStatus: game.forfeitStatus || 'none',
       status: game.status || 'scheduled',
+      date: game.date || '',
+      time: game.time || '',
+      location: game.location || '',
+      subVenue: game.subVenue || '',
     });
   };
 
   const handleSave = () => {
     if (!editingGame) return;
     
-    const updates = {
+    const updates: any = {
       homeScore: editForm.homeScore ? parseInt(editForm.homeScore) : null,
       awayScore: editForm.awayScore ? parseInt(editForm.awayScore) : null,
       homeInningsBatted: editForm.homeInningsBatted ? parseFloat(editForm.homeInningsBatted) : null,
@@ -157,6 +165,12 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
       forfeitStatus: editForm.forfeitStatus,
       status: editForm.status,
     };
+
+    // Include schedule fields
+    if (editForm.date) updates.date = editForm.date;
+    if (editForm.time) updates.time = editForm.time;
+    if (editForm.location) updates.location = editForm.location;
+    if (editForm.subVenue !== editingGame.subVenue) updates.subVenue = editForm.subVenue || null;
     
     updateGameMutation.mutate({ gameId: editingGame.id, updates });
   };
@@ -264,6 +278,9 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                     
                     {isEditing ? (
                       <div className="mt-4 grid grid-cols-2 gap-4">
+                        <div className="col-span-2 border-b pb-3 mb-2">
+                          <h4 className="text-sm font-semibold text-gray-700">Score Information</h4>
+                        </div>
                         <div>
                           <Label>Home Score</Label>
                           <Input
@@ -272,6 +289,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                             onChange={(e) => setEditForm(prev => ({ ...prev, homeScore: e.target.value }))}
                             placeholder="0"
                             className="mt-1"
+                            data-testid="input-home-score"
                           />
                         </div>
                         <div>
@@ -282,6 +300,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                             onChange={(e) => setEditForm(prev => ({ ...prev, awayScore: e.target.value }))}
                             placeholder="0"
                             className="mt-1"
+                            data-testid="input-away-score"
                           />
                         </div>
                         <div>
@@ -293,6 +312,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                             onChange={(e) => setEditForm(prev => ({ ...prev, homeInningsBatted: e.target.value }))}
                             placeholder="6.0"
                             className="mt-1"
+                            data-testid="input-home-innings"
                           />
                         </div>
                         <div>
@@ -304,12 +324,13 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                             onChange={(e) => setEditForm(prev => ({ ...prev, awayInningsBatted: e.target.value }))}
                             placeholder="6.0"
                             className="mt-1"
+                            data-testid="input-away-innings"
                           />
                         </div>
                         <div>
                           <Label>Status</Label>
                           <Select value={editForm.status} onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}>
-                            <SelectTrigger className="mt-1">
+                            <SelectTrigger className="mt-1" data-testid="select-status">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -321,7 +342,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                         <div>
                           <Label>Forfeit Status</Label>
                           <Select value={editForm.forfeitStatus} onValueChange={(value) => setEditForm(prev => ({ ...prev, forfeitStatus: value }))}>
-                            <SelectTrigger className="mt-1">
+                            <SelectTrigger className="mt-1" data-testid="select-forfeit">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -331,11 +352,59 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                             </SelectContent>
                           </Select>
                         </div>
+
+                        <div className="col-span-2 border-b pb-3 mb-2 mt-4">
+                          <h4 className="text-sm font-semibold text-gray-700">Schedule Information</h4>
+                        </div>
+                        <div>
+                          <Label>Date</Label>
+                          <Input
+                            type="date"
+                            value={editForm.date}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                            className="mt-1"
+                            data-testid="input-game-date"
+                          />
+                        </div>
+                        <div>
+                          <Label>Time</Label>
+                          <Input
+                            type="time"
+                            value={editForm.time}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, time: e.target.value }))}
+                            className="mt-1"
+                            data-testid="input-game-time"
+                          />
+                        </div>
+                        <div>
+                          <Label>Diamond/Location</Label>
+                          <Input
+                            type="text"
+                            value={editForm.location}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                            placeholder="e.g., Diamond 1"
+                            className="mt-1"
+                            data-testid="input-game-location"
+                          />
+                        </div>
+                        <div>
+                          <Label>Field Name (Optional)</Label>
+                          <Input
+                            type="text"
+                            value={editForm.subVenue}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, subVenue: e.target.value }))}
+                            placeholder="e.g., Main Field"
+                            className="mt-1"
+                            data-testid="input-game-subvenue"
+                          />
+                        </div>
+
                         <div className="col-span-2 flex justify-end space-x-2 mt-4">
                           <Button 
                             variant="outline" 
                             onClick={() => setEditingGame(null)}
                             disabled={updateGameMutation.isPending}
+                            data-testid="button-cancel-edit"
                           >
                             <X className="w-4 h-4 mr-2" />
                             Cancel
@@ -343,7 +412,9 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                           <Button 
                             onClick={handleSave}
                             disabled={updateGameMutation.isPending}
-                            className="bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
+                            className="min-h-[48px] font-semibold"
+                            style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+                            data-testid="button-save-game"
                           >
                             {updateGameMutation.isPending ? (
                               <>

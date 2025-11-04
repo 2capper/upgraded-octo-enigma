@@ -82,33 +82,54 @@ export default function TournamentDashboard() {
       <SimpleNavigation 
         tournamentId={tournamentId}
         currentPage='dashboard'
+        tournament={currentTournament}
       />
       
       <div className="px-4 py-4 md:py-8">
-        {/* Tournament Header */}
+        {/* Tournament Header with Custom Branding */}
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                {currentTournament.name}
-              </h1>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  {currentTournament.startDate} - {currentTournament.endDate}
-                </div>
-                <div className="flex items-center">
-                  <Users className="w-4 h-4 mr-1" />
-                  {teams.length} Teams
-                </div>
-                <div className="flex items-center">
-                  <Trophy className="w-4 h-4 mr-1" />
-                  {ageDivisions.length} Divisions
+            <div className="flex items-center gap-4">
+              {/* Tournament Logo */}
+              {currentTournament.logoUrl && (
+                <img
+                  src={currentTournament.logoUrl}
+                  alt="Tournament Logo"
+                  className="h-16 w-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  data-testid="img-tournament-logo"
+                />
+              )}
+              
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                  {currentTournament.customName || currentTournament.name}
+                </h1>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    {currentTournament.startDate} - {currentTournament.endDate}
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-1" />
+                    {teams.length} Teams
+                  </div>
+                  <div className="flex items-center">
+                    <Trophy className="w-4 h-4 mr-1" />
+                    {ageDivisions.length} Divisions
+                  </div>
                 </div>
               </div>
             </div>
             <div>
-              <Badge variant="outline" className="text-[var(--falcons-green)] text-xs px-2 py-1 w-fit">
+              <Badge 
+                variant="outline" 
+                className="text-xs px-2 py-1 w-fit border-current"
+                style={{ color: currentTournament.primaryColor || '#22c55e' }}
+                data-testid="badge-tournament-id"
+              >
                 ID: {tournamentId}
               </Badge>
             </div>
@@ -118,12 +139,41 @@ export default function TournamentDashboard() {
 
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="standings" className="mt-6 tabs-forest">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full gap-1 h-auto">
-            <TabsTrigger value="standings" className="text-xs md:text-sm py-2">Standings</TabsTrigger>
-            <TabsTrigger value="games" className="text-xs md:text-sm py-2">Games</TabsTrigger>
-            <TabsTrigger value="teams" className="text-xs md:text-sm py-2">Teams</TabsTrigger>
-            <TabsTrigger value="playoffs" className="text-xs md:text-sm py-2">Playoffs</TabsTrigger>
+        <Tabs defaultValue="standings" className="mt-6">
+          <TabsList 
+            className="grid grid-cols-2 md:grid-cols-4 w-full gap-1 h-auto"
+            style={{
+              '--tab-bg': currentTournament.primaryColor || 'hsl(120, 45%, 25%)',
+              '--tab-bg-hover': currentTournament.primaryColor ? `color-mix(in srgb, ${currentTournament.primaryColor} 80%, #000 20%)` : 'hsl(120, 45%, 20%)',
+              '--tab-text': currentTournament.secondaryColor || '#ffffff',
+              '--tab-active-bg': currentTournament.secondaryColor || '#ffffff',
+              '--tab-active-text': currentTournament.primaryColor || 'hsl(120, 45%, 25%)',
+            } as React.CSSProperties}
+          >
+            <TabsTrigger 
+              value="standings" 
+              className="text-xs md:text-sm py-2 data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+            >
+              Standings
+            </TabsTrigger>
+            <TabsTrigger 
+              value="games" 
+              className="text-xs md:text-sm py-2 data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+            >
+              Games
+            </TabsTrigger>
+            <TabsTrigger 
+              value="teams" 
+              className="text-xs md:text-sm py-2 data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+            >
+              Teams
+            </TabsTrigger>
+            <TabsTrigger 
+              value="playoffs" 
+              className="text-xs md:text-sm py-2 data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+            >
+              Playoffs
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="standings" className="mt-6">
@@ -132,6 +182,7 @@ export default function TournamentDashboard() {
               games={games}
               ageDivisions={ageDivisions}
               pools={pools}
+              tournament={currentTournament}
             />
           </TabsContent>
           
@@ -159,6 +210,7 @@ export default function TournamentDashboard() {
               pools={pools}
               ageDivisions={ageDivisions}
               tournamentId={tournamentId}
+              tournament={currentTournament}
             />
           </TabsContent>
         </Tabs>

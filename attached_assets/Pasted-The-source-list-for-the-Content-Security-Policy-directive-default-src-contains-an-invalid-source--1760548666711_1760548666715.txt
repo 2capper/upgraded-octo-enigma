@@ -1,0 +1,281 @@
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+Nest-Tourney-Manager:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+Nest-Tourney-Manager:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+Nest-Tourney-Manager:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+_app-c9ca3a552390b735.js:28 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-c9ca3a552390b735.js:28 [LaunchDarkly] LaunchDarkly client initialized
+classifier.js:1 [Report Only] Refused to compile or instantiate WebAssembly module because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+
+ [Report Only] Refused to compile or instantiate WebAssembly module because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+
+framework-a9c93489e40d8584.js:1 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'battery'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-a9c93489e40d8584.js:1
+framework-a9c93489e40d8584.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-a9c93489e40d8584.js:1
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'ambient-light-sensor'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'battery'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'execution-while-not-rendered'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'layout-animations'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'legacy-image-formats'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'navigation-override'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'oversized-images'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'publickey-credentials'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'speaker-selection'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'unoptimized-images'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Unrecognized feature: 'unsized-media'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Allow attribute will take precedence over 'allowfullscreen'.
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Argk%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+www.google-analytics.com/analytics.js:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/api/tournaments/2025-oba-provinvials-13u-pilot-2025-10/bulk-import:1  Failed to load resource: the server responded with a status of 400 (Bad Request)
+8d4bba00-f99c-44f9-9b9f-d8231f53e939-00-2ixlgfq9mqatz.worf.replit.dev/api/tournaments/2025-oba-provinvials-13u-pilot-2025-10/bulk-import:1  Failed to load resource: the server responded with a status of 400 (Bad Request)
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.html?initialPath=%2Ftournament%2F2025-oba-provinvials-13u-pilot-2025-10&id=%3Argk%…:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Nest-Tourney-Manager:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(6)
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(6)
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(4)
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(6)
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Binbrook: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Everett: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Forest Glade: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Northumberland: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Wexford Agincourt: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Saugeen Shores: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(6)
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Corunna: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Guelph: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Oakville: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Owen Sound: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for Waterdown: 0/0 = Infinity
+injected.js:27 RA/DIP among tied for St. Catharines: 0/0 = Infinity
+injected.js:27 Tie resolved by RA/DIP among tied teams: Array(6)

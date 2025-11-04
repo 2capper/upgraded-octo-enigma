@@ -15,11 +15,12 @@ export default function Landing() {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <Trophy className="h-8 w-8 text-[var(--falcons-green)] mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Tournament Manager</h1>
+              <h1 className="text-2xl font-bold text-gray-900">DUGOUT DESK</h1>
             </div>
             <Button 
               onClick={handleSignIn}
-              className="bg-[var(--falcons-green)] hover:bg-[var(--falcons-green)]/90 text-white"
+              className="min-h-[48px] px-6 font-semibold text-white"
+              style={{ backgroundColor: 'var(--clay-red)' }}
               data-testid="button-signin"
             >
               <Shield className="w-4 h-4 mr-2" />

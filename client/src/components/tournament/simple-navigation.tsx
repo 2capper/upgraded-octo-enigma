@@ -2,34 +2,86 @@ import { Link, useLocation } from 'wouter';
 import { Trophy, Home, FileText, Shield, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
-import fLogo from '@assets/519-fsu-falcons.webp';
 
-const NestLogo = () => (
-  <div className="flex items-center">
-    <img 
-      src={fLogo} 
-      alt="Forest Glade Falcons" 
-      className="h-10 w-auto mr-2"
-    />
-    <span className="text-[var(--forest-green)] font-bold text-lg">The Nest</span>
-  </div>
-);
+interface TournamentBranding {
+  name: string;
+  customName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+}
+
+interface TournamentLogoProps {
+  tournament?: TournamentBranding;
+  isAdminPage?: boolean;
+}
+
+const TournamentLogo = ({ tournament, isAdminPage }: TournamentLogoProps) => {
+  const adminColor = '#2B3A4A'; // Deep Navy from Dugout Desk branding
+  const logoColor = isAdminPage ? adminColor : (tournament?.primaryColor || '#22c55e');
+  
+  // Show custom logo if provided, otherwise show trophy icon
+  const showCustomLogo = tournament?.logoUrl;
+  
+  return (
+    <div className="flex items-center">
+      {showCustomLogo ? (
+        <img 
+          src={tournament.logoUrl!} 
+          alt={tournament?.customName || tournament?.name || "Tournament"} 
+          className="h-10 w-auto mr-2"
+          onError={(e) => {
+            // Remove image and show nothing if it fails to load
+            e.currentTarget.style.display = 'none';
+          }}
+          data-testid="img-tournament-nav-logo"
+        />
+      ) : (
+        <div 
+          className="flex items-center justify-center h-10 w-10 rounded-md mr-2"
+          style={{ backgroundColor: logoColor }}
+        >
+          <Trophy className="w-6 h-6 text-white" />
+        </div>
+      )}
+      <span 
+        className="font-bold text-lg"
+        style={{ color: logoColor }}
+        data-testid="text-tournament-nav-name"
+      >
+        {tournament?.customName || tournament?.name || "Tournament"}
+      </span>
+    </div>
+  );
+};
 
 interface SimpleNavigationProps {
   tournamentId: string;
   currentPage: 'dashboard' | 'coach' | 'admin';
+  tournament?: TournamentBranding;
 }
 
-export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigationProps) => {
+export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: SimpleNavigationProps) => {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Use Dugout Desk branding colors when on admin page, otherwise use tournament colors
+  const adminPrimaryColor = '#2B3A4A'; // Deep Navy from Dugout Desk branding
+  const adminSecondaryColor = '#3A6B35'; // Field Green from Dugout Desk branding
+  
+  const primaryColor = currentPage === 'admin' 
+    ? adminPrimaryColor 
+    : (tournament?.primaryColor || '#22c55e');
+  const secondaryColor = currentPage === 'admin' 
+    ? adminSecondaryColor 
+    : (tournament?.secondaryColor || '#ffffff');
   
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <NestLogo />
+            <TournamentLogo tournament={tournament} isAdminPage={currentPage === 'admin'} />
           </div>
           
           {/* Desktop Navigation */}
@@ -38,7 +90,27 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
               <Button 
                 variant={currentPage === 'dashboard' ? 'secondary' : 'ghost'}
                 size="sm"
-                className={`${currentPage === 'dashboard' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)] hover:bg-[var(--forest-green)] hover:text-white'}`}
+                className={`${currentPage === 'dashboard' ? 'font-semibold' : ''}`}
+                style={{
+                  backgroundColor: currentPage === 'dashboard' ? primaryColor : 'transparent',
+                  color: currentPage === 'dashboard' ? secondaryColor : primaryColor,
+                  ...(currentPage !== 'dashboard' && {
+                    '--tw-hover-bg-opacity': '1'
+                  })
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 'dashboard') {
+                    e.currentTarget.style.backgroundColor = primaryColor;
+                    e.currentTarget.style.color = secondaryColor;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 'dashboard') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = primaryColor;
+                  }
+                }}
+                data-testid="button-nav-dashboard"
               >
                 <Home className="w-4 h-4 mr-2" />
                 Dashboard
@@ -49,7 +121,24 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
               <Button 
                 variant={currentPage === 'coach' ? 'secondary' : 'ghost'}
                 size="sm"
-                className={`${currentPage === 'coach' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)] hover:bg-[var(--forest-green)] hover:text-white'}`}
+                className={`${currentPage === 'coach' ? 'font-semibold' : ''}`}
+                style={{
+                  backgroundColor: currentPage === 'coach' ? primaryColor : 'transparent',
+                  color: currentPage === 'coach' ? secondaryColor : primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 'coach') {
+                    e.currentTarget.style.backgroundColor = primaryColor;
+                    e.currentTarget.style.color = secondaryColor;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 'coach') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = primaryColor;
+                  }
+                }}
+                data-testid="button-nav-score-input"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Score Input
@@ -60,7 +149,24 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
               <Button 
                 variant={currentPage === 'admin' ? 'secondary' : 'ghost'}
                 size="sm"
-                className={`${currentPage === 'admin' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)] hover:bg-[var(--forest-green)] hover:text-white'}`}
+                className={`${currentPage === 'admin' ? 'font-semibold' : ''}`}
+                style={{
+                  backgroundColor: currentPage === 'admin' ? primaryColor : 'transparent',
+                  color: currentPage === 'admin' ? secondaryColor : primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 'admin') {
+                    e.currentTarget.style.backgroundColor = primaryColor;
+                    e.currentTarget.style.color = secondaryColor;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 'admin') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = primaryColor;
+                  }
+                }}
+                data-testid="button-nav-admin"
               >
                 <Shield className="w-4 h-4 mr-2" />
                 Admin
@@ -74,7 +180,13 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-[var(--forest-green)] hover:bg-[var(--forest-green)]/10"
+              style={{ color: primaryColor }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `${primaryColor}10`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
               <Menu className="w-6 h-6" />
             </Button>
@@ -89,7 +201,11 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
                 <Button
                   variant="ghost"
                   size="lg"
-                  className={`w-full justify-start ${currentPage === 'dashboard' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)]'}`}
+                  className={`w-full justify-start ${currentPage === 'dashboard' ? 'font-semibold' : ''}`}
+                  style={{
+                    backgroundColor: currentPage === 'dashboard' ? primaryColor : 'transparent',
+                    color: currentPage === 'dashboard' ? secondaryColor : primaryColor,
+                  }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Home className="w-5 h-5 mr-3" />
@@ -101,7 +217,11 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
                 <Button
                   variant="ghost"
                   size="lg"
-                  className={`w-full justify-start ${currentPage === 'coach' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)]'}`}
+                  className={`w-full justify-start ${currentPage === 'coach' ? 'font-semibold' : ''}`}
+                  style={{
+                    backgroundColor: currentPage === 'coach' ? primaryColor : 'transparent',
+                    color: currentPage === 'coach' ? secondaryColor : primaryColor,
+                  }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <FileText className="w-5 h-5 mr-3" />
@@ -113,7 +233,11 @@ export const SimpleNavigation = ({ tournamentId, currentPage }: SimpleNavigation
                 <Button
                   variant="ghost"
                   size="lg"
-                  className={`w-full justify-start ${currentPage === 'admin' ? 'bg-[var(--forest-green)] text-white font-semibold' : 'text-[var(--forest-green)]'}`}
+                  className={`w-full justify-start ${currentPage === 'admin' ? 'font-semibold' : ''}`}
+                  style={{
+                    backgroundColor: currentPage === 'admin' ? primaryColor : 'transparent',
+                    color: currentPage === 'admin' ? secondaryColor : primaryColor,
+                  }}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Shield className="w-5 h-5 mr-3" />

@@ -192,10 +192,8 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
     return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}&travelmode=walking`;
   };
 
-  // Filter to only show 11U and 13U divisions
-  const targetDivisions = ageDivisions.filter(div => 
-    div.name === '11U' || div.name === '13U'
-  );
+  // Show all available divisions
+  const targetDivisions = ageDivisions;
 
   return (
     <div className="p-6">

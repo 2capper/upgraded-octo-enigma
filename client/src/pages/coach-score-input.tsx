@@ -42,7 +42,11 @@ export default function CoachScoreInput() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <SimpleNavigation tournamentId={currentTournamentId} currentPage="coach" />
+      <SimpleNavigation 
+        tournamentId={currentTournamentId} 
+        currentPage="coach" 
+        tournament={currentTournament}
+      />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">

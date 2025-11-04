@@ -17,10 +17,8 @@ export const TournamentCards = ({ tournaments = [], teams = [], games = [], pool
   const totalGames = games.length;
   const progressPercentage = totalGames > 0 ? (completedGames / totalGames) * 100 : 0;
 
-  // Calculate age division stats - only show 11U and 13U
-  const targetDivisions = ageDivisions.filter(div => 
-    div.name === '11U' || div.name === '13U'
-  );
+  // Calculate age division stats - show all available divisions
+  const targetDivisions = ageDivisions;
   
   const ageDivisionStats = targetDivisions.map(division => {
     const divisionPools = pools.filter(p => p.ageDivisionId === division.id);

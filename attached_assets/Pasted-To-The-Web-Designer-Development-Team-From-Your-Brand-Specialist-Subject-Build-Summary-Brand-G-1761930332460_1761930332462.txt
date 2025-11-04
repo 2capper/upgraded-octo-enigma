@@ -1,0 +1,110 @@
+To: The Web Designer & Development Team
+From: Your Brand Specialist
+Subject: Build Summary & Brand Guidelines for "GameDay Guru" (Mobile-First App)
+This document summarizes the complete visual and brand strategy for the "GameDay Guru" tournament management app. The primary directive is a mobile-first build that balances our core brand identity with a flexible multi-tenant architecture.
+
+Our brand identity is expert, helpful, dynamic, and clear. The app should feel like an "expert co-pilot" for tournament organizers—powerful but easy to use.
+
+1. Core Brand Identity: "GameDay Guru" (The App Shell)
+These are the foundational, non-changeable elements of the app. They establish our brand trust and ensure universal usability.
+
+Logo Usage
+Primary Full Logo: (Icon + "GameDay Guru" Wordmark + Tagline "Your Ultimate Tournament Navigator").
+
+Use: App Splash/Loading Screen, "About" page, main website.
+
+Asset:
+
+Icon-Only Logo: (The abstract "G" icon).
+
+Use: This is the primary logo for the mobile UI. It must be present in the main app header (top-left). It also serves as the App Icon and Favicon.
+
+Asset:
+
+Monochromatic Icons: Solid green, solid orange, and white/black versions of the icon will be required for dark mode, footers, and active/inactive states.
+
+Color Palette (The "App Shell")
+This palette is for all non-tenant-specific UI (headers, nav bars, menus, etc.).
+
+Primary Green (Structure & Trust): ~#0A4F4A
+
+Use: Main app header, bottom navigation bar, active navigation state, positive confirmation messages.
+
+Accent Orange (Action & Energy): ~#FF8C00
+
+Use: All primary app-level Call-to-Action (CTA) buttons (e.g., "Create New Tournament," "Save Settings"), notification badges.
+
+Neutrals (Clarity & Space):
+
+Light Background: #FFFFFF (for cards) and #F7F7F7 (for main app background).
+
+Body Text: #333333 (Dark Gray).
+
+Borders/Dividers: #E0E0E0 (Light Gray).
+
+Typography
+Headings (H1, H2, H3): Montserrat or Nunito Sans. (Modern, friendly, and matches the wordmark's feel).
+
+Body & UI Text (Paragraphs, Labels, Buttons): Lato or Roboto. (Ensures high legibility at small mobile sizes).
+
+2. Multi-Tenant UI/UX Strategy (The "Tenant Space")
+This is the most critical component of the build. We must allow tenant organizations (like the OBA) to customize their own tournament spaces without breaking the core app experience.
+
+The "App Shell" vs. "Tenant Space" Model:
+
+The "App Shell" (NON-Customizable):
+
+The top app header (with the GameDay Guru "G" logo).
+
+The bottom navigation bar.
+
+App-level menus (Settings, Profile, etc.).
+
+Core app-level buttons (e.g., "Create New Tournament").
+
+All core typography (font, size, weight).
+
+The "Tenant Space" (Customizable by Org Admins):
+
+This refers to elements inside a specific tournament's card or pages.
+
+We will provide admins a simple panel to input three variables:
+
+Tenant Logo (Image Upload)
+
+Tenant Primary Color (Color Picker)
+
+Tenant Secondary Color (Color Picker)
+
+How to Apply Tenant Variables:
+
+On the "My Tournaments" Dashboard:
+
+Each tournament card is a "themed" component.
+
+It must display the Tenant Logo.
+
+It must use the Tenant Primary Color as an accent (e.g., the card's top border or header bar).
+
+On Tournament-Specific Pages (e.g., "OBA Championship Schedule"):
+
+A banner area at the top can display the Tenant Logo and/or Tenant Primary Color.
+
+Tenant-specific buttons (e.g., "Log OBA Score," "View OBA Rules") should use the Tenant Primary or Secondary Color.
+
+Links, progress bars, and other indicators within this space should also adopt the tenant's colors.
+
+3. Key Visual Reference: Multi-Tenant Dashboard
+The mockup below is the primary blueprint for this strategy. It clearly shows the fixed "App Shell" (green/orange) co-existing with themed "Tenant Space" cards (blue, yellow, purple accents + logos).
+
+Developer Action Items:
+
+Build the fixed "App Shell" (header, nav) using the GameDay Guru brand assets.
+
+Develop a "Tournament Card" component that accepts logo_url and primary_color as dynamic properties.
+
+Develop tournament-specific page templates that dynamically pull the logo, primary_color, and secondary_color to theme banners and CTAs.
+
+Ensure all core UI (modals, settings, etc.) remains locked to the GameDay Guru brand palette.
+
+This approach ensures GameDay Guru remains a strong, usable brand while providing the essential customization your multi-tenant clients demand.

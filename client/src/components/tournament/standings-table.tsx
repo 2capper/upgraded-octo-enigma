@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Team, Game, Pool, AgeDivision } from '@shared/schema';
+import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -9,6 +9,7 @@ interface StandingsTableProps {
   games: Game[];
   pools: Pool[];
   ageDivisions: AgeDivision[];
+  tournament?: Tournament | null;
   showPoolColumn?: boolean;
 }
 
@@ -67,6 +68,15 @@ const calculateStats = (teamId: string, games: Game[], teamIdFilter?: string[]):
   return stats;
 };
 
+// Helper function for floating-point comparison with precision tolerance
+const isEqual = (a: number, b: number, tolerance = 0.001): boolean => {
+  // Handle Infinity and -Infinity specially
+  if (!isFinite(a) || !isFinite(b)) {
+    return a === b;
+  }
+  return Math.abs(a - b) < tolerance;
+};
+
 const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
   if (tiedTeams.length <= 1) return tiedTeams;
   
@@ -75,20 +85,44 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
 
   const regroupAndResolve = (getMetric: (team: any) => number, descending = false) => {
     sortedTeams.sort((a, b) => descending ? getMetric(b) - getMetric(a) : getMetric(a) - getMetric(b));
-    if (getMetric(sortedTeams[0]) !== getMetric(sortedTeams[sortedTeams.length - 1])) {
-      const groups: any[][] = [];
-      let currentGroup = [sortedTeams[0]];
+    
+    // Check if all teams have the same metric value
+    if (!isEqual(getMetric(sortedTeams[0]), getMetric(sortedTeams[sortedTeams.length - 1]))) {
+      // Iterative resolution: break out best team(s), then re-run on remaining teams
+      const result: any[] = [];
+      let remaining = [...sortedTeams];
       
-      for (let i = 1; i < sortedTeams.length; i++) {
-        if (getMetric(sortedTeams[i]) === getMetric(currentGroup[0])) {
-          currentGroup.push(sortedTeams[i]);
+      while (remaining.length > 0) {
+        // Find best metric value in remaining teams
+        const bestMetricValue = getMetric(remaining[0]);
+        
+        // Find all teams with the best metric value
+        const bestTeams: any[] = [];
+        const nextRemaining: any[] = [];
+        
+        remaining.forEach(team => {
+          if (isEqual(getMetric(team), bestMetricValue)) {
+            bestTeams.push(team);
+          } else {
+            nextRemaining.push(team);
+          }
+        });
+        
+        // If only one team has the best metric, they're ranked
+        // If multiple teams have the same best metric, recursively resolve them
+        if (bestTeams.length === 1) {
+          result.push(bestTeams[0]);
         } else {
-          groups.push(currentGroup);
-          currentGroup = [sortedTeams[i]];
+          // Recursively resolve the tied best teams
+          const resolvedBest = resolveTie(bestTeams, allGames);
+          result.push(...resolvedBest);
         }
+        
+        // Continue with remaining teams
+        remaining = nextRemaining;
       }
-      groups.push(currentGroup);
-      return groups.flatMap(group => resolveTie(group, allGames));
+      
+      return result;
     }
     return null;
   };
@@ -187,22 +221,26 @@ const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
   result = regroupAndResolve(t => t.runsForPerInning, true);
   if (result) return [...result, ...ineligibleTeams];
 
-  // (b)(6) Coin toss (alphabetical as substitute)
-  const finalResult = sortedTeams.sort((a, b) => a.name.localeCompare(b.name));
+  // (b)(6) Coin toss (final tiebreaker)
+  // Use team IDs to create deterministic but pseudo-random ordering
+  // This ensures consistent results across renders while simulating coin toss
+  const finalResult = sortedTeams.sort((a, b) => {
+    const aHash = a.id.toString().split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const bHash = b.id.toString().split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return aHash - bHash;
+  });
   return [...finalResult, ...ineligibleTeams];
 };
 
-export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColumn = true }: StandingsTableProps) => {
+export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, showPoolColumn = true }: StandingsTableProps) => {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
   
   const standingsByDivision = useMemo(() => {
     if (!teams.length || !ageDivisions.length) return [];
     
-    // Filter to only show 11U and 13U divisions using real division data
-    const targetDivisions = ageDivisions.filter(div => 
-      div.name === '11U' || div.name === '13U'
-    );
+    // Show all available divisions using real division data
+    const targetDivisions = ageDivisions;
     
     return targetDivisions.map(division => {
       // Get pools for this division
@@ -377,11 +415,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                         POOL WINNER
                       </span>
                     )}
-                    {team.isPoolRunnerUp && (
-                      <span className="ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-full font-bold">
-                        POOL 2ND
-                      </span>
-                    )}
                     {team.forfeitLosses > 0 && (
                       <AlertTriangle className="w-4 h-4 ml-2 text-red-500" />
                     )}
@@ -396,7 +429,7 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                 <div className="text-xs text-gray-500">PTS</div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className={`grid gap-3 text-center ${(tournament?.showTiebreakers !== false) ? 'grid-cols-4' : 'grid-cols-2'}`}>
               <div>
                 <div className="text-sm font-semibold text-gray-900">{team.wins}-{team.losses}-{team.ties}</div>
                 <div className="text-xs text-gray-500">W-L-T</div>
@@ -409,10 +442,18 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                 </div>
                 <div className="text-xs text-gray-500">RF/RA</div>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">{team.runsAgainstPerInning.toFixed(2)}</div>
-                <div className="text-xs text-gray-500">RA/Inn</div>
-              </div>
+              {(tournament?.showTiebreakers !== false) && (
+                <>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{team.runsAgainstPerInning.toFixed(3)}</div>
+                    <div className="text-xs text-gray-500">RA/Inn</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{team.runsForPerInning.toFixed(3)}</div>
+                    <div className="text-xs text-gray-500">RF/Inn</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -429,8 +470,13 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W-L-T</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RF</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RA</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Defensive Innings Played">DIP</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Runs Allowed per Defensive Inning">RA/Inn</th>
+              {(tournament?.showTiebreakers !== false) && (
+                <>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Defensive Innings Played">DIP</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Runs Allowed per Defensive Inning">RA/Inn</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Runs For per Offensive Inning">RF/Inn</th>
+                </>
+              )}
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
             </tr>
           </thead>
@@ -448,11 +494,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                         {team.isPoolWinner && (
                           <span className="ml-2 px-2 py-1 bg-[var(--falcons-green)] text-white text-xs rounded-full font-bold">
                             POOL WINNER
-                          </span>
-                        )}
-                        {team.isPoolRunnerUp && (
-                          <span className="ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-full font-bold">
-                            POOL 2ND
                           </span>
                         )}
                         {team.forfeitLosses > 0 && (
@@ -483,12 +524,19 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-red-600">
                   {team.runsAgainst}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
-                  {team.defensiveInnings}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
-                  {team.runsAgainstPerInning.toFixed(2)}
-                </td>
+                {(tournament?.showTiebreakers !== false) && (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                      {team.defensiveInnings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                      {team.runsAgainstPerInning.toFixed(3)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                      {team.runsForPerInning.toFixed(3)}
+                    </td>
+                  </>
+                )}
                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-bold">
                   {team.points}
                 </td>
@@ -514,7 +562,14 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
       <div className="flex items-center justify-center space-x-4">
         <Button
           onClick={() => setSelectedDivision(null)}
-          className={`${selectedDivision === null ? 'bg-[var(--yellow)] text-[var(--forest-green)]' : 'bg-[var(--forest-green)] text-[var(--yellow)]'} hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors`}
+          style={{
+            ['--bg' as string]: selectedDivision === null ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+            ['--color' as string]: selectedDivision === null ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
+            ['--hover-bg' as string]: selectedDivision === null ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
+            ['--hover-color' as string]: selectedDivision === null ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+          }}
+          className="bg-[var(--bg)] text-[var(--color)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--hover-color)]"
+          data-testid="button-all-divisions"
         >
           All Divisions
         </Button>
@@ -522,7 +577,14 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
           <Button
             key={division.id}
             onClick={() => setSelectedDivision(division.id)}
-            className={`${selectedDivision === division.id ? 'bg-[var(--yellow)] text-[var(--forest-green)]' : 'bg-[var(--forest-green)] text-[var(--yellow)]'} hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors`}
+            style={{
+              ['--bg' as string]: selectedDivision === division.id ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+              ['--color' as string]: selectedDivision === division.id ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
+              ['--hover-bg' as string]: selectedDivision === division.id ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
+              ['--hover-color' as string]: selectedDivision === division.id ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+            }}
+            className="bg-[var(--bg)] text-[var(--color)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--hover-color)]"
+            data-testid={`button-division-${division.id}`}
           >
             {division.name}
           </Button>
@@ -563,6 +625,49 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, showPoolColu
           </div>
         </div>
       ))}
+
+      {/* Tiebreaker Information Section */}
+      {(tournament?.showTiebreakers !== false) && (
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-8">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3">!</span>
+            Tiebreaker Rules
+          </h4>
+          <div className="text-sm text-gray-700 space-y-3">
+            <div>
+              <p className="font-medium text-gray-900 mb-2">Point System:</p>
+              <div className="ml-4 text-xs space-y-1">
+                <div><strong>Win</strong> = 2 pts | <strong>Tie</strong> = 1 pt | <strong>Loss</strong> = 0 pts</div>
+              </div>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-900">When teams are tied in points, rankings are determined by:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-4">
+                <li><strong>Teams with a forfeit loss are ineligible</strong> for tiebreakers</li>
+                <li><strong>Head-to-head record</strong> among tied teams</li>
+                <li><strong>Smallest runs against ratio</strong> (runs allowed ÷ defensive innings played) in games among tied teams</li>
+                <li><strong>Smallest runs against ratio</strong> (runs allowed ÷ defensive innings played) in all games</li>
+                <li><strong>Highest runs for ratio</strong> (runs scored ÷ offensive innings played) in games among tied teams</li>
+                <li><strong>Highest runs for ratio</strong> (runs scored ÷ offensive innings played) in all games</li>
+                <li><strong>Coin toss</strong> (final tiebreaker)</li>
+              </ol>
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-xs text-blue-800">
+                <strong>Special Rule for 3+ Team Ties:</strong> When 3 or more teams are tied, head-to-head record (rule #2) is excluded until only 2 teams remain. Once down to 2 teams, tiebreakers restart from head-to-head record.
+              </p>
+            </div>
+
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-xs text-yellow-800">
+                <strong>Abbreviations:</strong> DIP = Defensive Innings Played, RA/Inn = Runs Allowed per Defensive Inning. These ratios ensure fair comparison when teams have played different numbers of games or innings.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

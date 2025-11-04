@@ -37,9 +37,9 @@ export const HierarchicalScoreInput = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Filter to only show 11U and 13U divisions
+  // Show all available divisions
   const targetDivisions = useMemo(() => 
-    ageDivisions.filter(div => div.name === '11U' || div.name === '13U'),
+    ageDivisions,
     [ageDivisions]
   );
 
@@ -129,14 +129,16 @@ export const HierarchicalScoreInput = ({
       return;
     }
 
-    updateGameMutation.mutate({
+    const updateData = {
       homeScore: Number(homeScore),
       awayScore: Number(awayScore),
-      homeInningsBatted: homeInnings,
-      awayInningsBatted: awayInnings,
-      status: 'completed',
+      homeInningsBatted: Number(homeInnings),
+      awayInningsBatted: Number(awayInnings),
+      status: 'completed' as const,
       forfeitStatus
-    });
+    };
+
+    updateGameMutation.mutate(updateData);
   };
 
   return (
@@ -314,7 +316,8 @@ export const HierarchicalScoreInput = ({
           <Button 
             type="submit" 
             disabled={updateGameMutation.isPending || !selectedGameId} 
-            className="w-full bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
+            className="w-full min-h-[48px] text-base font-semibold"
+            style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
           >
             {updateGameMutation.isPending ? (
               <>

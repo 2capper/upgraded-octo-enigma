@@ -15,7 +15,7 @@ import { useTournamentData } from '@/hooks/use-tournament-data';
 export default function Dashboard() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
-  const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
+  const { teams, games, pools, tournaments, ageDivisions, currentTournament, loading, error } = useTournamentData(currentTournamentId);
 
   if (loading) {
     return (
@@ -46,10 +46,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[var(--splash-light-gray)]">
-      <SimpleNavigation tournamentId={currentTournamentId} currentPage="dashboard" />
+      <SimpleNavigation 
+        tournamentId={currentTournamentId} 
+        currentPage="dashboard" 
+        tournament={currentTournament || undefined}
+      />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <DashboardHeader tournamentId={currentTournamentId} />
+        <DashboardHeader />
         
         <TournamentCards 
           tournaments={tournaments}
@@ -60,12 +64,41 @@ export default function Dashboard() {
         />
 
         <div className="mt-8">
-          <Tabs defaultValue="standings" className="w-full tabs-forest">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="standings">Standings</TabsTrigger>
-              <TabsTrigger value="games">Games</TabsTrigger>
-              <TabsTrigger value="teams">Teams</TabsTrigger>
-              <TabsTrigger value="playoffs">Playoffs</TabsTrigger>
+          <Tabs defaultValue="standings" className="w-full">
+            <TabsList 
+              className="grid w-full grid-cols-4"
+              style={{
+                '--tab-bg': currentTournament?.primaryColor || 'hsl(120, 45%, 25%)',
+                '--tab-bg-hover': currentTournament?.primaryColor ? `color-mix(in srgb, ${currentTournament.primaryColor} 80%, #000 20%)` : 'hsl(120, 45%, 20%)',
+                '--tab-text': currentTournament?.secondaryColor || '#ffffff',
+                '--tab-active-bg': currentTournament?.secondaryColor || '#ffffff',
+                '--tab-active-text': currentTournament?.primaryColor || 'hsl(120, 45%, 25%)',
+              } as React.CSSProperties}
+            >
+              <TabsTrigger 
+                value="standings"
+                className="data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+              >
+                Standings
+              </TabsTrigger>
+              <TabsTrigger 
+                value="games"
+                className="data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+              >
+                Games
+              </TabsTrigger>
+              <TabsTrigger 
+                value="teams"
+                className="data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+              >
+                Teams
+              </TabsTrigger>
+              <TabsTrigger 
+                value="playoffs"
+                className="data-[state=active]:bg-[var(--tab-active-bg)] data-[state=active]:text-[var(--tab-active-text)] bg-[var(--tab-bg)] text-[var(--tab-text)] hover:bg-[var(--tab-bg-hover)]"
+              >
+                Playoffs
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="standings" className="mt-6">
@@ -74,6 +107,7 @@ export default function Dashboard() {
                 games={games}
                 pools={pools}
                 ageDivisions={ageDivisions}
+                tournament={currentTournament}
               />
             </TabsContent>
             
@@ -95,12 +129,20 @@ export default function Dashboard() {
             </TabsContent>
             
             <TabsContent value="playoffs" className="mt-6">
-              <PlayoffsTab 
-                teams={teams}
-                games={games}
-                pools={pools}
-                ageDivisions={ageDivisions}
-              />
+              {currentTournament ? (
+                <PlayoffsTab 
+                  teams={teams}
+                  games={games}
+                  pools={pools}
+                  ageDivisions={ageDivisions}
+                  tournamentId={currentTournamentId}
+                  tournament={currentTournament}
+                />
+              ) : (
+                <div className="text-center p-8">
+                  <p className="text-gray-500">Loading tournament data...</p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

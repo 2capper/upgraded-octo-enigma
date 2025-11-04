@@ -1,7 +1,7 @@
-# Tournament Management System
+# Dugout Desk - Your Tournament Command Center
 
 ## Overview
-This is a full-stack tournament management system designed for the Forest Glade Falcons baseball organization. Its primary purpose is to provide real-time tournament management capabilities, including team registration, game scheduling, score tracking, standings calculation, and playoff bracket management. The system aims to streamline the complexities of running baseball tournaments, offering an intuitive platform for organizers and participants.
+Dugout Desk is a mobile-first tournament management application designed for baseball leagues in Ontario, specifically targeting the Ontario Baseball Association (OBA) and partner organizations. Its purpose is to provide real-time standings, score tracking, and playoff bracket management with a focus on speed and usability for coaches managing tournaments on mobile devices. The platform aims to streamline tournament operations, allowing users to "Get in, get it done, get back to the game."
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -15,6 +15,8 @@ Preferred communication style: Simple, everyday language.
 - **UI Components**: Radix UI primitives with shadcn/ui components
 - **Styling**: Tailwind CSS with CSS variables for theming
 - **Build Tool**: Vite
+- **Timezone Support**: date-fns-tz for organization-specific timezone formatting
+- **Theming**: Professional baseball aesthetic with Deep Navy, Field Green, and Clay Red. Typography uses Oswald for headings and Inter for body text.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js
@@ -30,63 +32,42 @@ Preferred communication style: Simple, everyday language.
 - **Migrations**: Drizzle Kit
 
 ### Key Architectural Decisions
-- **Authentication System**: Migrated from custom bcrypt-based authentication to Replit Auth using OpenID Connect for seamless user management and secure authentication.
-- **Monorepo Structure**: Unified TypeScript configuration and shared schema for type safety and code reuse across frontend and backend.
-- **Database Choice**: Switched to PostgreSQL with Drizzle ORM for better relational data handling, performance, and SQL querying capabilities.
-- **Storage Abstraction**: Interface-based storage layer allowing for flexible data storage options and easier testing.
-- **Component-First UI**: Utilizes Radix UI primitives and shadcn/ui components for consistent, accessible UI.
-- **Development Experience**: Fast iteration enabled by Vite with HMR, TSX execution, and Replit integration.
+- **Authentication System**: Replit Auth using OpenID Connect for secure and seamless user management.
+- **Monorepo Structure**: Unified TypeScript configuration and shared schema for type safety and code reuse.
+- **Database Choice**: PostgreSQL with Drizzle ORM for relational data handling and performance.
+- **Storage Abstraction**: Interface-based storage layer for flexibility and testability.
+- **Component-First UI**: Utilizes Radix UI and shadcn/ui for consistent, accessible UI.
+- **Development Experience**: Fast iteration with Vite, HMR, TSX, and Replit integration.
+- **Multi-Organization Support**: Dedicated `organizations` table allowing multiple baseball organizations to manage their tournaments on the platform with individual branding and settings.
+- **Feature Flag System**: Database-backed feature flags with super admin and organization-level controls for granular feature management.
+- **Role-Based Access Control**: `isAdmin` flag and `requireAdmin` middleware to restrict sensitive operations.
+- **Timezone Management**: Organization-specific timezone settings for accurate date/time display using `date-fns-tz`.
 
 ### Core Features & Design
-- **Tournament Dashboard**: Main interface for tournament management.
-- **Standings Table**: Real-time standings with tie-breaker logic, division toggle, and proper pool-based tournament seeding where pool winners rank 1-3 by RA/DIP followed by pool runners-up in positions 4-6.
-- **Admin Portal**: Comprehensive administrative functions including tournament creation, data import/export, game result editing, and robust access control.
+- **Tournament Dashboard**: Central interface for tournament management, publicly accessible.
+- **Standings Table**: Real-time standings with tie-breaker logic and pool-based seeding.
+- **Admin Portal**: Comprehensive administrative functions including tournament creation, data import/export, game result editing, and access control.
 - **Hierarchical Score Input**: Step-by-step score submission workflow.
-- **Authentication System**: Replit Auth integration with OpenID Connect, automatic user provisioning, and session management with PostgreSQL session store.
-- **Theming**: Professional baseball styling with Forest Green and Yellow colors, Oswald and Roboto fonts, and uppercase headings.
-- **Location Integration**: Display of diamond GPS coordinates for game venues with Google Maps integration.
-- **Roster Management**: Automated roster import tool with fuzzy team name matching from playoba.ca, comprehensive OBA team discovery, and authentic roster scraping.
+- **Organization Settings**: Super admins can configure organization defaults like timezone and playoff formats.
+- **Organization Admin Management**: Two-tier admin system with role-based access control.
+- **Team Management**: Team editor with fields for name, division, city, coach, and integration with PlayOBA roster via a 6-digit team number.
+- **Consolidated Schedule Editing**: All game schedule editing is centralized in the Admin Portal.
+- **Location Integration**: Display of diamond GPS coordinates with Google Maps integration.
+- **Roster Management**: Manual roster import system.
+- **Public Homepage & Organization Detail Pages**: Publicly accessible pages showcasing organizations and their tournaments.
+- **Tournament Creation with Organization Defaults**: Tournament creation form auto-populates playoff format, seeding pattern, colors, and logo from selected organization's defaults while allowing per-tournament customization.
+- **Enhanced Admin Onboarding**: Admin request process captures complete organization details (name, logo, branding, timezone, defaults) for atomic organization creation upon approval with notification badges for super admins.
+- **Cross-Pool Playoff Bracket View**: Dedicated bracket visualization for tournaments using cross_pool_4 seeding that displays pool standings (top 2 teams per pool A/B/C/D), quarterfinal matchups with seed labels (A1 vs C2, A2 vs C1, B1 vs D2, B2 vs D1), semifinals showing winner advancement, and finals.
+- **Test Data Population**: One-click "Populate Test Data" button for tournaments with IDs containing 'test' or 'testing', creating 4 pools with 4 teams each and complete game schedules with innings data for tiebreaker validation.
 
 ## External Dependencies
 
-- **Database**: `@neondatabase/serverless` (PostgreSQL connection)
+- **Database**: `@neondatabase/serverless`
 - **ORM**: `drizzle-orm`, `drizzle-zod`
 - **UI Framework**: Radix UI, shadcn/ui
 - **Styling**: Tailwind CSS
 - **Forms**: React Hook Form with Zod validation
-- **Date Handling**: `date-fns`
+- **Date Handling**: `date-fns`, `date-fns-tz`
 - **Session Management**: `connect-pg-simple`, `express-session`
 - **Authentication**: `openid-client`, `passport`, `memoizee`
-- **Web Scraping**: Python-based service for OBA roster data (utilizes `urllib.parse` for security)
-
-## Recent Changes
-
-### August 2025 - Authentication & Authorization System Update
-- **Public Route Access**: Made tournament viewing publicly accessible without authentication
-  - Dashboard, Tournament Dashboard, and Coach Score Input are now public routes
-  - Users can view standings, games, teams, and playoffs without signing in
-- **Admin-Only Restrictions**: Implemented role-based access control
-  - Added `isAdmin` field to user schema with database migration
-  - Created `requireAdmin` middleware for sensitive operations
-  - Restricted admin-only functions: tournament management, team editing, game score updates, roster importing
-  - **Playoff Score Editing**: Now requires admin authentication - users must be signed in as administrators to edit playoff game scores
-- **Enhanced Landing Page**: Created informative landing page for unauthenticated users
-  - Clear explanation of public vs admin access levels
-  - Professional tournament management feature showcase
-- **Route Protection Updates**:
-  - Admin Portal requires authentication and redirects to landing page if not signed in
-  - All game score editing endpoints require admin privileges
-  - Bulk data operations restricted to admin users only
-
-### August 2025 - Replit Auth Integration
-- **Migration to Replit Auth**: Replaced custom bcrypt-based authentication system with Replit Auth using OpenID Connect
-- **Updated User Schema**: Modified user table to support Replit user claims (id, email, firstName, lastName, profileImageUrl, isAdmin)
-- **Session Management**: Updated to PostgreSQL session store compatible with Replit Auth
-- **Frontend Updates**: 
-  - New landing page for unauthenticated users with "Sign In with Replit" button
-  - Updated authentication hooks and routing logic
-  - Protected routes now redirect to Replit login automatically
-- **Backend Updates**:
-  - Implemented Replit Auth middleware with automatic user provisioning
-  - Updated all protected routes to use `isAuthenticated` middleware
-  - Removed legacy login/setup pages and routes
+- **Web Scraping**: Python-based service for OBA roster data
