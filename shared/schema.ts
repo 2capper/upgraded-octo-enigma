@@ -101,6 +101,7 @@ export const tournaments = pgTable("tournaments", {
   primaryColor: text("primary_color").default("#22c55e"), // Primary theme color (default: green)
   secondaryColor: text("secondary_color").default("#ffffff"), // Secondary theme color (default: white)
   logoUrl: text("logo_url"), // URL to custom tournament logo
+  visibility: text("visibility", { enum: ["private", "public", "unlisted"] }).notNull().default("private"), // Controls who can view the tournament
   organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
