@@ -7,8 +7,11 @@ import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp } from "lucid
 import { format } from "date-fns";
 import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png";
 import { FeatureShowcase } from "@/components/feature-showcase";
+import { useHostnameContext } from "@/hooks/useHostnameContext";
 
 export default function Home() {
+  const { isStorefront } = useHostnameContext();
+  
   const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
     queryKey: ['/api/organizations'],
   });
@@ -81,17 +84,19 @@ export default function Home() {
             
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href="/directory">
-                <Button 
-                  size="lg" 
-                  className="min-h-[48px] px-8 text-base font-semibold"
-                  style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
-                  data-testid="button-browse-directory"
-                >
-                  <Trophy className="w-5 h-5 mr-2" />
-                  Browse Public Tournaments
-                </Button>
-              </Link>
+              {!isStorefront && (
+                <Link href="/directory">
+                  <Button 
+                    size="lg" 
+                    className="min-h-[48px] px-8 text-base font-semibold"
+                    style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                    data-testid="button-browse-directory"
+                  >
+                    <Trophy className="w-5 h-5 mr-2" />
+                    Browse Public Tournaments
+                  </Button>
+                </Link>
+              )}
               <Button 
                 size="lg" 
                 variant="outline"

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { Search, Calendar, MapPin, Eye } from 'lucide-react';
+import { Search, Calendar, MapPin, Eye, Building2, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { useHostnameContext } from '@/hooks/useHostnameContext';
 
 interface PublicTournament {
   id: string;
@@ -29,6 +30,7 @@ export default function PublicDirectory() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const { isStorefront } = useHostnameContext();
 
   const { data: tournaments, isLoading } = useQuery<PublicTournament[]>({
     queryKey: ['/api/public/tournaments'],
@@ -53,14 +55,31 @@ export default function PublicDirectory() {
             <h1 className="text-2xl md:text-3xl font-bold text-white font-['Oswald']">
               Dugout Desk
             </h1>
-            <Button
-              onClick={() => setLocation('/')}
-              variant="outline"
-              className="bg-white/10 text-white border-white/30 hover:bg-white/20"
-              data-testid="button-home"
-            >
-              Back to Home
-            </Button>
+            <div className="flex gap-2">
+              {isStorefront && (
+                <a href="/api/login">
+                  <Button
+                    variant="outline"
+                    className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                    data-testid="button-admin-login"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Admin Login
+                  </Button>
+                </a>
+              )}
+              {!isStorefront && (
+                <Button
+                  onClick={() => setLocation('/')}
+                  variant="outline"
+                  className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                  data-testid="button-organizations"
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Organizations
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
