@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, Plus, Loader2 } from 'lucide-react';
+import { Building2, Plus, Loader2, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -23,6 +23,7 @@ type FormSchema = z.infer<typeof formSchema>;
 export const OrganizationCreationForm = () => {
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
@@ -210,6 +211,54 @@ export const OrganizationCreationForm = () => {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="logoUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Image className="w-4 h-4" />
+                    Logo URL
+                  </FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      value={field.value || ''} 
+                      type="url" 
+                      placeholder="https://example.com/logo.png" 
+                      data-testid="input-org-logo"
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setLogoPreviewError(false);
+                      }}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    URL to your organization's logo image (displayed on tournament cards)
+                  </FormDescription>
+                  {field.value && !logoPreviewError && (
+                    <div className="mt-2 p-4 border rounded-lg bg-muted/50">
+                      <p className="text-sm font-medium mb-2">Logo Preview:</p>
+                      <img 
+                        key={field.value}
+                        src={field.value} 
+                        alt="Organization logo preview" 
+                        className="h-16 object-contain"
+                        onLoad={() => setLogoPreviewError(false)}
+                        onError={() => setLogoPreviewError(true)}
+                      />
+                    </div>
+                  )}
+                  {field.value && logoPreviewError && (
+                    <div className="mt-2 p-4 border rounded-lg bg-destructive/10 text-destructive">
+                      <p className="text-sm">Unable to load image from this URL</p>
+                    </div>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField

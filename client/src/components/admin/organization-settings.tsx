@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy } from 'lucide-react';
+import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,10 @@ interface EditOrganizationDialogProps {
 function EditOrganizationDialog({ organization, onSuccess }: EditOrganizationDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
   
   const [formData, setFormData] = useState({
+    logoUrl: organization.logoUrl || '',
     timezone: organization.timezone || 'America/Toronto',
     defaultPrimaryColor: organization.defaultPrimaryColor || '#22c55e',
     defaultSecondaryColor: organization.defaultSecondaryColor || '#ffffff',
@@ -87,6 +89,46 @@ function EditOrganizationDialog({ organization, onSuccess }: EditOrganizationDia
           <DialogTitle>Organization Settings</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Logo URL */}
+          <div className="space-y-2">
+            <Label htmlFor="logoUrl" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              Organization Logo URL
+            </Label>
+            <Input
+              id="logoUrl"
+              type="url"
+              value={formData.logoUrl}
+              onChange={(e) => {
+                setFormData({ ...formData, logoUrl: e.target.value });
+                setLogoPreviewError(false);
+              }}
+              placeholder="https://example.com/logo.png"
+              data-testid="input-logo-url"
+            />
+            <p className="text-sm text-muted-foreground">
+              URL to your organization's logo image (displayed on tournament cards)
+            </p>
+            {formData.logoUrl && !logoPreviewError && (
+              <div className="mt-2 p-4 border rounded-lg bg-muted/50">
+                <p className="text-sm font-medium mb-2">Logo Preview:</p>
+                <img 
+                  key={formData.logoUrl}
+                  src={formData.logoUrl} 
+                  alt="Organization logo preview" 
+                  className="h-16 object-contain"
+                  onLoad={() => setLogoPreviewError(false)}
+                  onError={() => setLogoPreviewError(true)}
+                />
+              </div>
+            )}
+            {formData.logoUrl && logoPreviewError && (
+              <div className="mt-2 p-4 border rounded-lg bg-destructive/10 text-destructive">
+                <p className="text-sm">Unable to load image from this URL</p>
+              </div>
+            )}
+          </div>
+
           {/* Timezone */}
           <div className="space-y-2">
             <Label htmlFor="timezone" className="flex items-center gap-2">
