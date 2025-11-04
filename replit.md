@@ -42,6 +42,7 @@ Preferred communication style: Simple, everyday language.
 - **Feature Flag System**: Database-backed feature flags with super admin and organization-level controls for granular feature management.
 - **Role-Based Access Control**: `isAdmin` flag and `requireAdmin` middleware to restrict sensitive operations.
 - **Timezone Management**: Organization-specific timezone settings for accurate date/time display using `date-fns-tz`.
+- **Hostname-Based Routing**: Single deployment serves both www.dugoutdesk.ca (public storefront) and app.dugoutdesk.ca (admin app) with context-aware UI using `/api/context` endpoint and client-side fallback for resilience.
 
 ### Core Features & Design
 - **Tournament Dashboard**: Central interface for tournament management, publicly accessible.
