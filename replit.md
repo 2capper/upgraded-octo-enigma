@@ -59,6 +59,7 @@ Preferred communication style: Simple, everyday language.
 - **Enhanced Admin Onboarding**: Admin request process captures complete organization details (name, logo, branding, timezone, defaults) for atomic organization creation upon approval with notification badges for super admins.
 - **Cross-Pool Playoff Bracket View**: Dedicated bracket visualization for tournaments using cross_pool_4 seeding that displays pool standings (top 2 teams per pool A/B/C/D), quarterfinal matchups with seed labels (A1 vs C2, A2 vs C1, B1 vs D2, B2 vs D1), semifinals showing winner advancement, and finals.
 - **Test Data Population**: One-click "Populate Test Data" button for tournaments with IDs containing 'test' or 'testing', creating 4 pools with 4 teams each and complete game schedules with innings data for tiebreaker validation.
+- **Tournament Visibility System**: Three-tier visibility control (private, public, unlisted) enabling SaaS model with public tournament directory at /directory, public API endpoint at /api/public/tournaments, and access control that restricts private tournaments to authenticated users while allowing public discovery of tournaments marked as public.
 
 ## External Dependencies
 
