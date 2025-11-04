@@ -18,6 +18,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
   
+  // Hostname context endpoint (public, no auth required)
+  app.get('/api/context', (req, res) => {
+    const hostname = req.hostname;
+    const isStorefront = hostname.startsWith('www.') || hostname === 'dugoutdesk.ca';
+    
+    res.json({
+      hostname,
+      isStorefront,
+      isAdminApp: !isStorefront,
+    });
+  });
+  
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
