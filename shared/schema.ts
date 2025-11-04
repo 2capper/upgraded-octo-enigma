@@ -102,6 +102,9 @@ export const tournaments = pgTable("tournaments", {
   secondaryColor: text("secondary_color").default("#ffffff"), // Secondary theme color (default: white)
   logoUrl: text("logo_url"), // URL to custom tournament logo
   organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+  visibility: text('visibility', { enum: ['private', 'public', 'unlisted'] })
+    .notNull()
+    .default('private'),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -205,7 +208,7 @@ export const adminRequests = pgTable("admin_requests", {
 // Feature flags table for controlling feature availability
 export const featureFlags = pgTable("feature_flags", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  featureKey: varchar("feature_key", { length: 100 }).notNull().unique(), // "tournament_registration" | "tournament_comms" | "schedule_builder"
+  featureKey: varchar("feature_key", { length: 100 }).notNull().unique(), // "tournament_registration" | "tournament_comms" | "schedule_builder" | Expense Management | Facility Booking | 
   displayName: text("display_name").notNull(),
   description: text("description").notNull(),
   isEnabled: boolean("is_enabled").notNull().default(false),
@@ -369,6 +372,41 @@ export const gameUpdateSchema = insertGameSchema.partial().extend({
   time: z.string().optional(),
   location: z.string().optional(),
   subVenue: z.string().optional().nullable(),
+});
+// --- For the Expense App ---
+export const expenses = pgTable("expenses", {
+id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // This is the crucial link
+organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+
+  submittedById: varchar("user_id").notNull().references(() => users.id),
+description: text("description").notNull(),
+amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  receiptImageUrl: text("receipt_image_url"),
+  status: text("status").notNull().default("pending"), // 'pending', 'approved', 'reimbursed'
+// ...
+});
+
+// --- For the Booking App ---
+export const bookingResources = pgTable("booking_resources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // This links "Diamond 1" to "FG Baseball"
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "Diamond 1", "Batting Cage"
+  type: text("type").notNull().default("diamond"),
+});
+
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // This links the booking to the organization
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+
+  resourceId: varchar("resource_id").notNull().references(() => bookingResources.id),
+  bookedById: varchar("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  startTime: timestamp("start_time").notNull(),
+endTime: timestamp("end_time").notNull(),
+  isHouseLeagueBlock: boolean("is_house_league_block").default(false),
 });
 
 // Enhanced tournament creation schema with tournament configuration
