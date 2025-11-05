@@ -125,16 +125,21 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   division: text("division"),
   city: text("city"),
-  coach: text("coach"),
+  coach: text("coach"), // Legacy field - kept for backwards compatibility
+  coachFirstName: text("coach_first_name"),
+  coachLastName: text("coach_last_name"),
+  coachEmail: text("coach_email"),
   phone: text("phone"),
   tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   poolId: text("pool_id").notNull().references(() => pools.id, { onDelete: "cascade" }),
   rosterLink: text("roster_link"),
-  teamNumber: varchar("team_number", { length: 10 }), // 6-digit OBA team number for roster URL
+  teamNumber: varchar("team_number", { length: 10 }), // 6-digit OBA team number for roster URL and roster link generation
   pitchCountAppName: text("pitch_count_app_name"),
   pitchCountName: text("pitch_count_name"),
   gameChangerName: text("game_changer_name"),
   rosterData: text("roster_data"), // JSON string of roster players
+  registrationStatus: text("registration_status"), // "Registered" | "Approved" | "Waitlisted" - from CSV import
+  paymentStatus: text("payment_status"), // Payment status from registration CSV
 });
 
 export const games = pgTable("games", {
