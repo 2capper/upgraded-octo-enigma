@@ -443,7 +443,8 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           }
 
           // Create teams - including placeholder teams for playoffs
-          const homeTeamKey = `${divisionId}-${row.homeTeam}`;
+          // Use division name (not divisionId) to match Registrations import format
+          const homeTeamKey = `${row.division}-${row.homeTeam}`;
           if (!teamsMap.has(homeTeamKey)) {
             const teamId = `${selectedTournamentId}_team_${homeTeamKey.replace(/\s+/g, '-')}`;
             teamsMap.set(homeTeamKey, teamId);
@@ -454,7 +455,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             teams.push({ id: teamId, name: row.homeTeam, division: row.division, poolId: teamPoolId });
           }
 
-          const awayTeamKey = `${divisionId}-${row.awayTeam}`;
+          const awayTeamKey = `${row.division}-${row.awayTeam}`;
           if (!teamsMap.has(awayTeamKey)) {
             const teamId = `${selectedTournamentId}_team_${awayTeamKey.replace(/\s+/g, '-')}`;
             teamsMap.set(awayTeamKey, teamId);
@@ -489,8 +490,9 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           if (!poolId) continue;
 
           // Get team IDs - all teams should now exist including placeholder teams
-          const homeTeamId = teamsMap.get(`${divisionId}-${row.homeTeam}`);
-          const awayTeamId = teamsMap.get(`${divisionId}-${row.awayTeam}`);
+          // Use division name (not divisionId) to match team key format
+          const homeTeamId = teamsMap.get(`${row.division}-${row.homeTeam}`);
+          const awayTeamId = teamsMap.get(`${row.division}-${row.awayTeam}`);
 
           // Skip only if we truly don't have team IDs (shouldn't happen now)
           if (!homeTeamId || !awayTeamId) {
