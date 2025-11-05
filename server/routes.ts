@@ -1484,6 +1484,7 @@ Waterdown 10U AA
   app.get("/api/tournaments/:tournamentId/validation-report", requireAdmin, async (req, res) => {
     try {
       const tournamentId = req.params.tournamentId;
+      const reportType = (req.query.type as 'post-pool-play' | 'final-convenor') || 'post-pool-play';
       
       // Fetch all necessary data
       const tournament = await storage.getTournament(tournamentId);
@@ -1496,7 +1497,7 @@ Waterdown 10U AA
       const games = await storage.getGames(tournamentId);
       
       // Generate validation report
-      const report = generateValidationReport(tournament, pools, teams, games);
+      const report = generateValidationReport(tournament, pools, teams, games, reportType);
       
       res.json(report);
     } catch (error) {

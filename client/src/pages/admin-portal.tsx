@@ -610,20 +610,45 @@ export default function AdminPortal() {
                   </div>
                   
                   <div className="border-t pt-6">
-                    <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Validation Report</h4>
-                    <p className="text-sm text-[var(--text-secondary)] mb-4">
-                      Generate a comprehensive report showing all calculations, tie-breakers, seeding logic, and playoff brackets. 
-                      This report provides transparency and can be shared with coaches to explain tournament results.
-                    </p>
-                    <Button 
-                      variant="default"
-                      onClick={() => window.open(`/admin/${currentTournamentId}/validation-report`, '_blank')}
-                      disabled={!currentTournamentId}
-                      data-testid="button-generate-validation-report"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Generate Validation Report
-                    </Button>
+                    <h4 className="font-semibold mb-4" style={{ color: 'var(--deep-navy)' }}>Tournament Reports</h4>
+                    
+                    {/* Post-Pool Play Report */}
+                    <div className="bg-white border border-[var(--card-border)] p-4 rounded mb-4">
+                      <h5 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Post-Pool Play Report</h5>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4">
+                        Generate after pool play ends. Shows complete pool standings with tie-breaker explanations, 
+                        playoff seeding calculations, and bracket matchup assignments. Share with coaches to explain 
+                        how playoff seeding was determined.
+                      </p>
+                      <Button 
+                        variant="default"
+                        onClick={() => window.open(`/admin/${currentTournamentId}/validation-report?type=post-pool-play`, '_blank')}
+                        disabled={!currentTournamentId}
+                        data-testid="button-post-pool-play-report"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Generate Post-Pool Play Report
+                      </Button>
+                    </div>
+
+                    {/* Final Convenor Report */}
+                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
+                      <h5 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Final Convenor Report</h5>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4">
+                        Generate when tournament is complete. Includes all post-pool play information plus completed 
+                        playoff brackets, championship path, and final tournament rankings. Comprehensive summary 
+                        showing how the tournament results were determined.
+                      </p>
+                      <Button 
+                        variant="default"
+                        onClick={() => window.open(`/admin/${currentTournamentId}/validation-report?type=final-convenor`, '_blank')}
+                        disabled={!currentTournamentId}
+                        data-testid="button-final-convenor-report"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Generate Final Convenor Report
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>

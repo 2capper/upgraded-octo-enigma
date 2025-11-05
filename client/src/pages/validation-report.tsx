@@ -1,9 +1,16 @@
-import { useParams } from 'wouter';
+import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Printer, AlertTriangle, CheckCircle2, TrendingUp, Trophy, Target } from 'lucide-react';
+import { Loader2, Printer, AlertTriangle, CheckCircle2, TrendingUp, Trophy, Target, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface FinalRanking {
+  rank: number;
+  team: any;
+  placement: string;
+  championshipPath: string[];
+}
 
 interface ValidationReport {
   tournament: any;
@@ -13,6 +20,8 @@ interface ValidationReport {
   poolStandings: PoolStandingsReport[];
   seeding: SeedingReport[];
   playoffBracket: PlayoffBracketReport[];
+  reportType?: 'post-pool-play' | 'final-convenor';
+  finalRankings?: FinalRanking[];
   isComplete: boolean;
   warnings: string[];
 }
@@ -83,14 +92,30 @@ interface PlayoffBracketReport {
 
 export default function ValidationReportPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
+  const [location] = useLocation();
+  
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const reportType = searchParams.get('type') || 'post-pool-play';
   
   const { data: report, isLoading, error } = useQuery<ValidationReport>({
-    queryKey: [`/api/tournaments/${tournamentId}/validation-report`],
+    queryKey: [`/api/tournaments/${tournamentId}/validation-report`, reportType],
+    queryFn: async () => {
+      const response = await fetch(`/api/tournaments/${tournamentId}/validation-report?type=${reportType}`);
+      if (!response.ok) throw new Error('Failed to fetch report');
+      return response.json();
+    },
     enabled: !!tournamentId,
   });
 
   const handlePrint = () => {
     window.print();
+  };
+  
+  const getReportTitle = () => {
+    if (reportType === 'final-convenor' || report?.reportType === 'final-convenor') {
+      return 'Final Convenor Report';
+    }
+    return 'Post-Pool Play Report';
   };
 
   if (isLoading) {
@@ -121,8 +146,8 @@ export default function ValidationReportPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--deep-navy)' }}>
-                Tournament Validation Report
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--deep-navy)' }} data-testid="text-report-title">
+                {getReportTitle()}
               </h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
                 {report.tournament.name}
@@ -140,7 +165,7 @@ export default function ValidationReportPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:px-0 print:py-0">
         {/* Print Header - Only visible when printing */}
         <div className="hidden print:block mb-8">
-          <h1 className="text-3xl font-bold text-center mb-2">Tournament Validation Report</h1>
+          <h1 className="text-3xl font-bold text-center mb-2">{getReportTitle()}</h1>
           <h2 className="text-xl text-center text-gray-600 mb-4">{report.tournament.name}</h2>
           <p className="text-sm text-center text-gray-500">
             Generated: {new Date().toLocaleString()}
@@ -389,6 +414,56 @@ export default function ValidationReportPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Final Rankings - Only shown for final-convenor reports */}
+        {(report.reportType === 'final-convenor' || reportType === 'final-convenor') && report.finalRankings && report.finalRankings.length > 0 && (
+          <Card className="mb-6 print:shadow-none print:border print:break-inside-avoid" data-testid="card-final-rankings">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="w-5 h-5" />
+                Final Tournament Rankings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2" data-testid="header-rank">Rank</th>
+                      <th className="text-left py-2 px-2" data-testid="header-team">Team Name</th>
+                      <th className="text-left py-2 px-2" data-testid="header-placement">Placement</th>
+                      <th className="text-left py-2 px-2" data-testid="header-championship-path">Championship Path</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.finalRankings.map((ranking, index) => (
+                      <tr key={index} className="border-b" data-testid={`row-ranking-${ranking.rank}`}>
+                        <td className="py-2 px-2 font-semibold" data-testid={`text-rank-${ranking.rank}`}>
+                          #{ranking.rank}
+                        </td>
+                        <td className="py-2 px-2 font-semibold" data-testid={`text-team-${ranking.rank}`}>
+                          {ranking.team.name}
+                        </td>
+                        <td className="py-2 px-2" data-testid={`text-placement-${ranking.rank}`}>
+                          {ranking.placement}
+                        </td>
+                        <td className="py-2 px-2" data-testid={`text-path-${ranking.rank}`}>
+                          <ol className="list-decimal list-inside space-y-1 text-xs">
+                            {ranking.championshipPath.map((step, stepIndex) => (
+                              <li key={stepIndex} className="text-gray-600">
+                                {step}
+                              </li>
+                            ))}
+                          </ol>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>

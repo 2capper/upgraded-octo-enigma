@@ -2,7 +2,10 @@ import type { Tournament, Team, Game, Pool } from '@shared/schema';
 import { calculateStandings } from '@shared/standingsCalculation';
 import { generateBracketGames } from '@shared/bracketGeneration';
 
+export type ReportType = 'post-pool-play' | 'final-convenor';
+
 export interface ValidationReport {
+  reportType: ReportType;
   tournament: Tournament;
   pools: Pool[];
   teams: Team[];
@@ -10,8 +13,16 @@ export interface ValidationReport {
   poolStandings: PoolStandingsReport[];
   seeding: SeedingReport[];
   playoffBracket: PlayoffBracketReport[];
+  finalRankings?: FinalRankingReport[];
   isComplete: boolean;
   warnings: string[];
+}
+
+export interface FinalRankingReport {
+  rank: number;
+  team: Team;
+  placement: string;
+  championshipPath: string[];
 }
 
 export interface PoolStandingsReport {
@@ -82,7 +93,8 @@ export function generateValidationReport(
   tournament: Tournament,
   pools: Pool[],
   teams: Team[],
-  games: Game[]
+  games: Game[],
+  reportType: ReportType = 'post-pool-play'
 ): ValidationReport {
   const warnings: string[] = [];
   
@@ -91,7 +103,7 @@ export function generateValidationReport(
   const completedPoolGames = poolPlayGames.filter(g => g.status === 'completed');
   const isComplete = completedPoolGames.length === poolPlayGames.length && poolPlayGames.length > 0;
   
-  if (!isComplete) {
+  if (!isComplete && reportType === 'post-pool-play') {
     warnings.push('Pool play is not complete. These results are preliminary and may change as games are completed.');
   }
   
@@ -106,7 +118,21 @@ export function generateValidationReport(
   // Generate playoff bracket report
   const playoffBracketReport = generatePlayoffBracketReport(tournament, teams, seedingReport);
   
+  // Generate final rankings for convenor report
+  let finalRankings: FinalRankingReport[] | undefined;
+  if (reportType === 'final-convenor') {
+    finalRankings = generateFinalRankings(teams, games, seedingReport);
+    
+    // Check if playoffs are complete
+    const playoffGames = games.filter(g => (g as any).bracket);
+    const completedPlayoffGames = playoffGames.filter(g => g.status === 'completed');
+    if (playoffGames.length > 0 && completedPlayoffGames.length < playoffGames.length) {
+      warnings.push('Playoffs are not complete. Final rankings may change as playoff games are completed.');
+    }
+  }
+  
   return {
+    reportType,
     tournament,
     pools,
     teams,
@@ -114,6 +140,7 @@ export function generateValidationReport(
     poolStandings: poolStandingsReports,
     seeding: seedingReport,
     playoffBracket: playoffBracketReport,
+    finalRankings,
     isComplete,
     warnings,
   };
@@ -411,4 +438,128 @@ function generatePlayoffBracketReport(
     console.error('Error generating playoff bracket:', error);
     return [];
   }
+}
+
+function generateFinalRankings(
+  teams: Team[],
+  games: Game[],
+  seeding: SeedingReport[]
+): FinalRankingReport[] {
+  const rankings: FinalRankingReport[] = [];
+  
+  // Get playoff games (games with bracket field)
+  const playoffGames = games.filter(g => (g as any).bracket);
+  
+  if (playoffGames.length === 0) {
+    // No playoffs yet, return seeding order
+    return seeding.map((s, index) => ({
+      rank: index + 1,
+      team: s.team,
+      placement: getPlacementLabel(index + 1),
+      championshipPath: [`Seeded #${s.seed} from ${s.pool.name} (Rank #${s.poolRank})`],
+    }));
+  }
+  
+  // Find championship game (highest round in winners bracket)
+  const championshipGame = playoffGames
+    .filter(g => (g as any).bracket === 'championship' || (g as any).bracket === 'winners')
+    .sort((a, b) => ((b as any).round || 0) - ((a as any).round || 0))[0];
+  
+  if (championshipGame && championshipGame.status === 'completed') {
+    // Determine champion and runner-up
+    const winner = championshipGame.homeScore! > championshipGame.awayScore! 
+      ? teams.find(t => t.id === championshipGame.homeTeamId)
+      : teams.find(t => t.id === championshipGame.awayTeamId);
+    const runnerUp = championshipGame.homeScore! > championshipGame.awayScore! 
+      ? teams.find(t => t.id === championshipGame.awayTeamId)
+      : teams.find(t => t.id === championshipGame.homeTeamId);
+    
+    if (winner) {
+      rankings.push({
+        rank: 1,
+        team: winner,
+        placement: '1st Place - Champion',
+        championshipPath: buildChampionshipPath(winner.id, playoffGames, seeding),
+      });
+    }
+    
+    if (runnerUp) {
+      rankings.push({
+        rank: 2,
+        team: runnerUp,
+        placement: '2nd Place - Runner-Up',
+        championshipPath: buildChampionshipPath(runnerUp.id, playoffGames, seeding),
+      });
+    }
+  }
+  
+  // Add remaining teams based on how far they advanced
+  const rankedTeamIds = new Set(rankings.map(r => r.team.id));
+  const remainingTeams = teams.filter(t => !rankedTeamIds.has(t.id));
+  
+  remainingTeams.forEach((team, index) => {
+    const seed = seeding.find(s => s.team.id === team.id);
+    rankings.push({
+      rank: rankings.length + 1,
+      team,
+      placement: getPlacementLabel(rankings.length + 1),
+      championshipPath: seed 
+        ? [`Seeded #${seed.seed} from ${seed.pool.name}`, ...buildChampionshipPath(team.id, playoffGames, seeding)]
+        : ['Unknown seed'],
+    });
+  });
+  
+  return rankings;
+}
+
+function buildChampionshipPath(teamId: string, playoffGames: Game[], seeding: SeedingReport[]): string[] {
+  const path: string[] = [];
+  const seed = seeding.find(s => s.team.id === teamId);
+  
+  if (seed) {
+    path.push(`Seeded #${seed.seed} from ${seed.pool.name} (Rank #${seed.poolRank})`);
+  }
+  
+  // Find all games this team played in playoffs
+  const teamGames = playoffGames
+    .filter(g => g.homeTeamId === teamId || g.awayTeamId === teamId)
+    .filter(g => g.status === 'completed')
+    .sort((a, b) => ((a as any).round || 0) - ((b as any).round || 0));
+  
+  teamGames.forEach(game => {
+    const isHome = game.homeTeamId === teamId;
+    const opponentId = isHome ? game.awayTeamId : game.homeTeamId;
+    const opponent = seeding.find(s => s.team.id === opponentId);
+    const won = (isHome && game.homeScore! > game.awayScore!) || (!isHome && game.awayScore! > game.homeScore!);
+    const score = isHome 
+      ? `${game.homeScore}-${game.awayScore}`
+      : `${game.awayScore}-${game.homeScore}`;
+    
+    const roundName = getRoundName((game as any).round, (game as any).bracket);
+    const result = won ? 'Won' : 'Lost';
+    const opponentName = opponent ? `Seed #${opponent.seed}` : 'Unknown';
+    
+    path.push(`${roundName}: ${result} vs ${opponentName} (${score})`);
+  });
+  
+  return path;
+}
+
+function getRoundName(round: number, bracket: string): string {
+  if (bracket === 'championship') return 'Championship';
+  if (bracket === 'losers') return `Losers Round ${round}`;
+  
+  // Winners bracket round names
+  if (round === 1) return 'Quarterfinals';
+  if (round === 2) return 'Semifinals';
+  if (round === 3) return 'Finals';
+  return `Round ${round}`;
+}
+
+function getPlacementLabel(rank: number): string {
+  if (rank === 1) return '1st Place - Champion';
+  if (rank === 2) return '2nd Place - Runner-Up';
+  if (rank === 3) return '3rd Place';
+  if (rank === 4) return '4th Place';
+  return `${rank}th Place`;
 }
