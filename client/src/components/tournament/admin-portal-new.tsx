@@ -188,17 +188,21 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         });
 
         // Extract team data from registrations CSV
-        const teams = data.map(row => ({
-          name: row['Team Name'],
-          coachFirstName: row['Team Contact First Name'],
-          coachLastName: row['Team Contact Last Name'],
-          coachEmail: row['Team Contact Email'],
-          phone: formatPhoneToE164(row['Team ContactPhone']) || null,
-          division: row['Division'],
-          registrationStatus: row['Registration Status'],
-          paymentStatus: row['Total Payment Amount'] && parseFloat(row['Total Payment Amount'].replace(/[^0-9.]/g, '')) > 0 ? 'paid' : 'unpaid',
-          teamNumber: validateTeamNumber(row['What is your Team Number (This number will be provided by your National or State/Provincial Governing Body)?']) || null,
-        })).filter(team => team.name && team.division);
+        const teams = data.map(row => {
+          const teamNumber = validateTeamNumber(row['What is your Team Number (This number will be provided by your National or State/Provincial Governing Body)?']) || null;
+          return {
+            name: row['Team Name'],
+            coachFirstName: row['Team Contact First Name'],
+            coachLastName: row['Team Contact Last Name'],
+            coachEmail: row['Team Contact Email'],
+            phone: formatPhoneToE164(row['Team ContactPhone']) || null,
+            division: row['Division'],
+            registrationStatus: row['Registration Status'],
+            paymentStatus: row['Total Payment Amount'] && parseFloat(row['Total Payment Amount'].replace(/[^0-9.]/g, '')) > 0 ? 'paid' : 'unpaid',
+            teamNumber: teamNumber,
+            rosterLink: teamNumber ? `https://www.playoba.ca/stats#/2111/team/${teamNumber}/roster` : null,
+          };
+        }).filter(team => team.name && team.division);
 
         console.log('Registrations import:', { teams: teams.length });
 
