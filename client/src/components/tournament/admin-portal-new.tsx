@@ -107,6 +107,26 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     }
   };
 
+  const validateTeamNumber = (value: string): string | null => {
+    if (!value || value.trim() === '') return null;
+    const cleaned = value.trim().replace(/\D/g, '');
+    if (cleaned.length === 6 && /^\d{6}$/.test(cleaned)) {
+      return cleaned;
+    }
+    return null;
+  };
+
+  const formatPhoneToE164 = (value: string): string | null => {
+    if (!value || value.trim() === '') return null;
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `+1${cleaned}`;
+    } else if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      return `+${cleaned}`;
+    }
+    return null;
+  };
+
   const handleRegistrationsImport = async () => {
     if (!registrationsFile) {
       setRegistrationsMessage({ type: 'error', text: 'Please select a registrations CSV file to import.' });
@@ -173,11 +193,11 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           coachFirstName: row['Team Contact First Name'],
           coachLastName: row['Team Contact Last Name'],
           coachEmail: row['Team Contact Email'],
-          phone: row['Team ContactPhone'],
+          phone: formatPhoneToE164(row['Team ContactPhone']) || null,
           division: row['Division'],
           registrationStatus: row['Registration Status'],
           paymentStatus: row['Total Payment Amount'] && parseFloat(row['Total Payment Amount'].replace(/[^0-9.]/g, '')) > 0 ? 'paid' : 'unpaid',
-          teamNumber: row['What is your team number?'] || '',
+          teamNumber: validateTeamNumber(row['What is your team number?']) || null,
         })).filter(team => team.name && team.division);
 
         console.log('Registrations import:', { teams: teams.length });

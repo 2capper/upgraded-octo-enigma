@@ -236,6 +236,23 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
     queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId] });
   };
 
+  const formatPhoneDisplay = (phone: string | null | undefined): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      const areaCode = cleaned.substring(1, 4);
+      const prefix = cleaned.substring(4, 7);
+      const lineNumber = cleaned.substring(7);
+      return `(${areaCode}) ${prefix}-${lineNumber}`;
+    } else if (cleaned.length === 10) {
+      const areaCode = cleaned.substring(0, 3);
+      const prefix = cleaned.substring(3, 6);
+      const lineNumber = cleaned.substring(6);
+      return `(${areaCode}) ${prefix}-${lineNumber}`;
+    }
+    return phone;
+  };
+
   const getRosterStatus = (team: Team) => {
     if (team.rosterLink) {
       return (
@@ -276,6 +293,7 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
               <TableHead>City</TableHead>
               <TableHead>Coach Name</TableHead>
               <TableHead>Coach Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>Team Number</TableHead>
               <TableHead>Registration</TableHead>
               <TableHead>Payment</TableHead>
@@ -286,7 +304,7 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
           <TableBody>
             {teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={10} className="text-center text-gray-500 py-8">
                   No teams found. Import teams from CSV first.
                 </TableCell>
               </TableRow>
@@ -311,6 +329,13 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
                       <a href={`mailto:${team.coachEmail}`} className="text-blue-600 hover:text-blue-800 text-sm">
                         {team.coachEmail}
                       </a>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-team-phone-${team.id}`}>
+                    {team.phone ? (
+                      <span className="text-sm">{formatPhoneDisplay(team.phone)}</span>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}

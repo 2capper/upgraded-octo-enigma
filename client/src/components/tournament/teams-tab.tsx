@@ -273,6 +273,23 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
     queryClient.invalidateQueries({ queryKey: ['/api/tournaments'] });
   };
 
+  const formatPhoneDisplay = (phone: string | null | undefined): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      const areaCode = cleaned.substring(1, 4);
+      const prefix = cleaned.substring(4, 7);
+      const lineNumber = cleaned.substring(7);
+      return `(${areaCode}) ${prefix}-${lineNumber}`;
+    } else if (cleaned.length === 10) {
+      const areaCode = cleaned.substring(0, 3);
+      const prefix = cleaned.substring(3, 6);
+      const lineNumber = cleaned.substring(6);
+      return `(${areaCode}) ${prefix}-${lineNumber}`;
+    }
+    return phone;
+  };
+
   const getRosterStatus = (team: Team) => {
     if (team.rosterData) {
       try {
@@ -358,7 +375,7 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
                 </TableCell>
                 <TableCell data-testid={`coach-phone-${team.id}`}>
                   {team.phone ? (
-                    <span className="text-sm">{team.phone}</span>
+                    <span className="text-sm">{formatPhoneDisplay(team.phone)}</span>
                   ) : (
                     <span className="text-gray-400 text-sm">-</span>
                   )}
