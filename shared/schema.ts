@@ -102,6 +102,9 @@ export const tournaments = pgTable("tournaments", {
   secondaryColor: text("secondary_color").default("#ffffff"), // Secondary theme color (default: white)
   logoUrl: text("logo_url"), // URL to custom tournament logo
   visibility: text("visibility", { enum: ["private", "public", "unlisted"] }).notNull().default("private"), // Controls who can view the tournament
+  minGameGuarantee: integer("min_game_guarantee"), // Minimum number of games each team should play (pool play)
+  numberOfDiamonds: integer("number_of_diamonds"), // Number of available diamonds/fields
+  diamondDetails: jsonb("diamond_details"), // Array of { venue: string, subVenue: string } for each diamond
   organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -650,6 +653,12 @@ export const tournamentCreationSchema = insertTournamentSchema.extend({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#22c55e"),
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#ffffff"),
   logoUrl: z.string().url().max(2000).optional().or(z.literal('')),
+  minGameGuarantee: z.number().int().min(1).max(20).optional(),
+  numberOfDiamonds: z.number().int().min(1).max(20).optional(),
+  diamondDetails: z.array(z.object({
+    venue: z.string().min(1, "Venue name is required"),
+    subVenue: z.string().optional(),
+  })).optional(),
 });
 
 // Types
