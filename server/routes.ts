@@ -13,6 +13,7 @@ import {
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
+import { generatePoolPlaySchedule, validateGameGuarantee } from "@shared/scheduleGeneration";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -1477,6 +1478,90 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error deleting game:", error);
       res.status(400).json({ error: "Failed to delete game" });
+    }
+  });
+
+  // Generate pool play schedule
+  app.post("/api/tournaments/:tournamentId/generate-schedule", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      
+      // Get tournament details
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      if (tournament.type !== 'pool_play') {
+        return res.status(400).json({ error: "Schedule generation is only available for pool play tournaments" });
+      }
+      
+      // Get all pools and teams for this tournament
+      const pools = await storage.getPools(tournamentId);
+      const allTeams = await storage.getTeams(tournamentId);
+      
+      // Organize teams by pool
+      const poolsWithTeams = pools.map(pool => ({
+        id: pool.id,
+        name: pool.name,
+        teamIds: allTeams.filter(team => team.poolId === pool.id).map(team => team.id)
+      }));
+      
+      // Validate game guarantee if specified
+      if (tournament.minGameGuarantee && tournament.numberOfDiamonds) {
+        const startDate = new Date(tournament.startDate);
+        const endDate = new Date(tournament.endDate);
+        const tournamentDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Validate for the largest pool (worst case)
+        const largestPoolSize = Math.max(...poolsWithTeams.map(p => p.teamIds.length));
+        const validation = validateGameGuarantee(
+          largestPoolSize,
+          tournament.minGameGuarantee,
+          tournamentDays,
+          tournament.numberOfDiamonds
+        );
+        
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.message });
+        }
+      }
+      
+      // Generate the schedule
+      const games = generatePoolPlaySchedule(poolsWithTeams, {
+        tournamentId,
+        startDate: tournament.startDate,
+        endDate: tournament.endDate,
+        minGameGuarantee: tournament.minGameGuarantee || undefined,
+        numberOfDiamonds: tournament.numberOfDiamonds || undefined,
+        diamondDetails: tournament.diamondDetails ? tournament.diamondDetails as Array<{ venue: string; subVenue?: string }> : undefined,
+      });
+      
+      // Save all games to database
+      const createdGames = [];
+      for (const game of games) {
+        const created = await storage.createGame(game);
+        createdGames.push(created);
+      }
+      
+      res.status(201).json({
+        message: `Successfully generated ${createdGames.length} pool play games`,
+        gamesCreated: createdGames.length,
+        games: createdGames
+      });
+    } catch (error: any) {
+      console.error("Error generating schedule:", error);
+      
+      // If it's a capacity/scheduling error (not a database error), return 400
+      if (error.message && (
+        error.message.includes('Cannot schedule all games') ||
+        error.message.includes('Cannot guarantee')
+      )) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      // For other errors (like database errors), return 500
+      res.status(500).json({ error: "Failed to generate schedule" });
     }
   });
 
