@@ -22,6 +22,7 @@ interface Team {
   pitchCountAppName?: string | null;
   pitchCountName?: string | null;
   gameChangerName?: string | null;
+  isPlaceholder?: boolean;
 }
 
 interface TeamsTabProps {
@@ -264,9 +265,10 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const queryClient = useQueryClient();
 
-  const filteredTeams = divisionFilter === 'all' 
+  const filteredTeams = (divisionFilter === 'all' 
     ? teams 
-    : teams.filter((team: Team) => team.division === divisionFilter);
+    : teams.filter((team: Team) => team.division === divisionFilter))
+    .filter((team: Team) => !team.isPlaceholder); // Exclude placeholder teams (seed labels)
 
   const handleRosterImportSuccess = () => {
     // Refresh teams data by invalidating the tournament data hook queries
