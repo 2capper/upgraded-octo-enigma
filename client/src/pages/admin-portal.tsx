@@ -13,7 +13,6 @@ import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { TournamentCreationForm } from '@/components/tournament/tournament-creation-form';
 import { TournamentManager } from '@/components/tournament/tournament-manager';
 import { GameResultEditor } from '@/components/tournament/game-result-editor';
-import { CSVReimportTool } from '@/components/tournament/csv-reimport-tool';
 import { TeamIdScanner } from '@/components/tournament/team-id-scanner';
 import { PasswordResetTool } from '@/components/tournament/password-reset-tool';
 import { AdminRequestsTab } from '@/components/admin-requests-tab';
@@ -474,25 +473,12 @@ export default function AdminPortal() {
           </TabsContent>
 
           <TabsContent value="import" className="mt-6">
-            <div className="space-y-6">
-              <AdminPortalNew 
-                tournamentId={currentTournamentId}
-                onImportSuccess={() => {
-                  console.log('Import successful, data updated via queries');
-                }}
-              />
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="px-2 text-[var(--text-secondary)]" style={{ backgroundColor: 'var(--light-gray)' }}>Or fix existing data</span>
-                </div>
-              </div>
-              
-              <CSVReimportTool tournamentId={currentTournamentId} />
-            </div>
+            <AdminPortalNew 
+              tournamentId={currentTournamentId}
+              onImportSuccess={() => {
+                console.log('Import successful, data updated via queries');
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="teams" className="mt-6">
