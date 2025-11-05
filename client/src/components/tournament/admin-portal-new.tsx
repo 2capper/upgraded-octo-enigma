@@ -15,9 +15,11 @@ interface AdminPortalNewProps {
 }
 
 export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNewProps) => {
-  const [file, setFile] = useState<File | null>(null);
+  const [registrationsFile, setRegistrationsFile] = useState<File | null>(null);
+  const [matchesFile, setMatchesFile] = useState<File | null>(null);
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>(tournamentId);
-  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
+  const [registrationsMessage, setRegistrationsMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
+  const [matchesMessage, setMatchesMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -32,6 +34,34 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     },
   });
 
+  const registrationsImportMutation = useMutation({
+    mutationFn: async (importData: any) => {
+      const response = await fetch(`/api/tournaments/${selectedTournamentId}/import-registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(importData)
+      });
+      if (!response.ok) throw new Error('Failed to import registrations');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Registrations Import Successful",
+        description: `Successfully imported ${data.teams.length} teams from registrations CSV.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', selectedTournamentId] });
+      setRegistrationsFile(null);
+      if (onImportSuccess) onImportSuccess();
+    },
+    onError: (error) => {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import registrations data. Please check your CSV file format.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const bulkImportMutation = useMutation({
     mutationFn: async (importData: any) => {
       const response = await fetch(`/api/tournaments/${selectedTournamentId}/bulk-import`, {
@@ -44,29 +74,128 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     },
     onSuccess: () => {
       toast({
-        title: "Import Successful",
-        description: `Tournament data has been successfully imported to ${tournaments.find((t: any) => t.id === selectedTournamentId)?.name || selectedTournamentId}.`,
+        title: "Matches Import Successful",
+        description: `Tournament schedule has been successfully imported to ${tournaments.find((t: any) => t.id === selectedTournamentId)?.name || selectedTournamentId}.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments', selectedTournamentId] });
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments'] });
-      setFile(null);
+      setMatchesFile(null);
       if (onImportSuccess) onImportSuccess();
     },
     onError: (error) => {
       toast({
         title: "Import Failed",
-        description: "Failed to import tournament data. Please check your CSV file format.",
+        description: "Failed to import matches data. Please check your CSV file format.",
         variant: "destructive",
       });
     }
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessage({ type: '', text: '' });
+  const handleRegistrationsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRegistrationsMessage({ type: '', text: '' });
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
+      setRegistrationsFile(selectedFile);
     }
+  };
+
+  const handleMatchesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMatchesMessage({ type: '', text: '' });
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setMatchesFile(selectedFile);
+    }
+  };
+
+  const handleRegistrationsImport = async () => {
+    if (!registrationsFile) {
+      setRegistrationsMessage({ type: 'error', text: 'Please select a registrations CSV file to import.' });
+      return;
+    }
+
+    setRegistrationsMessage({ type: 'info', text: 'Processing registrations CSV...' });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const csvData = event.target?.result as string;
+        const lines = csvData.split('\n').filter(line => line.trim() !== '');
+        
+        if (lines.length < 2) {
+          setRegistrationsMessage({ type: 'error', text: 'CSV file is empty or has no data rows.' });
+          return;
+        }
+
+        // Parse CSV (handle quoted values)
+        const parseCSVRow = (row: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            const nextChar = row[i + 1];
+            
+            if (char === '"' && (i === 0 || row[i - 1] === ',')) {
+              inQuotes = true;
+            } else if (char === '"' && nextChar === ',' && inQuotes) {
+              inQuotes = false;
+            } else if (char === '"' && i === row.length - 1 && inQuotes) {
+              inQuotes = false;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current);
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          
+          if (current || row.endsWith(',')) {
+            result.push(current);
+          }
+          
+          return result;
+        };
+
+        const headers = parseCSVRow(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
+        const data = lines.slice(1).map(line => {
+          const values = parseCSVRow(line);
+          const row: Record<string, string> = {};
+          headers.forEach((header, index) => {
+            row[header] = values[index]?.trim().replace(/^"|"$/g, '') || '';
+          });
+          return row;
+        });
+
+        // Extract team data from registrations CSV
+        const teams = data.map(row => ({
+          name: row['Team Name'],
+          coachFirstName: row['Team Contact First Name'],
+          coachLastName: row['Team Contact Last Name'],
+          coachEmail: row['Team Contact Email'],
+          phone: row['Team ContactPhone'],
+          division: row['Division'],
+          registrationStatus: row['Registration Status'],
+          paymentStatus: row['Total Payment Amount'] && parseFloat(row['Total Payment Amount'].replace(/[^0-9.]/g, '')) > 0 ? 'paid' : 'unpaid',
+          teamNumber: row['What is your team number?'] || '',
+        })).filter(team => team.name && team.division);
+
+        console.log('Registrations import:', { teams: teams.length });
+
+        registrationsImportMutation.mutate({ teams });
+
+        setRegistrationsMessage({
+          type: 'success',
+          text: `Successfully parsed ${teams.length} teams from registrations CSV.`
+        });
+
+      } catch (error) {
+        console.error("Error importing registrations CSV:", error);
+        setRegistrationsMessage({ type: 'error', text: 'An error occurred during import. Check console for details.' });
+      }
+    };
+
+    reader.readAsText(registrationsFile);
   };
 
   const adjustTimeToET = (timeString: string) => {
@@ -100,13 +229,13 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     return `${displayHours}:${displayMinutes} ${newModifier}`;
   };
 
-  const handleImport = async () => {
-    if (!file) {
-      setMessage({ type: 'error', text: 'Please select a file to import.' });
+  const handleMatchesImport = async () => {
+    if (!matchesFile) {
+      setMatchesMessage({ type: 'error', text: 'Please select a matches CSV file to import.' });
       return;
     }
 
-    setMessage({ type: 'info', text: 'Processing CSV file...' });
+    setMatchesMessage({ type: 'info', text: 'Processing matches CSV file...' });
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -115,7 +244,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         const lines = csvData.split('\n').filter(line => line.trim() !== '');
         
         if (lines.length < 2) {
-          setMessage({ type: 'error', text: 'CSV file is empty or has no data rows.' });
+          setMatchesMessage({ type: 'error', text: 'CSV file is empty or has no data rows.' });
           return;
         }
 
@@ -189,7 +318,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         const missingHeaders = requiredCanonicalHeaders.filter(h => !foundHeaders.has(h));
 
         if (missingHeaders.length > 0) {
-          setMessage({ 
+          setMatchesMessage({ 
             type: 'error', 
             text: `CSV is missing required columns: ${missingHeaders.join(', ')}. Found headers: ${rawHeaders.join(', ')}` 
           });
@@ -235,7 +364,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         });
 
         if (validData.length === 0) {
-          setMessage({ 
+          setMatchesMessage({ 
             type: 'error', 
             text: `Found ${data.length} data rows, but 0 were valid. Please check the data in your CSV file.` 
           });
@@ -372,7 +501,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             poolId,
             forfeitStatus: 'none',
             date: row.date,
-            time: row.time, // Store in Central Time, will be converted to ET on display
+            time: adjustTimeToET(row.time), // Convert CST to EST (add 1 hour)
             location: row.venue || '3215 Forest Glade Dr',
             subVenue: row.subVenue || '',
             tournamentId: selectedTournamentId,
@@ -412,18 +541,18 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           games
         });
 
-        setMessage({ 
+        setMatchesMessage({ 
           type: 'success', 
           text: `Successfully imported ${games.length} games (${poolGamesCount} pool games, ${playoffGamesCount} playoff games).`
         });
 
       } catch (error) {
         console.error("Error importing CSV:", error);
-        setMessage({ type: 'error', text: 'An error occurred during import. Check console for details.' });
+        setMatchesMessage({ type: 'error', text: 'An error occurred during import. Check console for details.' });
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsText(matchesFile);
   };
 
   return (
@@ -431,14 +560,14 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
       <CardHeader>
         <CardTitle className="flex items-center">
           <Settings className="w-6 h-6 text-[var(--falcons-green)] mr-2" />
-          Admin Portal
+          CSV Data Import
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
           <Label htmlFor="tournamentSelect" className="text-sm font-medium">Select Tournament</Label>
           <Select value={selectedTournamentId} onValueChange={setSelectedTournamentId}>
-            <SelectTrigger className="mt-2">
+            <SelectTrigger className="mt-2" data-testid="select-tournament">
               <SelectValue placeholder="Select a tournament..." />
             </SelectTrigger>
             <SelectContent>
@@ -454,20 +583,91 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           </p>
         </div>
 
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="px-2 bg-white text-gray-500">Step 1: Import Team Registrations</span>
+          </div>
+        </div>
+
         <div>
-          <Label htmlFor="csvFile" className="text-sm font-medium">Import Tournament Data (CSV)</Label>
+          <Label htmlFor="registrationsFile" className="text-sm font-medium">Registrations CSV</Label>
           <div className="mt-2 flex items-center space-x-4">
             <Input
-              id="csvFile"
+              id="registrationsFile"
               type="file"
               accept=".csv"
-              onChange={handleFileChange}
+              onChange={handleRegistrationsFileChange}
               className="flex-1"
+              data-testid="input-registrations-csv"
             />
             <Button 
-              onClick={handleImport} 
-              disabled={!file || !selectedTournamentId || bulkImportMutation.isPending}
+              onClick={handleRegistrationsImport} 
+              disabled={!registrationsFile || !selectedTournamentId || registrationsImportMutation.isPending}
               className="bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
+              data-testid="button-import-registrations"
+            >
+              {registrationsImportMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-4 h-4 mr-2" />
+                  Import Teams
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-sm text-gray-500 mt-2">
+            Upload the registrations CSV with team names, coach contact info, division, and team numbers
+          </p>
+        </div>
+
+        {registrationsMessage.text && (
+          <Alert className={`${
+            registrationsMessage.type === 'success' ? 'border-green-500 bg-green-50' : 
+            registrationsMessage.type === 'error' ? 'border-red-500 bg-red-50' : 
+            'border-blue-500 bg-blue-50'
+          }`}>
+            <AlertDescription className={
+              registrationsMessage.type === 'success' ? 'text-green-800' : 
+              registrationsMessage.type === 'error' ? 'text-red-800' : 
+              'text-blue-800'
+            }>
+              {registrationsMessage.text}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="px-2 bg-white text-gray-500">Step 2: Import Game Schedule</span>
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="matchesFile" className="text-sm font-medium">Matches CSV</Label>
+          <div className="mt-2 flex items-center space-x-4">
+            <Input
+              id="matchesFile"
+              type="file"
+              accept=".csv"
+              onChange={handleMatchesFileChange}
+              className="flex-1"
+              data-testid="input-matches-csv"
+            />
+            <Button 
+              onClick={handleMatchesImport} 
+              disabled={!matchesFile || !selectedTournamentId || bulkImportMutation.isPending}
+              className="bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
+              data-testid="button-import-matches"
             >
               {bulkImportMutation.isPending ? (
                 <>
@@ -477,28 +677,28 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
               ) : (
                 <>
                   <UploadCloud className="w-4 h-4 mr-2" />
-                  Import
+                  Import Schedule
                 </>
               )}
             </Button>
           </div>
           <p className="text-sm text-gray-500 mt-2">
-            Upload a CSV file with columns: Game, Date, Time, Location, Division, Pool, Home Team, Away Team
+            Upload the matches CSV with game schedule, locations, and teams (CST times will be converted to EST)
           </p>
         </div>
 
-        {message.text && (
+        {matchesMessage.text && (
           <Alert className={`${
-            message.type === 'success' ? 'border-green-500 bg-green-50' : 
-            message.type === 'error' ? 'border-red-500 bg-red-50' : 
+            matchesMessage.type === 'success' ? 'border-green-500 bg-green-50' : 
+            matchesMessage.type === 'error' ? 'border-red-500 bg-red-50' : 
             'border-blue-500 bg-blue-50'
           }`}>
             <AlertDescription className={
-              message.type === 'success' ? 'text-green-800' : 
-              message.type === 'error' ? 'text-red-800' : 
+              matchesMessage.type === 'success' ? 'text-green-800' : 
+              matchesMessage.type === 'error' ? 'text-red-800' : 
               'text-blue-800'
             }>
-              {message.text}
+              {matchesMessage.text}
             </AlertDescription>
           </Alert>
         )}

@@ -121,6 +121,7 @@ export interface IStorage {
   // Bulk operations
   bulkCreateTeams(teams: InsertTeam[]): Promise<Team[]>;
   bulkCreateGames(games: InsertGame[]): Promise<Game[]>;
+  bulkCreateOrUpdateTeamsFromRegistrations(teams: any[]): Promise<Team[]>;
   clearTournamentData(tournamentId: string): Promise<void>;
   
   // Playoff bracket generation
@@ -750,9 +751,120 @@ export class DatabaseStorage implements IStorage {
   // Bulk operations
   async bulkCreateTeams(teamsList: InsertTeam[]): Promise<Team[]> {
     if (teamsList.length === 0) return [];
-    return await withRetry(async () => {
-      return await db.insert(teams).values(teamsList).returning();
-    });
+    
+    const createdTeams: Team[] = [];
+    
+    // Check each team - if it exists (by name and tournament), update it; otherwise create it
+    for (const teamData of teamsList) {
+      const existingTeams = await db.select().from(teams)
+        .where(and(
+          eq(teams.name, teamData.name),
+          eq(teams.tournamentId, teamData.tournamentId)
+        ));
+      
+      if (existingTeams.length > 0) {
+        // Update existing team with new pool assignment (preserve coach details from registration)
+        const [updatedTeam] = await db.update(teams)
+          .set({
+            poolId: teamData.poolId,
+            division: teamData.division,
+          })
+          .where(eq(teams.id, existingTeams[0].id))
+          .returning();
+        
+        createdTeams.push(updatedTeam);
+      } else {
+        // Create new team
+        const [newTeam] = await db.insert(teams).values(teamData).returning();
+        createdTeams.push(newTeam);
+      }
+    }
+    
+    return createdTeams;
+  }
+
+  async bulkCreateOrUpdateTeamsFromRegistrations(teamsList: any[]): Promise<Team[]> {
+    if (teamsList.length === 0) return [];
+    
+    const createdTeams: Team[] = [];
+    
+    for (const teamData of teamsList) {
+      // For now, create a temporary pool for each division until the Matches CSV is imported
+      // This allows teams to exist before we know their pool assignments
+      const tempPoolId = `${teamData.tournamentId}_pool_temp_${teamData.division.replace(/\s+/g, '-')}`;
+      
+      // Check if temp pool exists, if not create it
+      let pool = await this.getPoolById(tempPoolId);
+      if (!pool) {
+        // Create temporary division if needed
+        const tempDivisionId = `${teamData.tournamentId}_div_${teamData.division.replace(/\s+/g, '-')}`;
+        let division = await db.select().from(ageDivisions).where(eq(ageDivisions.id, tempDivisionId));
+        
+        if (division.length === 0) {
+          await db.insert(ageDivisions).values({
+            id: tempDivisionId,
+            name: teamData.division,
+            tournamentId: teamData.tournamentId
+          });
+        }
+        
+        // Create temporary pool
+        await db.insert(pools).values({
+          id: tempPoolId,
+          name: 'Unassigned',
+          tournamentId: teamData.tournamentId,
+          ageDivisionId: tempDivisionId
+        });
+      }
+      
+      // Check if team already exists (by name and tournament)
+      const existingTeams = await db.select().from(teams)
+        .where(and(
+          eq(teams.name, teamData.name),
+          eq(teams.tournamentId, teamData.tournamentId)
+        ));
+      
+      if (existingTeams.length > 0) {
+        // Update existing team
+        const [updatedTeam] = await db.update(teams)
+          .set({
+            coachFirstName: teamData.coachFirstName,
+            coachLastName: teamData.coachLastName,
+            coachEmail: teamData.coachEmail,
+            phone: teamData.phone,
+            teamNumber: teamData.teamNumber,
+            registrationStatus: teamData.registrationStatus,
+            paymentStatus: teamData.paymentStatus,
+            division: teamData.division,
+          })
+          .where(eq(teams.id, existingTeams[0].id))
+          .returning();
+        
+        createdTeams.push(updatedTeam);
+      } else {
+        // Create new team
+        const teamId = `${teamData.tournamentId}_team_${teamData.division}-${teamData.name.replace(/\s+/g, '-')}`;
+        const [newTeam] = await db.insert(teams).values({
+          id: teamId,
+          name: teamData.name,
+          division: teamData.division,
+          coach: `${teamData.coachFirstName} ${teamData.coachLastName}`,
+          coachFirstName: teamData.coachFirstName,
+          coachLastName: teamData.coachLastName,
+          coachEmail: teamData.coachEmail,
+          phone: teamData.phone,
+          teamNumber: teamData.teamNumber,
+          tournamentId: teamData.tournamentId,
+          poolId: tempPoolId,
+          registrationStatus: teamData.registrationStatus,
+          paymentStatus: teamData.paymentStatus,
+        }).returning();
+        
+        createdTeams.push(newTeam);
+      }
+    }
+    
+    return createdTeams;
   }
 
   async bulkCreateGames(gamesList: InsertGame[]): Promise<Game[]> {
@@ -763,11 +875,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clearTournamentData(tournamentId: string): Promise<void> {
-    // Delete in correct order due to foreign key constraints
+    // Delete games only - preserve teams, pools, and divisions
+    // NOTE: This preserves teams from Registrations CSV import
+    // Teams will be updated with correct pool assignments when Matches CSV is imported
+    // Old/temporary pools and divisions will remain but will be harmless orphans
     await db.delete(games).where(eq(games.tournamentId, tournamentId));
-    await db.delete(teams).where(eq(teams.tournamentId, tournamentId));
-    await db.delete(pools).where(eq(pools.tournamentId, tournamentId));
-    await db.delete(ageDivisions).where(eq(ageDivisions.tournamentId, tournamentId));
   }
 
   async generatePlayoffBracket(tournamentId: string, divisionId: string): Promise<Game[]> {

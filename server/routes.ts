@@ -1559,6 +1559,33 @@ Waterdown 10U AA
     }
   });
 
+  // Import teams from Registrations CSV
+  app.post("/api/tournaments/:tournamentId/import-registrations", requireAdmin, async (req, res) => {
+    try {
+      const { teams } = req.body;
+      const tournamentId = req.params.tournamentId;
+
+      // Verify tournament exists
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Import teams - they will be associated with pools later when Matches CSV is imported
+      const createdTeams = await storage.bulkCreateOrUpdateTeamsFromRegistrations(
+        teams.map((team: any) => ({ ...team, tournamentId }))
+      );
+
+      res.status(201).json({
+        teams: createdTeams,
+        message: `Successfully imported ${createdTeams.length} teams`
+      });
+    } catch (error) {
+      console.error("Error importing registrations:", error);
+      res.status(400).json({ error: "Failed to import registrations data" });
+    }
+  });
+
   // OBA Roster API Routes - Enhanced team search with improved scraping
   app.get("/api/roster/teams/search", async (req, res) => {
     try {
