@@ -15,10 +15,14 @@ interface Team {
   name: string;
   division: string | null;
   city: string | null;
-  coach: string | null;
+  coachFirstName?: string | null;
+  coachLastName?: string | null;
+  coachEmail?: string | null;
   phone: string | null;
   rosterLink: string | null;
   teamNumber: string | null;
+  registrationStatus?: string | null;
+  paymentStatus?: string | null;
 }
 
 interface TeamEditorProps {
@@ -34,7 +38,9 @@ function TeamEditDialog({ team, onSuccess }: { team: Team; onSuccess: () => void
   const [formData, setFormData] = useState({
     name: team.name || '',
     city: team.city || '',
-    coach: team.coach || '',
+    coachFirstName: team.coachFirstName || '',
+    coachLastName: team.coachLastName || '',
+    coachEmail: team.coachEmail || '',
     phone: team.phone || '',
     teamNumber: team.teamNumber || '',
   });
@@ -55,7 +61,9 @@ function TeamEditDialog({ team, onSuccess }: { team: Team; onSuccess: () => void
       const updateData = {
         name: formData.name,
         city: formData.city || null,
-        coach: formData.coach || null,
+        coachFirstName: formData.coachFirstName || null,
+        coachLastName: formData.coachLastName || null,
+        coachEmail: formData.coachEmail || null,
         phone: formData.phone || null,
         teamNumber: formData.teamNumber || null,
         rosterLink,
@@ -121,14 +129,39 @@ function TeamEditDialog({ team, onSuccess }: { team: Team; onSuccess: () => void
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="coachFirstName">Coach First Name</Label>
+                <Input
+                  id="coachFirstName"
+                  value={formData.coachFirstName}
+                  onChange={(e) => setFormData({ ...formData, coachFirstName: e.target.value })}
+                  placeholder="First name"
+                  data-testid="input-coach-first-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="coachLastName">Coach Last Name</Label>
+                <Input
+                  id="coachLastName"
+                  value={formData.coachLastName}
+                  onChange={(e) => setFormData({ ...formData, coachLastName: e.target.value })}
+                  placeholder="Last name"
+                  data-testid="input-coach-last-name"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="coach">Coach Name</Label>
+              <Label htmlFor="coachEmail">Coach Email</Label>
               <Input
-                id="coach"
-                value={formData.coach}
-                onChange={(e) => setFormData({ ...formData, coach: e.target.value })}
-                placeholder="Coach name"
-                data-testid="input-team-coach"
+                id="coachEmail"
+                type="email"
+                value={formData.coachEmail}
+                onChange={(e) => setFormData({ ...formData, coachEmail: e.target.value })}
+                placeholder="coach@example.com"
+                data-testid="input-coach-email"
               />
             </div>
 
@@ -241,8 +274,11 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
             <TableRow>
               <TableHead>Team Name</TableHead>
               <TableHead>City</TableHead>
-              <TableHead>Coach</TableHead>
+              <TableHead>Coach Name</TableHead>
+              <TableHead>Coach Email</TableHead>
               <TableHead>Team Number</TableHead>
+              <TableHead>Registration</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead>Roster Link</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -250,7 +286,7 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
           <TableBody>
             {teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={9} className="text-center text-gray-500 py-8">
                   No teams found. Import teams from CSV first.
                 </TableCell>
               </TableRow>
@@ -264,11 +300,42 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
                     {team.city || <span className="text-gray-400">—</span>}
                   </TableCell>
                   <TableCell data-testid={`text-team-coach-${team.id}`}>
-                    {team.coach || <span className="text-gray-400">—</span>}
+                    {team.coachFirstName || team.coachLastName ? (
+                      <span>{team.coachFirstName} {team.coachLastName}</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-team-email-${team.id}`}>
+                    {team.coachEmail ? (
+                      <a href={`mailto:${team.coachEmail}`} className="text-blue-600 hover:text-blue-800 text-sm">
+                        {team.coachEmail}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell data-testid={`text-team-number-${team.id}`}>
                     {team.teamNumber ? (
                       <Badge variant="secondary">{team.teamNumber}</Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-registration-status-${team.id}`}>
+                    {team.registrationStatus ? (
+                      <Badge variant={team.registrationStatus === 'Registered' ? 'default' : 'outline'}>
+                        {team.registrationStatus}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-payment-status-${team.id}`}>
+                    {team.paymentStatus ? (
+                      <Badge variant={team.paymentStatus === 'paid' ? 'default' : 'destructive'}>
+                        {team.paymentStatus}
+                      </Badge>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
