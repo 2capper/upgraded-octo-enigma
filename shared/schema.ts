@@ -140,6 +140,7 @@ export const teams = pgTable("teams", {
   rosterData: text("roster_data"), // JSON string of roster players
   registrationStatus: text("registration_status"), // "Registered" | "Approved" | "Waitlisted" - from CSV import
   paymentStatus: text("payment_status"), // Payment status from registration CSV
+  isPlaceholder: boolean("is_placeholder").notNull().default(false), // True for seed label teams that will be replaced after pool play
 });
 
 export const games = pgTable("games", {

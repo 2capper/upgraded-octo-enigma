@@ -413,7 +413,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         const rawHeaders = parseCSVRow(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
 
         const headerMapping: Record<string, string[]> = {
-          matchNumber: ['game', 'match', 'matchno', 'game#'],
+          matchNumber: ['game', 'match', 'matchno', 'game#', 'gamenumber', 'matchnumber', '#'],
           date: ['date'],
           time: ['time'],
           venue: ['venue', 'location', 'diamond'],
@@ -438,6 +438,17 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             }
           }
         });
+        
+        // If matchNumber column not found but column 0 is empty/blank, assume it's the match number column
+        if (!foundHeaders.has('matchNumber') && (rawHeaders[0] === '' || normalizeHeader(rawHeaders[0]) === '')) {
+          // Check if first data row has a numeric value in column 0
+          const firstDataRow = parseCSVRow(lines[1]);
+          if (firstDataRow[0] && !isNaN(Number(firstDataRow[0]))) {
+            columnIndexMap.matchNumber = 0;
+            foundHeaders.add('matchNumber');
+            console.log('Auto-detected unlabeled Column A as match number column');
+          }
+        }
 
         const requiredCanonicalHeaders = ['matchNumber', 'date', 'time', 'venue', 'division', 'pool', 'homeTeam', 'awayTeam'];
         const missingHeaders = requiredCanonicalHeaders.filter(h => !foundHeaders.has(h));
@@ -622,7 +633,9 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             const teamPoolId = isPlayoffGame
               ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
               : poolId;
-            teams.push({ id: teamId, name: homeTeamName, division: row.division, poolId: teamPoolId });
+            // Mark seed label teams as placeholders
+            const isPlaceholderTeam = isPlayoffGame && isPlayoffPlaceholder(homeTeamName);
+            teams.push({ id: teamId, name: homeTeamName, division: row.division, poolId: teamPoolId, isPlaceholder: isPlaceholderTeam });
           }
 
           const awayTeamKey = `${row.division}-${awayTeamName}`;
@@ -633,7 +646,9 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             const teamPoolId = isPlayoffGame
               ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
               : poolId;
-            teams.push({ id: teamId, name: awayTeamName, division: row.division, poolId: teamPoolId });
+            // Mark seed label teams as placeholders
+            const isPlaceholderTeam = isPlayoffGame && isPlayoffPlaceholder(awayTeamName);
+            teams.push({ id: teamId, name: awayTeamName, division: row.division, poolId: teamPoolId, isPlaceholder: isPlaceholderTeam });
           }
         }
 
