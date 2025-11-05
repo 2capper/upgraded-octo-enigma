@@ -395,6 +395,142 @@ export class DatabaseStorage implements IStorage {
           metadata
         });
 
+        // Auto-resolve seed labels when pool play completes
+        const [currentPool] = await tx.select().from(pools).where(eq(pools.id, updatedGame.poolId));
+        if (currentPool && !currentPool.name.toLowerCase().includes('playoff')) {
+          // This is a pool play game - check if all pool play is complete
+          const tournamentGames = await tx.select().from(games).where(eq(games.tournamentId, updatedGame.tournamentId));
+          const tournamentPools = await tx.select().from(pools).where(eq(pools.tournamentId, updatedGame.tournamentId));
+          
+          // Create a set of playoff pool IDs for efficient lookup
+          const playoffPoolIds = new Set(
+            tournamentPools
+              .filter(p => p.name.toLowerCase().includes('playoff'))
+              .map(p => p.id)
+          );
+          
+          const poolGames = tournamentGames.filter(g => 
+            g.poolId && !playoffPoolIds.has(g.poolId)
+          );
+          
+          const allPoolGamesComplete = poolGames.every(g => g.status === 'completed');
+          
+          if (allPoolGamesComplete) {
+            console.log('🎯 All pool play complete! Resolving playoff seed labels...');
+            
+            // Get tournament to access playoff format and seeding pattern
+            const [tournament] = await tx.select().from(tournaments).where(eq(tournaments.id, updatedGame.tournamentId));
+            if (!tournament) {
+              throw new Error("Tournament not found");
+            }
+            
+            // Get all teams and divisions for standings calculation (pools already fetched above)
+            const tournamentTeams = await tx.select().from(teams).where(eq(teams.tournamentId, updatedGame.tournamentId));
+            const tournamentDivisions = await tx.select().from(ageDivisions).where(eq(ageDivisions.tournamentId, updatedGame.tournamentId));
+            
+            // Calculate standings per division, mapping pools to letters within each division
+            // Structure: Map<divisionId, Map<poolLetter, standings[]>>
+            const standingsByDivision = new Map<string, Map<string, any[]>>();
+            
+            for (const division of tournamentDivisions) {
+              const divisionPools = tournamentPools
+                .filter(p => p.ageDivisionId === division.id && !p.name.toLowerCase().includes('playoff'))
+                .sort((a, b) => a.name.localeCompare(b.name));
+              
+              const letterMap = new Map<string, any[]>();
+              divisionPools.forEach((pool, index) => {
+                const poolLetter = String.fromCharCode(65 + index); // A=65, B=66, etc.
+                const poolTeams = tournamentTeams.filter(t => t.poolId === pool.id);
+                const standings = calculateStandings(poolTeams, tournamentGames);
+                letterMap.set(poolLetter, standings.sort((a, b) => a.rank - b.rank));
+                console.log(`Division ${division.name}: Mapped ${pool.name} → ${poolLetter}, ${standings.length} teams`);
+              });
+              
+              standingsByDivision.set(division.id, letterMap);
+            }
+            
+            // Helper function to check if a team name is a seed label
+            const isSeedLabel = (name: string): boolean => {
+              // Matches patterns like "A1", "B2", "Z9", etc. (any letter, any number)
+              return /^[A-Z]\d+$/.test(name.trim());
+            };
+            
+            // Helper function to resolve a seed label to actual team ID for a specific division
+            const resolveSeedLabel = (label: string, divisionId: string): string | null => {
+              const match = label.match(/^([A-Z])(\d+)$/);
+              if (!match) return null;
+              
+              const poolLetter = match[1];
+              const rank = parseInt(match[2]);
+              
+              const divisionStandings = standingsByDivision.get(divisionId);
+              if (!divisionStandings) {
+                console.warn(`Cannot resolve seed label ${label}: division ${divisionId} not found`);
+                return null;
+              }
+              
+              const poolStandings = divisionStandings.get(poolLetter);
+              
+              if (!poolStandings || poolStandings.length < rank) {
+                console.warn(`Cannot resolve seed label ${label} for division ${divisionId}: pool ${poolLetter} not found or insufficient teams (have ${poolStandings?.length || 0} teams, need ${rank})`);
+                return null;
+              }
+              
+              return poolStandings[rank - 1].teamId;
+            };
+            
+            // Find all playoff games with seed label teams (reuse playoffPoolIds from above)
+            const playoffGames = tournamentGames.filter(g => 
+              g.poolId && playoffPoolIds.has(g.poolId)
+            );
+            
+            // Resolve and update playoff games
+            for (const game of playoffGames) {
+              // Get the division ID for this playoff game through its pool
+              const playoffPool = tournamentPools.find(p => p.id === game.poolId);
+              if (!playoffPool) {
+                console.warn(`Skipping game ${game.id}: playoff pool not found`);
+                continue;
+              }
+              
+              const divisionId = playoffPool.ageDivisionId;
+              const homeTeam = tournamentTeams.find(t => t.id === game.homeTeamId);
+              const awayTeam = tournamentTeams.find(t => t.id === game.awayTeamId);
+              
+              let newHomeTeamId = game.homeTeamId;
+              let newAwayTeamId = game.awayTeamId;
+              
+              if (homeTeam && isSeedLabel(homeTeam.name)) {
+                const resolvedId = resolveSeedLabel(homeTeam.name, divisionId);
+                if (resolvedId) {
+                  newHomeTeamId = resolvedId;
+                  console.log(`Resolved ${homeTeam.name} → ${resolvedId} for game ${game.id} (division ${playoffPool.ageDivisionId})`);
+                }
+              }
+              
+              if (awayTeam && isSeedLabel(awayTeam.name)) {
+                const resolvedId = resolveSeedLabel(awayTeam.name, divisionId);
+                if (resolvedId) {
+                  newAwayTeamId = resolvedId;
+                  console.log(`Resolved ${awayTeam.name} → ${resolvedId} for game ${game.id} (division ${playoffPool.ageDivisionId})`);
+                }
+              }
+              
+              // Update game if either team was resolved
+              if (newHomeTeamId !== game.homeTeamId || newAwayTeamId !== game.awayTeamId) {
+                await tx.update(games)
+                  .set({
+                    homeTeamId: newHomeTeamId,
+                    awayTeamId: newAwayTeamId
+                  })
+                  .where(eq(games.id, game.id));
+                  
+                console.log(`✅ Updated playoff game ${game.id} with resolved teams`);
+              }
+            }
+          }
+        }
+
         // Auto-advance winners in playoff brackets
         if (updatedGame.playoffRound && updatedGame.playoffGameNumber && updatedGame.status === 'completed') {
           // Determine winner and loser
