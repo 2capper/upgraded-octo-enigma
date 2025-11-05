@@ -216,6 +216,223 @@ export const featureFlags = pgTable("feature_flags", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Registration periods for managing open/closed registration windows
+export const registrationPeriods = pgTable("registration_periods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "Spring 2025 House League"
+  description: text("description"),
+  programType: text("program_type").notNull(), // "house_league" | "select" | "tournament"
+  sport: text("sport").notNull(), // "baseball" | "softball"
+  divisions: text("divisions").array(), // ["11U", "13U", "15U"]
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  earlyBirdDate: timestamp("early_bird_date"),
+  earlyBirdPrice: decimal("early_bird_price", { precision: 10, scale: 2 }),
+  regularPrice: decimal("regular_price", { precision: 10, scale: 2 }).notNull(),
+  maxCapacity: integer("max_capacity"),
+  currentCount: integer("current_count").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  allowWaitlist: boolean("allow_waitlist").notNull().default(true),
+  multiFamilyDiscount: decimal("multi_family_discount", { precision: 5, scale: 2 }), // Percentage discount
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Player registrations for house league and select programs
+export const playerRegistrations = pgTable("player_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registrationPeriodId: varchar("registration_period_id").notNull().references(() => registrationPeriods.id, { onDelete: "cascade" }),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Player information
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  dateOfBirth: text("date_of_birth").notNull(),
+  gender: text("gender"),
+  division: text("division").notNull(), // "11U", "13U", etc.
+  shirtSize: text("shirt_size").notNull(), // "YS", "YM", "YL", "AS", "AM", "AL", etc.
+  
+  // Parent/Guardian information
+  parentFirstName: text("parent_first_name").notNull(),
+  parentLastName: text("parent_last_name").notNull(),
+  parentEmail: text("parent_email").notNull(),
+  parentPhone: text("parent_phone").notNull(),
+  address: text("address"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  
+  // Medical information
+  medicalConditions: text("medical_conditions"),
+  allergies: text("allergies"),
+  emergencyContact: text("emergency_contact"),
+  emergencyPhone: text("emergency_phone"),
+  
+  // Registration details
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected" | "waitlisted"
+  paymentStatus: text("payment_status").notNull().default("unpaid"), // "unpaid" | "paid" | "refunded"
+  paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
+  discountApplied: decimal("discount_applied", { precision: 10, scale: 2 }),
+  
+  // Draft assignment (for house league)
+  draftPoolId: varchar("draft_pool_id").references(() => draftPools.id),
+  assignedTeam: text("assigned_team"),
+  
+  // Uniform tracking
+  uniformOrdered: boolean("uniform_ordered").notNull().default(false),
+  uniformReceived: boolean("uniform_received").notNull().default(false),
+  
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Team registrations for tournaments
+export const teamRegistrations = pgTable("team_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registrationPeriodId: varchar("registration_period_id").references(() => registrationPeriods.id, { onDelete: "cascade" }),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  tournamentId: text("tournament_id").references(() => tournaments.id, { onDelete: "set null" }),
+  
+  // Team information
+  teamName: text("team_name").notNull(),
+  division: text("division").notNull(),
+  city: text("city"),
+  
+  // Coach information
+  coachFirstName: text("coach_first_name").notNull(),
+  coachLastName: text("coach_last_name").notNull(),
+  coachEmail: text("coach_email").notNull(),
+  coachPhone: text("coach_phone").notNull(),
+  
+  // Team identifiers
+  obaNumber: varchar("oba_number", { length: 10 }),
+  pitchCountAppNumber: text("pitch_count_app_number"),
+  
+  // Roster
+  rosterData: jsonb("roster_data"), // Array of player objects
+  
+  // Registration details
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected"
+  paymentStatus: text("payment_status").notNull().default("unpaid"), // "unpaid" | "paid" | "refunded"
+  paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
+  
+  // Link to created tournament team
+  createdTeamId: text("created_team_id").references(() => teams.id, { onDelete: "set null" }),
+  
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Payment records for all registrations
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Link to registration (either player or team)
+  playerRegistrationId: varchar("player_registration_id").references(() => playerRegistrations.id, { onDelete: "cascade" }),
+  teamRegistrationId: varchar("team_registration_id").references(() => teamRegistrations.id, { onDelete: "cascade" }),
+  
+  // Payment details
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("CAD"),
+  paymentMethod: text("payment_method").notNull(), // "stripe" | "paypal" | "interac"
+  paymentProvider: text("payment_provider"), // "stripe" | "paypal"
+  
+  // Payment provider IDs
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  paypalOrderId: text("paypal_order_id"),
+  
+  // Payment status
+  status: text("status").notNull().default("pending"), // "pending" | "completed" | "failed" | "refunded"
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Waitlist for full registration periods
+export const waitlists = pgTable("waitlists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registrationPeriodId: varchar("registration_period_id").notNull().references(() => registrationPeriods.id, { onDelete: "cascade" }),
+  
+  // Waitlist entry details
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  parentEmail: text("parent_email").notNull(),
+  parentPhone: text("parent_phone").notNull(),
+  division: text("division").notNull(),
+  
+  // Waitlist status
+  status: text("status").notNull().default("active"), // "active" | "notified" | "registered" | "expired"
+  position: integer("position").notNull(), // Position in waitlist
+  notifiedAt: timestamp("notified_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Draft pools for organizing house league players by division
+export const draftPools = pgTable("draft_pools", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "2025 Spring 11U Draft"
+  division: text("division").notNull(), // "11U", "13U", etc.
+  sport: text("sport").notNull(), // "baseball" | "softball"
+  season: text("season").notNull(), // "Spring 2025"
+  
+  // Draft settings
+  numberOfTeams: integer("number_of_teams").notNull(),
+  playersPerTeam: integer("players_per_team"),
+  draftDate: timestamp("draft_date"),
+  status: text("status").notNull().default("open"), // "open" | "in_progress" | "completed"
+  
+  // Draft order (team coach IDs in draft order)
+  draftOrder: text("draft_order").array(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Communication messages log
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  tournamentId: text("tournament_id").references(() => tournaments.id, { onDelete: "set null" }),
+  
+  // Message details
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  messageType: text("message_type").notNull(), // "email" | "sms"
+  
+  // Recipients
+  recipientType: text("recipient_type").notNull(), // "all" | "division" | "team" | "individual"
+  recipientDivision: text("recipient_division"),
+  recipientTeamId: text("recipient_team_id").references(() => teams.id, { onDelete: "set null" }),
+  recipientEmails: text("recipient_emails").array(),
+  recipientPhones: text("recipient_phones").array(),
+  
+  // Delivery status
+  status: text("status").notNull().default("draft"), // "draft" | "sending" | "sent" | "failed"
+  sentCount: integer("sent_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  
+  // Template used
+  templateName: text("template_name"),
+  
+  // Metadata
+  sendgridMessageId: text("sendgrid_message_id"),
+  twilioMessageIds: text("twilio_message_ids").array(),
+  
+  sentBy: varchar("sent_by").notNull().references(() => users.id),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   tournaments: many(tournaments),
@@ -358,6 +575,48 @@ export const insertOrganizationFeatureFlagSchema = createInsertSchema(organizati
   updatedAt: true,
 });
 
+export const insertRegistrationPeriodSchema = createInsertSchema(registrationPeriods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPlayerRegistrationSchema = createInsertSchema(playerRegistrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  reviewedAt: true,
+});
+
+export const insertTeamRegistrationSchema = createInsertSchema(teamRegistrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  reviewedAt: true,
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWaitlistSchema = createInsertSchema(waitlists).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDraftPoolSchema = createInsertSchema(draftPools).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Game update validation schema with strict score validation
 export const gameUpdateSchema = insertGameSchema.partial().extend({
   homeScore: z.number().int().min(0).max(50).optional().nullable(),
@@ -429,3 +688,24 @@ export type InsertOrganizationAdmin = z.infer<typeof insertOrganizationAdminSche
 
 export type OrganizationFeatureFlag = typeof organizationFeatureFlags.$inferSelect;
 export type InsertOrganizationFeatureFlag = z.infer<typeof insertOrganizationFeatureFlagSchema>;
+
+export type RegistrationPeriod = typeof registrationPeriods.$inferSelect;
+export type InsertRegistrationPeriod = z.infer<typeof insertRegistrationPeriodSchema>;
+
+export type PlayerRegistration = typeof playerRegistrations.$inferSelect;
+export type InsertPlayerRegistration = z.infer<typeof insertPlayerRegistrationSchema>;
+
+export type TeamRegistration = typeof teamRegistrations.$inferSelect;
+export type InsertTeamRegistration = z.infer<typeof insertTeamRegistrationSchema>;
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+export type Waitlist = typeof waitlists.$inferSelect;
+export type InsertWaitlist = z.infer<typeof insertWaitlistSchema>;
+
+export type DraftPool = typeof draftPools.$inferSelect;
+export type InsertDraftPool = z.infer<typeof insertDraftPoolSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
