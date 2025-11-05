@@ -12,6 +12,10 @@ interface Team {
   id: string;
   name: string;
   division: string;
+  coachFirstName?: string | null;
+  coachLastName?: string | null;
+  coachEmail?: string | null;
+  phone?: string | null;
   rosterLink?: string | null;
   teamNumber?: string | null;
   rosterData?: string | null;
@@ -316,6 +320,10 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
             <TableRow>
               <TableHead>Team Name</TableHead>
               <TableHead>Division</TableHead>
+              <TableHead>Coach Name</TableHead>
+              <TableHead>Coach Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Team Number</TableHead>
               <TableHead>Roster Status</TableHead>
               <TableHead>Roster Link</TableHead>
             </TableRow>
@@ -323,9 +331,44 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
           <TableBody>
             {filteredTeams.map((team: Team) => (
               <TableRow key={team.id}>
-                <TableCell className="font-medium">{team.name}</TableCell>
+                <TableCell className="font-medium" data-testid={`team-name-${team.id}`}>{team.name}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{team.division || 'Unknown'}</Badge>
+                </TableCell>
+                <TableCell data-testid={`coach-name-${team.id}`}>
+                  {team.coachFirstName || team.coachLastName ? (
+                    <span className="text-sm">
+                      {team.coachFirstName} {team.coachLastName}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </TableCell>
+                <TableCell data-testid={`coach-email-${team.id}`}>
+                  {team.coachEmail ? (
+                    <a 
+                      href={`mailto:${team.coachEmail}`} 
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      {team.coachEmail}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </TableCell>
+                <TableCell data-testid={`coach-phone-${team.id}`}>
+                  {team.phone ? (
+                    <span className="text-sm">{team.phone}</span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </TableCell>
+                <TableCell data-testid={`team-number-${team.id}`}>
+                  {team.teamNumber ? (
+                    <span className="text-sm font-mono">{team.teamNumber}</span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
