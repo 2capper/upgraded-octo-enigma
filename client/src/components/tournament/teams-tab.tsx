@@ -382,7 +382,7 @@ export function TeamsTab({ teams, pools, ageDivisions }: TeamsTabProps) {
                 </TableCell>
                 <TableCell data-testid={`team-number-${team.id}`}>
                   {team.teamNumber ? (
-                    <span className="text-sm font-mono">{team.teamNumber}</span>
+                    <span className="text-sm">{team.teamNumber}</span>
                   ) : (
                     <span className="text-gray-400 text-sm">-</span>
                   )}
