@@ -466,7 +466,33 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
                  team.includes('Seed #') || 
                  team.includes('Winner of') ||
                  team.includes('Loser of') ||
-                 team.toLowerCase().includes('tbd');
+                 team.toLowerCase().includes('tbd') ||
+                 /^[A-Z]\s*-\s*#\d+$/.test(team.trim()) || // Matches "B - #2", "C - #1", etc.
+                 /^[A-Z]\d+$/.test(team.trim()); // Matches "B2", "C1", etc.
+        };
+
+        // Normalize seed labels from CSV format to standard format
+        const normalizeSeedLabel = (team: string): string => {
+          if (!team) return team;
+          
+          const trimmed = team.trim();
+          
+          // Convert "B - #2" to "B2"
+          const poolLetterMatch = trimmed.match(/^([A-Z])\s*-\s*#(\d+)$/);
+          if (poolLetterMatch) {
+            return `${poolLetterMatch[1]}${poolLetterMatch[2]}`;
+          }
+          
+          // Convert "Seed #3" to "3"
+          const numericSeedMatch = trimmed.match(/^Seed\s*#(\d+)$/i);
+          if (numericSeedMatch) {
+            return numericSeedMatch[1];
+          }
+          
+          // Convert "Winner of game" to "Winner of Game X" (we'll need game number)
+          // For now, keep it as-is
+          
+          return trimmed;
         };
 
         // Validate data - playoff games can have blank teams (we'll populate with seed labels)
@@ -565,9 +591,27 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           // Create teams - use seed labels for playoff games, actual names for pool play
           const matchup = playoffGameToMatchup.get(row.matchNumber);
           
-          // Determine actual team names to use (seed labels for playoffs, CSV names for pool play)
-          const homeTeamName = isPlayoffGame && matchup ? matchup.home : row.homeTeam;
-          const awayTeamName = isPlayoffGame && matchup ? matchup.away : row.awayTeam;
+          // Determine actual team names to use
+          let homeTeamName: string;
+          let awayTeamName: string;
+          
+          if (isPlayoffGame) {
+            // For playoff games: use CSV seed labels (normalized) if present, otherwise auto-generated labels
+            if (row.homeTeam && row.awayTeam) {
+              homeTeamName = normalizeSeedLabel(row.homeTeam);
+              awayTeamName = normalizeSeedLabel(row.awayTeam);
+            } else if (matchup) {
+              homeTeamName = matchup.home;
+              awayTeamName = matchup.away;
+            } else {
+              homeTeamName = row.homeTeam || '';
+              awayTeamName = row.awayTeam || '';
+            }
+          } else {
+            // For pool play: use actual team names from CSV
+            homeTeamName = row.homeTeam;
+            awayTeamName = row.awayTeam;
+          }
           
           // Use division name (not divisionId) to match Registrations import format
           const homeTeamKey = `${row.division}-${homeTeamName}`;
@@ -615,8 +659,27 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
 
           // Get team IDs - use seed labels for playoff games, actual names for pool play
           const matchup = playoffGameToMatchup.get(row.matchNumber);
-          const homeTeamName = isPlayoffGame && matchup ? matchup.home : row.homeTeam;
-          const awayTeamName = isPlayoffGame && matchup ? matchup.away : row.awayTeam;
+          
+          let homeTeamName: string;
+          let awayTeamName: string;
+          
+          if (isPlayoffGame) {
+            // For playoff games: use CSV seed labels (normalized) if present, otherwise auto-generated labels
+            if (row.homeTeam && row.awayTeam) {
+              homeTeamName = normalizeSeedLabel(row.homeTeam);
+              awayTeamName = normalizeSeedLabel(row.awayTeam);
+            } else if (matchup) {
+              homeTeamName = matchup.home;
+              awayTeamName = matchup.away;
+            } else {
+              homeTeamName = row.homeTeam || '';
+              awayTeamName = row.awayTeam || '';
+            }
+          } else {
+            // For pool play: use actual team names from CSV
+            homeTeamName = row.homeTeam;
+            awayTeamName = row.awayTeam;
+          }
           
           // Use division name (not divisionId) to match team key format
           const homeTeamId = teamsMap.get(`${row.division}-${homeTeamName}`);
