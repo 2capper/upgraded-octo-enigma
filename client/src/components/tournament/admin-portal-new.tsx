@@ -297,21 +297,58 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
       matchups.set(2, { home: 'B1', away: 'A2' });
       matchups.set(3, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
     }
-    // For standard seeding patterns
+    // For cross_pool_2 format with top_6
+    else if (seedingPattern === 'cross_pool_2' && playoffFormat === 'top_6') {
+      matchups.set(1, { home: 'A2', away: 'B3' });
+      matchups.set(2, { home: 'B2', away: 'A3' });
+      matchups.set(3, { home: 'A1', away: 'Winner of Game 1' });
+      matchups.set(4, { home: 'B1', away: 'Winner of Game 2' });
+      matchups.set(5, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
+    }
+    // For cross_pool_2 format with top_8
+    else if (seedingPattern === 'cross_pool_2' && playoffFormat === 'top_8') {
+      matchups.set(1, { home: 'A1', away: 'B4' });
+      matchups.set(2, { home: 'A2', away: 'B3' });
+      matchups.set(3, { home: 'B2', away: 'A3' });
+      matchups.set(4, { home: 'B1', away: 'A4' });
+      matchups.set(5, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+      matchups.set(6, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
+      matchups.set(7, { home: 'Winner of Game 5', away: 'Winner of Game 6' });
+    }
+    // For cross_pool_3 format with top_8
+    else if (seedingPattern === 'cross_pool_3' && playoffFormat === 'top_8') {
+      matchups.set(1, { home: 'A1', away: 'C2' });
+      matchups.set(2, { home: 'B1', away: 'A2' });
+      matchups.set(3, { home: 'C1', away: 'B2' });
+      matchups.set(4, { home: 'A3', away: 'C3' }); // Wild card matchup
+      matchups.set(5, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+      matchups.set(6, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
+      matchups.set(7, { home: 'Winner of Game 5', away: 'Winner of Game 6' });
+    }
+    // For standard seeding patterns (use numeric seeds, not pool letters)
     else if (seedingPattern === 'standard') {
       if (playoffFormat === 'top_8') {
-        matchups.set(1, { home: '1', away: '8' });
-        matchups.set(2, { home: '4', away: '5' });
-        matchups.set(3, { home: '2', away: '7' });
-        matchups.set(4, { home: '3', away: '6' });
+        matchups.set(1, { home: '1', away: '8' }); // 1 vs 8
+        matchups.set(2, { home: '4', away: '5' }); // 4 vs 5
+        matchups.set(3, { home: '2', away: '7' }); // 2 vs 7
+        matchups.set(4, { home: '3', away: '6' }); // 3 vs 6
         matchups.set(5, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
         matchups.set(6, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
         matchups.set(7, { home: 'Winner of Game 5', away: 'Winner of Game 6' });
+      } else if (playoffFormat === 'top_6') {
+        matchups.set(1, { home: '3', away: '6' }); // 3 vs 6 (seeds 1-2 get byes)
+        matchups.set(2, { home: '4', away: '5' }); // 4 vs 5
+        matchups.set(3, { home: '1', away: 'Winner of Game 1' }); // 1 vs winner
+        matchups.set(4, { home: '2', away: 'Winner of Game 2' }); // 2 vs winner
+        matchups.set(5, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
       } else if (playoffFormat === 'top_4') {
-        matchups.set(1, { home: '1', away: '4' });
-        matchups.set(2, { home: '2', away: '3' });
+        matchups.set(1, { home: '1', away: '4' }); // 1 vs 4
+        matchups.set(2, { home: '2', away: '3' }); // 2 vs 3
         matchups.set(3, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
       }
+    }
+    else {
+      console.warn(`Unsupported playoff configuration: ${seedingPattern} + ${playoffFormat}. No seed labels will be generated.`);
     }
     
     return matchups;

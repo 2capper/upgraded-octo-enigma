@@ -449,34 +449,66 @@ export class DatabaseStorage implements IStorage {
               standingsByDivision.set(division.id, letterMap);
             }
             
+            // Calculate overall standings for standard seeding (numeric seeds)
+            // Structure: Map<divisionId, overallStandings[]>
+            const overallStandingsByDivision = new Map<string, any[]>();
+            
+            for (const division of tournamentDivisions) {
+              const divisionTeams = tournamentTeams.filter(t => {
+                const teamPool = tournamentPools.find(p => p.id === t.poolId);
+                return teamPool && teamPool.ageDivisionId === division.id && !teamPool.name.toLowerCase().includes('playoff');
+              });
+              
+              const overallStandings = calculateStandings(divisionTeams, tournamentGames);
+              overallStandingsByDivision.set(division.id, overallStandings.sort((a, b) => a.rank - b.rank));
+              console.log(`Division ${division.name}: Overall standings calculated, ${overallStandings.length} teams`);
+            }
+            
             // Helper function to check if a team name is a seed label
             const isSeedLabel = (name: string): boolean => {
-              // Matches patterns like "A1", "B2", "Z9", etc. (any letter, any number)
-              return /^[A-Z]\d+$/.test(name.trim());
+              // Matches pool-letter seeds (A1, B2) or numeric seeds (1, 2, 3)
+              return /^[A-Z]\d+$/.test(name.trim()) || /^\d+$/.test(name.trim());
             };
             
             // Helper function to resolve a seed label to actual team ID for a specific division
             const resolveSeedLabel = (label: string, divisionId: string): string | null => {
-              const match = label.match(/^([A-Z])(\d+)$/);
-              if (!match) return null;
-              
-              const poolLetter = match[1];
-              const rank = parseInt(match[2]);
-              
-              const divisionStandings = standingsByDivision.get(divisionId);
-              if (!divisionStandings) {
-                console.warn(`Cannot resolve seed label ${label}: division ${divisionId} not found`);
-                return null;
+              // Check if it's a numeric seed (e.g., "1", "2", "8")
+              const numericMatch = label.match(/^(\d+)$/);
+              if (numericMatch) {
+                const overallRank = parseInt(numericMatch[1]);
+                const overallStandings = overallStandingsByDivision.get(divisionId);
+                
+                if (!overallStandings || overallStandings.length < overallRank) {
+                  console.warn(`Cannot resolve numeric seed ${label} for division ${divisionId}: insufficient teams (have ${overallStandings?.length || 0} teams, need ${overallRank})`);
+                  return null;
+                }
+                
+                return overallStandings[overallRank - 1].teamId;
               }
               
-              const poolStandings = divisionStandings.get(poolLetter);
-              
-              if (!poolStandings || poolStandings.length < rank) {
-                console.warn(`Cannot resolve seed label ${label} for division ${divisionId}: pool ${poolLetter} not found or insufficient teams (have ${poolStandings?.length || 0} teams, need ${rank})`);
-                return null;
+              // Check if it's a pool-letter seed (e.g., "A1", "B2")
+              const poolMatch = label.match(/^([A-Z])(\d+)$/);
+              if (poolMatch) {
+                const poolLetter = poolMatch[1];
+                const rank = parseInt(poolMatch[2]);
+                
+                const divisionStandings = standingsByDivision.get(divisionId);
+                if (!divisionStandings) {
+                  console.warn(`Cannot resolve seed label ${label}: division ${divisionId} not found`);
+                  return null;
+                }
+                
+                const poolStandings = divisionStandings.get(poolLetter);
+                
+                if (!poolStandings || poolStandings.length < rank) {
+                  console.warn(`Cannot resolve seed label ${label} for division ${divisionId}: pool ${poolLetter} not found or insufficient teams (have ${poolStandings?.length || 0} teams, need ${rank})`);
+                  return null;
+                }
+                
+                return poolStandings[rank - 1].teamId;
               }
               
-              return poolStandings[rank - 1].teamId;
+              return null;
             };
             
             // Find all playoff games with seed label teams (reuse playoffPoolIds from above)
