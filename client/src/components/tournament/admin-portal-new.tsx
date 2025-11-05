@@ -34,6 +34,17 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     },
   });
 
+  // Fetch selected tournament details for playoff seeding
+  const { data: selectedTournament } = useQuery({
+    queryKey: ['/api/tournaments', selectedTournamentId],
+    queryFn: async () => {
+      const response = await fetch(`/api/tournaments/${selectedTournamentId}`);
+      if (!response.ok) throw new Error('Failed to fetch tournament');
+      return response.json();
+    },
+    enabled: !!selectedTournamentId,
+  });
+
   const registrationsImportMutation = useMutation({
     mutationFn: async (importData: any) => {
       const response = await fetch(`/api/tournaments/${selectedTournamentId}/import-registrations`, {
@@ -253,6 +264,59 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
     return `${displayHours}:${displayMinutes} ${newModifier}`;
   };
 
+  // Generate seed label matchups for playoff games based on tournament format
+  const generateSeedLabels = (playoffFormat: string | null, seedingPattern: string | null, numberOfPools: number): Map<number, { home: string; away: string }> => {
+    const matchups = new Map<number, { home: string; away: string }>();
+    
+    if (!playoffFormat || !seedingPattern) return matchups;
+    
+    // For cross_pool_4 format with top_8
+    if (seedingPattern === 'cross_pool_4' && playoffFormat === 'top_8') {
+      // Quarterfinals (games 1-4): A1 vs C2, A2 vs C1, B1 vs D2, B2 vs D1
+      matchups.set(1, { home: 'A1', away: 'C2' });
+      matchups.set(2, { home: 'A2', away: 'C1' });
+      matchups.set(3, { home: 'B1', away: 'D2' });
+      matchups.set(4, { home: 'B2', away: 'D1' });
+      // Semifinals (games 5-6): Winner matchups (will show as "Winner of Game X")
+      matchups.set(5, { home: 'Winner of Game 1', away: 'Winner of Game 3' });
+      matchups.set(6, { home: 'Winner of Game 2', away: 'Winner of Game 4' });
+      // Finals (game 7)
+      matchups.set(7, { home: 'Winner of Game 5', away: 'Winner of Game 6' });
+    }
+    // For cross_pool_3 format with top_6
+    else if (seedingPattern === 'cross_pool_3' && playoffFormat === 'top_6') {
+      matchups.set(1, { home: 'A1', away: 'C2' });
+      matchups.set(2, { home: 'B1', away: 'A2' });
+      matchups.set(3, { home: 'C1', away: 'B2' });
+      matchups.set(4, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+      matchups.set(5, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
+    }
+    // For cross_pool_2 format with top_4
+    else if (seedingPattern === 'cross_pool_2' && playoffFormat === 'top_4') {
+      matchups.set(1, { home: 'A1', away: 'B2' });
+      matchups.set(2, { home: 'B1', away: 'A2' });
+      matchups.set(3, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+    }
+    // For standard seeding patterns
+    else if (seedingPattern === 'standard') {
+      if (playoffFormat === 'top_8') {
+        matchups.set(1, { home: '1', away: '8' });
+        matchups.set(2, { home: '4', away: '5' });
+        matchups.set(3, { home: '2', away: '7' });
+        matchups.set(4, { home: '3', away: '6' });
+        matchups.set(5, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+        matchups.set(6, { home: 'Winner of Game 3', away: 'Winner of Game 4' });
+        matchups.set(7, { home: 'Winner of Game 5', away: 'Winner of Game 6' });
+      } else if (playoffFormat === 'top_4') {
+        matchups.set(1, { home: '1', away: '4' });
+        matchups.set(2, { home: '2', away: '3' });
+        matchups.set(3, { home: 'Winner of Game 1', away: 'Winner of Game 2' });
+      }
+    }
+    
+    return matchups;
+  };
+
   const handleMatchesImport = async () => {
     if (!matchesFile) {
       setMatchesMessage({ type: 'error', text: 'Please select a matches CSV file to import.' });
@@ -368,23 +432,21 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
                  team.toLowerCase().includes('tbd');
         };
 
-        // Validate data - playoff games can have placeholder teams
+        // Validate data - playoff games can have blank teams (we'll populate with seed labels)
         const validData = data.filter(row => {
           // Must have division
           if (!row.division) return false;
           
-          // Playoff games identified by matchType or placeholder teams
-          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff' ||
-                               isPlayoffPlaceholder(row.homeTeam) || 
-                               isPlayoffPlaceholder(row.awayTeam);
+          // Playoff games identified by matchType - teams can be blank
+          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff';
           
           // Pool games must have pool and actual team names
           if (!isPlayoffGame) {
             return row.pool && row.homeTeam && row.awayTeam;
           }
           
-          // Playoff games must have at least placeholder team names
-          return row.homeTeam && row.awayTeam;
+          // Playoff games are valid even without team names (we'll add seed labels)
+          return true;
         });
 
         if (validData.length === 0) {
@@ -405,6 +467,29 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         const teams: any[] = [];
         const games: any[] = [];
 
+        // Generate seed labels for playoff games based on tournament format
+        const seedLabelMatchups = selectedTournament 
+          ? generateSeedLabels(
+              selectedTournament.playoffFormat, 
+              selectedTournament.seedingPattern,
+              selectedTournament.numberOfPools || 4
+            )
+          : new Map();
+
+        // Collect and sort playoff games to assign sequential matchup numbers
+        const playoffGames = validData
+          .filter(row => row.matchType?.toLowerCase() === 'playoff')
+          .sort((a, b) => parseInt(a.matchNumber) - parseInt(b.matchNumber));
+
+        // Map playoff game CSV rows to seed label matchups
+        const playoffGameToMatchup = new Map();
+        playoffGames.forEach((row, index) => {
+          const matchup = seedLabelMatchups.get(index + 1);
+          if (matchup) {
+            playoffGameToMatchup.set(row.matchNumber, matchup);
+          }
+        });
+
         // Build structure with tournament-specific IDs
         for (const row of validData) {
           let divisionId = divisionsMap.get(row.division);
@@ -414,10 +499,8 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             ageDivisions.push({ id: divisionId, name: row.division });
           }
 
-          // Check if this is a playoff game
-          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff' ||
-                               isPlayoffPlaceholder(row.homeTeam) || 
-                               isPlayoffPlaceholder(row.awayTeam);
+          // Check if this is a playoff game (identified by Match Type column)
+          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff';
 
           let poolId;
           if (isPlayoffGame) {
@@ -442,28 +525,34 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             }
           }
 
-          // Create teams - including placeholder teams for playoffs
+          // Create teams - use seed labels for playoff games, actual names for pool play
+          const matchup = playoffGameToMatchup.get(row.matchNumber);
+          
+          // Determine actual team names to use (seed labels for playoffs, CSV names for pool play)
+          const homeTeamName = isPlayoffGame && matchup ? matchup.home : row.homeTeam;
+          const awayTeamName = isPlayoffGame && matchup ? matchup.away : row.awayTeam;
+          
           // Use division name (not divisionId) to match Registrations import format
-          const homeTeamKey = `${row.division}-${row.homeTeam}`;
+          const homeTeamKey = `${row.division}-${homeTeamName}`;
           if (!teamsMap.has(homeTeamKey)) {
             const teamId = `${selectedTournamentId}_team_${homeTeamKey.replace(/\s+/g, '-')}`;
             teamsMap.set(homeTeamKey, teamId);
-            // For playoff placeholder teams, assign to playoff pool
-            const teamPoolId = isPlayoffPlaceholder(row.homeTeam) 
+            // For playoff teams, assign to playoff pool
+            const teamPoolId = isPlayoffGame
               ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
               : poolId;
-            teams.push({ id: teamId, name: row.homeTeam, division: row.division, poolId: teamPoolId });
+            teams.push({ id: teamId, name: homeTeamName, division: row.division, poolId: teamPoolId });
           }
 
-          const awayTeamKey = `${row.division}-${row.awayTeam}`;
+          const awayTeamKey = `${row.division}-${awayTeamName}`;
           if (!teamsMap.has(awayTeamKey)) {
             const teamId = `${selectedTournamentId}_team_${awayTeamKey.replace(/\s+/g, '-')}`;
             teamsMap.set(awayTeamKey, teamId);
-            // For playoff placeholder teams, assign to playoff pool
-            const teamPoolId = isPlayoffPlaceholder(row.awayTeam) 
+            // For playoff teams, assign to playoff pool
+            const teamPoolId = isPlayoffGame
               ? poolsMap.get(`${divisionId}-Playoff`) || poolId 
               : poolId;
-            teams.push({ id: teamId, name: row.awayTeam, division: row.division, poolId: teamPoolId });
+            teams.push({ id: teamId, name: awayTeamName, division: row.division, poolId: teamPoolId });
           }
         }
 
@@ -471,10 +560,8 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
         for (const row of validData) {
           const divisionId = divisionsMap.get(row.division);
           
-          // Check if this is a playoff game
-          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff' ||
-                               isPlayoffPlaceholder(row.homeTeam) || 
-                               isPlayoffPlaceholder(row.awayTeam);
+          // Check if this is a playoff game (identified by Match Type column)
+          const isPlayoffGame = row.matchType?.toLowerCase() === 'playoff';
 
           // Get appropriate pool ID
           let poolId;
@@ -489,10 +576,14 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
 
           if (!poolId) continue;
 
-          // Get team IDs - all teams should now exist including placeholder teams
+          // Get team IDs - use seed labels for playoff games, actual names for pool play
+          const matchup = playoffGameToMatchup.get(row.matchNumber);
+          const homeTeamName = isPlayoffGame && matchup ? matchup.home : row.homeTeam;
+          const awayTeamName = isPlayoffGame && matchup ? matchup.away : row.awayTeam;
+          
           // Use division name (not divisionId) to match team key format
-          const homeTeamId = teamsMap.get(`${row.division}-${row.homeTeam}`);
-          const awayTeamId = teamsMap.get(`${row.division}-${row.awayTeam}`);
+          const homeTeamId = teamsMap.get(`${row.division}-${homeTeamName}`);
+          const awayTeamId = teamsMap.get(`${row.division}-${awayTeamName}`);
 
           // Skip only if we truly don't have team IDs (shouldn't happen now)
           if (!homeTeamId || !awayTeamId) {
