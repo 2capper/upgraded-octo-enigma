@@ -197,7 +197,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
           division: row['Division'],
           registrationStatus: row['Registration Status'],
           paymentStatus: row['Total Payment Amount'] && parseFloat(row['Total Payment Amount'].replace(/[^0-9.]/g, '')) > 0 ? 'paid' : 'unpaid',
-          teamNumber: validateTeamNumber(row['What is your team number?']) || null,
+          teamNumber: validateTeamNumber(row['What is your Team Number (This number will be provided by your National or State/Provincial Governing Body)?']) || null,
         })).filter(team => team.name && team.division);
 
         console.log('Registrations import:', { teams: teams.length });
