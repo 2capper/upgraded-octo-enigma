@@ -1,0 +1,32 @@
+Game #	Division	Pool	Team 1	Team 1 Score	Team 2 Score	Team 2	Match Type	Date	Time	Venue	SubVenue
+1	18U	A	Cubs 18U DS			West Mountain Cougars		May 29, 2026	2:30 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+2	18U	A	West Mountain Cougars			DKMB U18 select		May 29, 2026	5:00 PM	Central Park	Central Park
+3	18U	A	Blenheim Bees			West Mountain Cougars		May 29, 2026	5:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+4	18U	B	Royal York Cardinals			Team B4		May 29, 2026	5:00 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+5	18U	A	Cubs 18U DS			Blenheim Bees		May 29, 2026	7:30 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+6	18U	A	Cubs 18U DS			DKMB U18 select		May 29, 2026	7:30 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+7	18U	B	Royal York Cardinals			Guelph Royals		May 30, 2026	9:00 AM	Central Park	Central Park
+8	18U	A	DKMB U18 select			Blenheim Bees		May 30, 2026	9:00 AM	Mic Mac Park	Mic Mac Park (Cullen Field)
+9	18U	B	Guelph Royals			Tincaps		May 30, 2026	9:00 AM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+10	18U	B	Tincaps			Team B4		May 30, 2026	11:30 AM	Central Park	Central Park
+11	18U	C	Twins			London Nationals		May 30, 2026	11:30 AM	Mic Mac Park	Mic Mac Park (Cullen Field)
+12	18U	C	London Nationals			Falcons		May 30, 2026	11:30 AM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+13	18U	C	Whitby Canadiens			London Nationals		May 30, 2026	2:00 PM	Central Park	Central Park
+14	18U	B	Royal York Cardinals			Tincaps		May 30, 2026	2:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+15	18U	B	Team B4			Guelph Royals		May 30, 2026	2:00 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+16	18U	C	Whitby Canadiens			Twins		May 30, 2026	4:30 PM	Central Park	Central Park
+17	18U	C	Falcons			Twins		May 30, 2026	4:30 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+18	18U	C	Whitby Canadiens			Falcons		May 30, 2026	4:30 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+13	18U	D	Tigers			Guardians		May 30, 2026	2:00 PM	Central Park	Central Park
+14	18U	D	Rays			Jays		May 30, 2026	2:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+15	18U	D	Tigers 			Jays		May 30, 2026	2:00 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+16	18U	D	Guardians 			Rays		May 30, 2026	4:30 PM	Central Park	Central Park
+17	18U	D	Tigers			Rays		May 30, 2026	4:30 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+18	18U	D	Jays			Guardians		May 30, 2026	4:30 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+	18U		B - #2			D - #1	playoff	May 30, 2026	11:00 PM	Central Park	Central Park
+	18U		B - #1			D - #2	playoff	May 30, 2026	11:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+	18U		C - #1			A - #2	playoff	May 30, 2026	11:00 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+	18U		A - #1			C - #2	playoff	May 31, 2026	1:00 AM	Central Park	Central Park
+	18U		Winner of game			Winner of game	playoff	May 31, 2026	1:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
+	18U		Winner of game			Winner of game	playoff	May 31, 2026	1:00 PM	Mic Mac Park	Mic Mac Park (Soulliere Field)
+	18U		Winner of game			Winner of game	playoff	May 31, 2026	3:00 PM	Mic Mac Park	Mic Mac Park (Cullen Field)
