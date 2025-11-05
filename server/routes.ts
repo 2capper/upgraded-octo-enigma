@@ -1527,18 +1527,36 @@ Waterdown 10U AA
       const { ageDivisions, pools, teams, games } = req.body;
       const tournamentId = req.params.tournamentId;
 
-      // Clear existing data
+      // Clear existing games only (preserve teams from registration import)
       await storage.clearTournamentData(tournamentId);
 
-      // Insert new data in order
+      // Get existing divisions and pools to avoid duplicates
+      const existingDivisions = await storage.getAgeDivisions(tournamentId);
+      const existingPools = await storage.getPools(tournamentId);
+      
+      // Create or reuse divisions
       const createdAgeDivisions = await Promise.all(
-        ageDivisions.map((div: any) => storage.createAgeDivision({ ...div, tournamentId }))
+        ageDivisions.map(async (div: any) => {
+          const existing = existingDivisions.find(d => d.id === div.id);
+          if (existing) {
+            return existing;
+          }
+          return storage.createAgeDivision({ ...div, tournamentId });
+        })
       );
 
+      // Create or reuse pools
       const createdPools = await Promise.all(
-        pools.map((pool: any) => storage.createPool({ ...pool, tournamentId }))
+        pools.map(async (pool: any) => {
+          const existing = existingPools.find(p => p.id === pool.id);
+          if (existing) {
+            return existing;
+          }
+          return storage.createPool({ ...pool, tournamentId });
+        })
       );
 
+      // Update existing teams with new pool assignments
       const createdTeams = await storage.bulkCreateTeams(
         teams.map((team: any) => ({ ...team, tournamentId }))
       );
