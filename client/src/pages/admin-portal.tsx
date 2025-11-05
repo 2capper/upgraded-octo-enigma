@@ -18,6 +18,7 @@ import { PasswordResetTool } from '@/components/tournament/password-reset-tool';
 import { AdminRequestsTab } from '@/components/admin-requests-tab';
 import { TeamEditor } from '@/components/tournament/team-editor';
 import { PlayoffBracketGenerator } from '@/components/tournament/playoff-bracket-generator';
+import { ScheduleGenerator } from '@/components/tournament/schedule-generator';
 import { FeatureManagement } from '@/components/admin/feature-management';
 import { OrganizationSettings } from '@/components/admin/organization-settings';
 import { OrganizationAdminManagement } from '@/components/admin/organization-admin-management';
@@ -265,6 +266,7 @@ export default function AdminPortal() {
                   <span className="text-sm opacity-70">
                     {activeTab === 'tournaments' && 'Tournaments'}
                     {activeTab === 'import' && 'Data Import'}
+                    {activeTab === 'schedule' && 'Schedule'}
                     {activeTab === 'teams' && 'Edit Teams'}
                     {activeTab === 'games' && 'Edit Games'}
                     {activeTab === 'playoffs' && 'Playoffs'}
@@ -301,6 +303,16 @@ export default function AdminPortal() {
                   >
                     <FileInput className="w-5 h-5" />
                     Data Import
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="schedule" 
+                    className="flex items-center gap-3 px-4 py-3 justify-start w-full data-[state=active]:text-white"
+                    style={activeTab === 'schedule' ? { backgroundColor: 'var(--clay-red)' } : {}}
+                    onClick={() => setMobileMenuOpen(false)}
+                    data-testid="nav-schedule"
+                  >
+                    <Calendar className="w-5 h-5" />
+                    Schedule
                   </TabsTrigger>
                   <TabsTrigger 
                     value="teams" 
@@ -413,6 +425,7 @@ export default function AdminPortal() {
             <TabsList className="flex flex-wrap w-full gap-1 h-auto">
               <TabsTrigger value="tournaments" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-tournaments">Tournaments</TabsTrigger>
               <TabsTrigger value="import" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-import">Data Import</TabsTrigger>
+              <TabsTrigger value="schedule" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-schedule">Schedule</TabsTrigger>
               <TabsTrigger value="teams" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-teams">Edit Teams</TabsTrigger>
               <TabsTrigger value="games" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-games">Edit Games</TabsTrigger>
               <TabsTrigger value="playoffs" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-playoffs">Playoffs</TabsTrigger>
@@ -478,6 +491,16 @@ export default function AdminPortal() {
               onImportSuccess={() => {
                 console.log('Import successful, data updated via queries');
               }}
+            />
+          </TabsContent>
+
+          <TabsContent value="schedule" className="mt-6">
+            <ScheduleGenerator
+              tournamentId={currentTournamentId}
+              tournament={currentTournament}
+              pools={pools}
+              teams={teams}
+              games={games}
             />
           </TabsContent>
 
