@@ -80,6 +80,7 @@ export interface IStorage {
   getPools(tournamentId: string): Promise<Pool[]>;
   getPoolById(id: string): Promise<Pool | undefined>;
   createPool(pool: InsertPool): Promise<Pool>;
+  deletePool(id: string): Promise<void>;
   
   // Team methods
   getTeams(tournamentId: string): Promise<Team[]>;
@@ -293,6 +294,10 @@ export class DatabaseStorage implements IStorage {
   async createPool(pool: InsertPool): Promise<Pool> {
     const [result] = await db.insert(pools).values(pool).returning();
     return result;
+  }
+
+  async deletePool(id: string): Promise<void> {
+    await db.delete(pools).where(eq(pools.id, id));
   }
 
   // Team methods

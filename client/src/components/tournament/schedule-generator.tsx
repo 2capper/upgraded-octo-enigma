@@ -29,11 +29,13 @@ export function ScheduleGenerator({ tournamentId, tournament, pools, teams, game
 
   // Determine initial step based on current state
   useEffect(() => {
-    if (pools.length > 0 && teams.every(t => t.poolId)) {
-      setCurrentStep('review');
-    } else if (games.filter((g: any) => !g.isPlayoff).length > 0) {
+    // Priority: games > pools > distribute
+    if (games.filter((g: any) => !g.isPlayoff).length > 0) {
       setCurrentStep('generate');
+    } else if (pools.length > 0 && teams.every(t => t.poolId)) {
+      setCurrentStep('review');
     }
+    // If neither condition is met, stay at 'distribute' (default state)
   }, [pools, teams, games]);
 
   const autoDistributeMutation = useMutation({
