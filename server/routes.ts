@@ -1602,9 +1602,10 @@ Waterdown 10U AA
         divisionId = ageDivisions[0].id;
       }
       
-      // Delete existing pools to start fresh
+      // Delete existing NON-TEMPORARY pools first (keep temporary pools until after reassignment)
       const existingPools = await storage.getPools(tournamentId);
-      for (const pool of existingPools) {
+      const nonTempPools = existingPools.filter(p => !p.id.includes('_pool_temp_'));
+      for (const pool of nonTempPools) {
         await storage.deletePool(pool.id);
       }
       
@@ -1630,6 +1631,12 @@ Waterdown 10U AA
           poolId: createdPools[poolIndex].id
         });
         updatedTeams.push(updated);
+      }
+      
+      // NOW delete temporary pools since all teams have been reassigned
+      const tempPools = existingPools.filter(p => p.id.includes('_pool_temp_'));
+      for (const pool of tempPools) {
+        await storage.deletePool(pool.id);
       }
       
       res.status(200).json({

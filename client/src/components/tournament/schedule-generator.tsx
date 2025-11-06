@@ -74,8 +74,9 @@ export function ScheduleGenerator({ tournamentId, tournament, pools, teams, game
     mutationFn: async ({ teamId, poolId }: { teamId: string; poolId: string }) => {
       return await apiRequest('PUT', `/api/teams/${teamId}`, { poolId });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/teams`] });
+    onSuccess: async () => {
+      // Force immediate refetch of teams data
+      await queryClient.refetchQueries({ queryKey: [`/api/tournaments/${tournamentId}/teams`] });
       toast({
         title: "Team Updated",
         description: "Team pool assignment updated successfully",
