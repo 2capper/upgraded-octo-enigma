@@ -59,21 +59,24 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     : teams;
     
   const filteredPools = selectedDivision
-    ? pools.filter((p: any) => p.ageDivisionId === selectedDivision)
-    : pools;
+    ? pools.filter((p: any) => p.ageDivisionId === selectedDivision && !p.id.includes('_pool_temp_'))
+    : pools.filter((p: any) => !p.id.includes('_pool_temp_'));
   
   const currentDivision = ageDivisions.find((d: any) => d.id === selectedDivision);
 
   // Determine initial step based on current state
   useEffect(() => {
+    // Ignore temporary pools when determining the step - they should be replaced with real pools
+    const realPools = filteredPools.filter((p: any) => !p.id.includes('_pool_temp_'));
+    
     // Priority: games > pools > distribute
     const divisionGames = selectedDivision 
-      ? games.filter((g: any) => !g.isPlayoff && filteredPools.some((p: any) => p.id === g.poolId))
+      ? games.filter((g: any) => !g.isPlayoff && realPools.some((p: any) => p.id === g.poolId))
       : games.filter((g: any) => !g.isPlayoff);
       
     if (divisionGames.length > 0) {
       setCurrentStep('generate');
-    } else if (filteredPools.length > 0 && filteredTeams.every(t => t.poolId)) {
+    } else if (realPools.length > 0 && filteredTeams.every(t => t.poolId)) {
       setCurrentStep('review');
     }
     // If neither condition is met, stay at 'distribute' (default state)
