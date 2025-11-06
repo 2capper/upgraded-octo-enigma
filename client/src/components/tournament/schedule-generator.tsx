@@ -6,26 +6,37 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface ScheduleGeneratorProps {
   tournamentId: string;
   tournament: any;
-  pools: any[];
-  teams: any[];
-  games: any[];
 }
 
 type WorkflowStep = 'distribute' | 'review' | 'generate';
 
-export function ScheduleGenerator({ tournamentId, tournament, pools, teams, games }: ScheduleGeneratorProps) {
+export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGeneratorProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  // Fetch teams, pools, and games directly in this component
+  const { data: teams = [], isLoading: teamsLoading } = useQuery({
+    queryKey: [`/api/tournaments/${tournamentId}/teams`],
+  });
+  
+  const { data: pools = [], isLoading: poolsLoading } = useQuery({
+    queryKey: [`/api/tournaments/${tournamentId}/pools`],
+  });
+  
+  const { data: games = [], isLoading: gamesLoading } = useQuery({
+    queryKey: [`/api/tournaments/${tournamentId}/games`],
+  });
+  
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('distribute');
   const [numberOfPools, setNumberOfPools] = useState('4');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Determine initial step based on current state
   useEffect(() => {

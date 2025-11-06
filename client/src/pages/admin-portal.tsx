@@ -498,9 +498,6 @@ export default function AdminPortal() {
             <ScheduleGenerator
               tournamentId={currentTournamentId}
               tournament={currentTournament}
-              pools={pools}
-              teams={teams}
-              games={games}
             />
           </TabsContent>
 
