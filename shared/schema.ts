@@ -64,6 +64,18 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const diamonds = pgTable("diamonds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  location: text("location"),
+  availableStartTime: text("available_start_time").notNull().default("08:00"),
+  availableEndTime: text("available_end_time").notNull().default("20:00"),
+  hasLights: boolean("has_lights").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Organization admins junction table
 export const organizationAdmins = pgTable("organization_admins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -105,6 +117,10 @@ export const tournaments = pgTable("tournaments", {
   minGameGuarantee: integer("min_game_guarantee"), // Minimum number of games each team should play (pool play)
   numberOfDiamonds: integer("number_of_diamonds"), // Number of available diamonds/fields
   diamondDetails: jsonb("diamond_details"), // Array of { venue: string, subVenue: string } for each diamond
+  selectedDiamondIds: text("selected_diamond_ids").array(), // Array of diamond IDs available for this tournament
+  minRestMinutes: integer("min_rest_minutes").notNull().default(30), // Minimum rest time between games for same team
+  restBetween2nd3rdGame: integer("rest_between_2nd_3rd_game").notNull().default(60), // Rest time between 2nd and 3rd game of the day
+  maxGamesPerDay: integer("max_games_per_day").notNull().default(3), // Maximum games a team can play in one day
   organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -162,6 +178,7 @@ export const games = pgTable("games", {
   time: text("time").notNull(),
   location: text("location").notNull(),
   subVenue: text("sub_venue"),
+  diamondId: varchar("diamond_id").references(() => diamonds.id, { onDelete: "set null" }), // Assigned diamond/field
   isPlayoff: boolean("is_playoff").notNull().default(false),
   // Playoff bracket fields
   playoffRound: integer("playoff_round"),
@@ -446,6 +463,15 @@ export const messages = pgTable("messages", {
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   tournaments: many(tournaments),
   admins: many(organizationAdmins),
+  diamonds: many(diamonds),
+}));
+
+export const diamondsRelations = relations(diamonds, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [diamonds.organizationId],
+    references: [organizations.id],
+  }),
+  games: many(games),
 }));
 
 export const organizationAdminsRelations = relations(organizationAdmins, ({ one }) => ({
@@ -527,6 +553,10 @@ export const gamesRelations = relations(games, ({ one }) => ({
     references: [teams.id],
     relationName: "awayTeamGames",
   }),
+  diamond: one(diamonds, {
+    fields: [games.diamondId],
+    references: [diamonds.id],
+  }),
 }));
 
 // Insert schemas
@@ -541,6 +571,12 @@ export const upsertUserSchema = createInsertSchema(users).omit({
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDiamondSchema = createInsertSchema(diamonds).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -668,6 +704,9 @@ export type User = typeof users.$inferSelect;
 
 export type Organization = typeof organizations.$inferSelect;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+
+export type Diamond = typeof diamonds.$inferSelect;
+export type InsertDiamond = z.infer<typeof insertDiamondSchema>;
 
 export type Tournament = typeof tournaments.$inferSelect;
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
