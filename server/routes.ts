@@ -1569,52 +1569,70 @@ Waterdown 10U AA
   app.post("/api/tournaments/:tournamentId/auto-distribute-pools", requireAdmin, async (req, res) => {
     try {
       const { tournamentId } = req.params;
-      const { numberOfPools } = req.body;
+      const { numberOfPools, divisionId } = req.body;
       
       if (!numberOfPools || numberOfPools < 1) {
         return res.status(400).json({ error: "Number of pools must be at least 1" });
       }
+
+      if (!divisionId) {
+        return res.status(400).json({ error: "Division ID is required" });
+      }
       
-      // Get tournament and teams
+      // Get tournament
       const tournament = await storage.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
+
+      // Verify division exists
+      const ageDivisions = await storage.getAgeDivisions(tournamentId);
+      const division = ageDivisions.find(d => d.id === divisionId);
+      if (!division) {
+        return res.status(404).json({ error: "Division not found" });
+      }
       
-      const teams = await storage.getTeams(tournamentId);
+      // Get all teams and pools
+      const allTeams = await storage.getTeams(tournamentId);
+      const allPools = await storage.getPools(tournamentId);
+
+      // Filter teams for this division
+      // Teams belong to a division if:
+      // 1. Their division text field matches the ageDivision name, OR
+      // 2. They're in a pool that belongs to this division
+      const divisionPoolIds = allPools
+        .filter(p => p.ageDivisionId === divisionId)
+        .map(p => p.id);
+      
+      const teams = allTeams.filter(t => {
+        // Match by division text field (primary method for newly imported teams)
+        if (t.division === division.name) {
+          return true;
+        }
+        // Match by pool assignment (for already distributed teams)
+        if (t.poolId && divisionPoolIds.includes(t.poolId)) {
+          return true;
+        }
+        return false;
+      });
+      
       if (teams.length === 0) {
-        return res.status(400).json({ error: "No teams found to distribute" });
+        return res.status(400).json({ error: `No teams found for ${division.name} division. Make sure teams have the division field set to "${division.name}" when importing.` });
       }
       
-      // Get or create age division (default to tournament name if not specified)
-      let ageDivisions = await storage.getAgeDivisions(tournamentId);
-      let divisionId: string;
-      
-      if (ageDivisions.length === 0) {
-        // Create a default division
-        const division = await storage.createAgeDivision({
-          id: `${tournamentId}-main-division`,
-          name: tournament.name,
-          tournamentId
-        });
-        divisionId = division.id;
-      } else {
-        divisionId = ageDivisions[0].id;
-      }
-      
-      // Delete existing NON-TEMPORARY pools first (keep temporary pools until after reassignment)
-      const existingPools = await storage.getPools(tournamentId);
-      const nonTempPools = existingPools.filter(p => !p.id.includes('_pool_temp_'));
+      // Delete existing pools for THIS DIVISION only (non-temp first)
+      const divisionPools = allPools.filter(p => p.ageDivisionId === divisionId);
+      const nonTempPools = divisionPools.filter(p => !p.id.includes('_pool_temp_'));
       for (const pool of nonTempPools) {
         await storage.deletePool(pool.id);
       }
       
-      // Create new pools
+      // Create new pools for this division
       const poolNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       const createdPools = [];
       for (let i = 0; i < numberOfPools; i++) {
         const pool = await storage.createPool({
-          id: `${tournamentId}-pool-${poolNames[i].toLowerCase()}`,
+          id: `${tournamentId}-${divisionId}-pool-${poolNames[i].toLowerCase()}`,
           name: `Pool ${poolNames[i]}`,
           tournamentId,
           ageDivisionId: divisionId
@@ -1633,14 +1651,14 @@ Waterdown 10U AA
         updatedTeams.push(updated);
       }
       
-      // NOW delete temporary pools since all teams have been reassigned
-      const tempPools = existingPools.filter(p => p.id.includes('_pool_temp_'));
+      // Delete temporary pools for this division
+      const tempPools = divisionPools.filter(p => p.id.includes('_pool_temp_'));
       for (const pool of tempPools) {
         await storage.deletePool(pool.id);
       }
       
       res.status(200).json({
-        message: `Successfully distributed ${teams.length} teams across ${numberOfPools} pools`,
+        message: `Successfully distributed ${teams.length} ${division.name} teams across ${numberOfPools} pools`,
         pools: createdPools,
         teams: updatedTeams
       });

@@ -21,7 +21,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  // Fetch teams, pools, and games directly in this component
+  // Fetch teams, pools, games, and age divisions directly in this component
   const { data: teams = [], isLoading: teamsLoading } = useQuery({
     queryKey: [`/api/tournaments/${tournamentId}/teams`],
   });
@@ -34,36 +34,71 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     queryKey: [`/api/tournaments/${tournamentId}/games`],
   });
   
+  const { data: ageDivisions = [] } = useQuery({
+    queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
+  });
+  
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('distribute');
   const [numberOfPools, setNumberOfPools] = useState('4');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
+  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
+  
+  // Auto-select first division if only one exists
+  useEffect(() => {
+    if (ageDivisions.length === 1 && !selectedDivision) {
+      setSelectedDivision(ageDivisions[0].id);
+    }
+  }, [ageDivisions, selectedDivision]);
+  
+  // Filter teams and pools by selected division
+  const filteredTeams = selectedDivision 
+    ? teams.filter((t: any) => {
+        const teamPool = pools.find((p: any) => p.id === t.poolId);
+        return teamPool?.ageDivisionId === selectedDivision || t.division === ageDivisions.find((d: any) => d.id === selectedDivision)?.name;
+      })
+    : teams;
+    
+  const filteredPools = selectedDivision
+    ? pools.filter((p: any) => p.ageDivisionId === selectedDivision)
+    : pools;
+  
+  const currentDivision = ageDivisions.find((d: any) => d.id === selectedDivision);
 
   // Determine initial step based on current state
   useEffect(() => {
     // Priority: games > pools > distribute
-    if (games.filter((g: any) => !g.isPlayoff).length > 0) {
+    const divisionGames = selectedDivision 
+      ? games.filter((g: any) => !g.isPlayoff && filteredPools.some((p: any) => p.id === g.poolId))
+      : games.filter((g: any) => !g.isPlayoff);
+      
+    if (divisionGames.length > 0) {
       setCurrentStep('generate');
-    } else if (pools.length > 0 && teams.every(t => t.poolId)) {
+    } else if (filteredPools.length > 0 && filteredTeams.every(t => t.poolId)) {
       setCurrentStep('review');
     }
     // If neither condition is met, stay at 'distribute' (default state)
-  }, [pools, teams, games]);
+  }, [filteredPools, filteredTeams, games, selectedDivision]);
 
   const autoDistributeMutation = useMutation({
     mutationFn: async (numPools: number) => {
+      if (!selectedDivision) {
+        throw new Error('Please select a division first');
+      }
       return await apiRequest('POST', `/api/tournaments/${tournamentId}/auto-distribute-pools`, {
-        numberOfPools: numPools
+        numberOfPools: numPools,
+        divisionId: selectedDivision
       });
     },
     onSuccess: (data: any) => {
       const poolCount = data?.pools?.length || parseInt(numberOfPools);
+      const divisionName = currentDivision?.name || 'selected division';
       setMessage({ 
         type: 'success', 
-        text: `Successfully distributed ${teams.length} teams across ${poolCount} pools!` 
+        text: `Successfully distributed ${filteredTeams.length} ${divisionName} teams across ${poolCount} pools!` 
       });
       toast({
         title: "Teams Distributed",
-        description: `Created ${poolCount} pools with teams evenly distributed`,
+        description: `Created ${poolCount} pools for ${divisionName} with teams evenly distributed`,
       });
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/pools`] });
@@ -143,20 +178,60 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     generateScheduleMutation.mutate();
   };
 
-  const hasTeams = teams.length > 0;
-  const hasPools = pools.length > 0;
-  const allTeamsAssigned = teams.every(t => t.poolId);
+  const hasTeams = filteredTeams.length > 0;
+  const hasPools = filteredPools.length > 0;
+  const allTeamsAssigned = filteredTeams.every(t => t.poolId);
   const poolPlayGames = games.filter((g: any) => !g.isPlayoff);
   const hasExistingGames = poolPlayGames.length > 0;
 
   // Organize teams by pool for display
-  const teamsByPool = pools.map(pool => ({
+  const teamsByPool = filteredPools.map(pool => ({
     pool,
-    teams: teams.filter(t => t.poolId === pool.id)
+    teams: filteredTeams.filter(t => t.poolId === pool.id)
   }));
 
   return (
     <div className="space-y-6">
+      {/* Division Selector */}
+      {ageDivisions.length > 1 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center space-x-4 flex-wrap">
+              <Button
+                onClick={() => setSelectedDivision(null)}
+                variant={selectedDivision === null ? "default" : "outline"}
+                style={{
+                  backgroundColor: selectedDivision === null ? 'var(--field-green)' : 'transparent',
+                  color: selectedDivision === null ? 'white' : 'var(--field-green)',
+                }}
+                data-testid="button-all-divisions"
+              >
+                All Divisions
+              </Button>
+              {ageDivisions.map((division: any) => (
+                <Button
+                  key={division.id}
+                  onClick={() => setSelectedDivision(division.id)}
+                  variant={selectedDivision === division.id ? "default" : "outline"}
+                  style={{
+                    backgroundColor: selectedDivision === division.id ? 'var(--field-green)' : 'transparent',
+                    color: selectedDivision === division.id ? 'white' : 'var(--field-green)',
+                  }}
+                  data-testid={`button-division-${division.id}`}
+                >
+                  {division.name}
+                </Button>
+              ))}
+            </div>
+            {selectedDivision && currentDivision && (
+              <p className="text-center text-sm text-gray-600 mt-4">
+                Managing schedule for <span className="font-semibold">{currentDivision.name}</span> division
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Progress Steps */}
       <Card>
         <CardHeader>
@@ -211,20 +286,29 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               Step 1: Distribute Teams Across Pools
             </CardTitle>
             <CardDescription>
-              Automatically create pools and evenly distribute your {teams.length} teams
+              Automatically create pools and evenly distribute your {filteredTeams.length} {currentDivision ? currentDivision.name : ''} teams
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!hasTeams && (
+            {!selectedDivision && ageDivisions.length > 0 && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No teams found. Please import teams using the Data Import tab before distributing them into pools.
+                  Please select a division above before distributing teams into pools.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {!hasTeams && selectedDivision && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No teams found for {currentDivision?.name}. Please import teams using the Data Import tab.
                 </AlertDescription>
               </Alert>
             )}
 
-            {hasTeams && (
+            {hasTeams && selectedDivision && (
               <>
                 <div className="flex items-end gap-4">
                   <div className="flex-1">
@@ -239,12 +323,12 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                       data-testid="input-number-of-pools"
                     />
                     <p className="text-sm text-[var(--text-secondary)] mt-1">
-                      {teams.length} teams ÷ {numberOfPools} pools = ~{Math.ceil(teams.length / parseInt(numberOfPools))} teams per pool
+                      {filteredTeams.length} teams ÷ {numberOfPools} pools = ~{Math.ceil(filteredTeams.length / parseInt(numberOfPools))} teams per pool
                     </p>
                   </div>
                   <Button
                     onClick={handleAutoDistribute}
-                    disabled={!hasTeams || autoDistributeMutation.isPending}
+                    disabled={!hasTeams || !selectedDivision || autoDistributeMutation.isPending}
                     style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
                     data-testid="button-auto-distribute"
                   >
@@ -310,7 +394,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {pools.map((p: any) => (
+                            {filteredPools.map((p: any) => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.name}
                               </SelectItem>
@@ -371,10 +455,10 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               </div>
 
               <div className="p-4 border rounded-lg">
-                <h4 className="font-semibold text-sm mb-2">Pool Distribution</h4>
+                <h4 className="font-semibold text-sm mb-2">Pool Distribution{currentDivision ? ` - ${currentDivision.name}` : ''}</h4>
                 <div className="text-sm text-[var(--text-secondary)] space-y-1">
-                  <p>Total Teams: {teams.length}</p>
-                  <p>Pools: {pools.length}</p>
+                  <p>Total Teams: {filteredTeams.length}</p>
+                  <p>Pools: {filteredPools.length}</p>
                   <p>Teams per Pool: {teamsByPool.map(p => p.teams.length).join(', ')}</p>
                 </div>
               </div>
