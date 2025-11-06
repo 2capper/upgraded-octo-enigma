@@ -167,6 +167,9 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       });
     },
     onSuccess: (data: any) => {
+      console.log('Generate schedule response:', data);
+      console.log('Draft games array:', data.draftGames);
+      console.log('Games count:', data.gamesCount);
       setDraftGames(data.draftGames || []);
       setMessage({ 
         type: 'success', 
