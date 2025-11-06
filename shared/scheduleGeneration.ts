@@ -122,17 +122,26 @@ export function generatePoolPlaySchedule(
     const teamIds = pool.teamIds;
     const teamCount = teamIds.length;
     
-    if (teamCount < 2) return; // Skip pools with less than 2 teams
+    console.log(`Pool ${pool.name}: ${teamCount} teams, ${teamIds.length} teamIds`);
+    
+    if (teamCount < 2) {
+      console.log(`Skipping pool ${pool.name} - less than 2 teams`);
+      return; // Skip pools with less than 2 teams
+    }
     
     // Generate round-robin matchups
     const matchups = generateRoundRobinMatchups(teamCount);
     const naturalMinGames = calculateMinGamesPerTeam(teamCount);
+    
+    console.log(`Pool ${pool.name}: ${matchups.length} matchups, naturalMinGames=${naturalMinGames}, minGameGuarantee=${minGameGuarantee}`);
     
     // Determine how many times to run round-robin to meet guarantee
     let roundsNeeded = 1;
     if (minGameGuarantee && minGameGuarantee > naturalMinGames) {
       roundsNeeded = Math.ceil(minGameGuarantee / naturalMinGames);
     }
+    
+    console.log(`Pool ${pool.name}: roundsNeeded=${roundsNeeded}`);
     
     // Generate games for required number of rounds
     for (let round = 0; round < roundsNeeded; round++) {

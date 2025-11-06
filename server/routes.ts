@@ -1546,6 +1546,14 @@ Waterdown 10U AA
         }
       }
       
+      console.log('Schedule generation config:', {
+        startDate: tournament.startDate,
+        endDate: tournament.endDate,
+        minGameGuarantee: tournament.minGameGuarantee,
+        numberOfDiamonds: tournament.numberOfDiamonds,
+        hasDiamondDetails: !!tournament.diamondDetails
+      });
+      
       // Generate the schedule (draft only - not saved)
       const draftGames = generatePoolPlaySchedule(poolsWithTeams, {
         tournamentId,
@@ -1555,6 +1563,8 @@ Waterdown 10U AA
         numberOfDiamonds: tournament.numberOfDiamonds || undefined,
         diamondDetails: tournament.diamondDetails ? tournament.diamondDetails as Array<{ venue: string; subVenue?: string }> : undefined,
       });
+      
+      console.log('Generated games count:', draftGames.length);
       
       // Return draft games without saving to database
       res.status(200).json({
