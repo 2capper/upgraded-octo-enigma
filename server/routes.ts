@@ -1565,6 +1565,84 @@ Waterdown 10U AA
     }
   });
 
+  // Auto-distribute teams across pools
+  app.post("/api/tournaments/:tournamentId/auto-distribute-pools", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { numberOfPools } = req.body;
+      
+      if (!numberOfPools || numberOfPools < 1) {
+        return res.status(400).json({ error: "Number of pools must be at least 1" });
+      }
+      
+      // Get tournament and teams
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      const teams = await storage.getTeams(tournamentId);
+      if (teams.length === 0) {
+        return res.status(400).json({ error: "No teams found to distribute" });
+      }
+      
+      // Get or create age division (default to tournament name if not specified)
+      let ageDivisions = await storage.getAgeDivisions(tournamentId);
+      let divisionId: string;
+      
+      if (ageDivisions.length === 0) {
+        // Create a default division
+        const division = await storage.createAgeDivision({
+          id: `${tournamentId}-main-division`,
+          name: tournament.name,
+          tournamentId
+        });
+        divisionId = division.id;
+      } else {
+        divisionId = ageDivisions[0].id;
+      }
+      
+      // Delete existing pools to start fresh
+      const existingPools = await storage.getPools(tournamentId);
+      for (const pool of existingPools) {
+        await storage.deletePool(pool.id);
+      }
+      
+      // Create new pools
+      const poolNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      const createdPools = [];
+      for (let i = 0; i < numberOfPools; i++) {
+        const pool = await storage.createPool({
+          id: `${tournamentId}-pool-${poolNames[i].toLowerCase()}`,
+          name: `Pool ${poolNames[i]}`,
+          tournamentId,
+          ageDivisionId: divisionId
+        });
+        createdPools.push(pool);
+      }
+      
+      // Distribute teams evenly across pools (round-robin)
+      const updatedTeams = [];
+      for (let i = 0; i < teams.length; i++) {
+        const poolIndex = i % numberOfPools;
+        const team = teams[i];
+        const updated = await storage.updateTeam(team.id, {
+          poolId: createdPools[poolIndex].id
+        });
+        updatedTeams.push(updated);
+      }
+      
+      res.status(200).json({
+        message: `Successfully distributed ${teams.length} teams across ${numberOfPools} pools`,
+        pools: createdPools,
+        teams: updatedTeams
+      });
+    } catch (error: any) {
+      console.error("Error auto-distributing teams:", error);
+      res.status(500).json({ error: "Failed to auto-distribute teams" });
+    }
+  });
+
   // Validation report generation
   app.get("/api/tournaments/:tournamentId/validation-report", requireAdmin, async (req, res) => {
     try {
