@@ -162,9 +162,10 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       if (!selectedDivision) {
         throw new Error('Please select a division first');
       }
-      return await apiRequest('POST', `/api/tournaments/${tournamentId}/generate-schedule`, {
+      const response = await apiRequest('POST', `/api/tournaments/${tournamentId}/generate-schedule`, {
         divisionId: selectedDivision
       });
+      return await response.json();
     },
     onSuccess: (data: any) => {
       console.log('Generate schedule response:', data);
@@ -193,9 +194,10 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
   const commitScheduleMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', `/api/tournaments/${tournamentId}/commit-schedule`, {
+      const response = await apiRequest('POST', `/api/tournaments/${tournamentId}/commit-schedule`, {
         draftGames
       });
+      return await response.json();
     },
     onSuccess: (data: any) => {
       setMessage({ 
