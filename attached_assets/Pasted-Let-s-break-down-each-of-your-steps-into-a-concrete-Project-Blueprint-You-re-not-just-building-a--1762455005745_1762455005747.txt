@@ -1,0 +1,105 @@
+Let's break down each of your steps into a concrete "Project Blueprint." You're not just building a single component; you're building a multi-step "Scheduler Wizard."
+
+Here is the end-to-end overview you can use to build this.
+
+The "Scheduler Wizard" Blueprint
+Your workflow is a 5-step process. Here’s how each step translates into a technical plan.
+
+1. Step 1: Data Intake (Load Registrations)
+User Goal: Load the registrations.csv file.
+
+UI Component: You'll build a new React component, let's call it <RegistrationUploader />.
+
+How it Works:
+
+This component will use a library like react-papaparse (a popular CSV parser).
+
+The admin (you) uploads the CSV.
+
+react-papaparse instantly converts the CSV rows into a clean JSON array of "unassigned teams."
+
+This array is stored in the component's state (e.g., useState<Team[]>(...)).
+
+Result: You have a list of team objects ready to be assigned.
+
+2. Step 2: Team Assignment (Manual Pooling)
+User Goal: Manually assign the unassigned teams into their pools.
+
+UI Component: This is the main "Scheduler" page. It will have a two-column "kanban" style layout.
+
+Column 1: "Unassigned Teams" (the list from Step 1).
+
+Column 2: "Pools" (e.g., "Pool A", "Pool B", "Pool C"). These are loaded from your tournament settings.
+
+How it Works:
+
+You'll use a drag-and-drop library like dnd-kit (modern and powerful) or react-beautiful-dnd.
+
+The admin drags a team from the "Unassigned" list and drops it directly into the "Pool A" box.
+
+The React state updates to reflect this assignment.
+
+Result: You have a clean data structure, like { "poolA": [team1, team4], "poolB": [team2, team3] }.
+
+3. Step 3: Define Constraints (The "When & Where")
+User Goal: Tell the engine when games can be played (diamond availability).
+
+UI Component: Before you can "build schedule," you must define your resources. You'll need a simple form on the same page.
+
+How it Works:
+
+The admin must fill out this "Constraints" form:
+
+Game Duration: [ 120 ] minutes (This includes warmup/cleanup time).
+
+Guaranteed Games: [ 3 ] (How many pool play games each team gets).
+
+Then, you need a "Diamond Availability" manager. This can be a simple list:
+
+[Diamond 1] [ Sat 8:00 AM ] - [ Sat 6:00 PM ] [Add]
+
+[Diamond 2] [ Sat 8:00 AM ] - [ Sat 6:00 PM ] [Add]
+
+[Batting Cage] [ Sat 9:00 AM ] - [ Sat 5:00 PM ] [Add]
+
+Result: You now have all the variables: who is playing (Step 2), what they're playing (Pools), and when/where they can play (Step 3).
+
+4. Step 4: Generation (The "Engine")
+User Goal: "Build schedule for pool play."
+
+This is the most complex part of the entire build. This is a backend operation. The "magic" happens on your server, not in the browser.
+
+UI Component: A single button: [Generate Draft Schedule].
+
+How it Works:
+
+Clicking the button sends all the data from Steps 2 & 3 to a new, special API endpoint: POST /api/tournaments/:id/generate-schedule-draft.
+
+On your Server (the "Engine"): This API endpoint runs your "Scheduler Algorithm." Here is a simplified version of what it does:
+
+A) Generate Matchups: For each pool, it runs a "Round Robin" algorithm to create all the necessary game pairings (e.g., a 4-team pool needs 6 matchups: 1v2, 1v3, 1v4, 2v3, 2v4, 3v4).
+
+B) Create Time Slots: Based on your constraints, it slices up the day. (e.g., D1, 8am-10am, D1, 10am-12pm, D2, 8am-10am, D2, 10am-12pm...).
+
+C) Assign Matchups to Slots (The "Hard Part"): It loops through the matchups and tries to place them into the first available time slot that doesn't create a conflict (i.e., making sure "Team A" isn't playing on both diamonds at 8 AM).
+
+API Response: The server does not save this to the database. It just sends the "draft" back as a JSON array of GeneratedGame objects.
+
+5. Step 5: Review & Commit (The "Draft")
+User Goal: Review the schedule before it's live.
+
+UI Component: The GeneratedGame[] array from Step 4 is now displayed in a new <ScheduleDraftReview /> table on your page.
+
+How it Works:
+
+The admin sees the full, generated schedule in a simple table: | Game | Time | Diamond | Home | Away | | :--- | :--- | :--- | :--- | :--- | | G1 | Sat 8:0E0 AM | Diamond 1 | Falcons | Hawks | | G2 | Sat 8:0E0 AM | Diamond 2 | Jays | Titans | | ... | ... | ... | ... | ... |
+
+Crucially: You can now build "manual override" features. The admin could, for example, drag-and-drop "G1" and "G2" to swap their time slots.
+
+Once the admin is happy, they click the final button: [Approve & Commit Schedule].
+
+Result: This second button call sends the (possibly edited) draft schedule to a different API endpoint: POST /api/tournaments/:id/commit-schedule. This endpoint loops through the JSON and saves all the games to your real games table in the database.
+
+This 5-step "wizard" approach is the perfect way to tackle this. It breaks a very complex problem into a series of simple, manageable steps for the user.
+
+This is a large feature. Which of these steps would you like to plan out in more detail first? My suggestion would be to start with Step 3: Defining the Constraints (the diamond availability logic and UI).
