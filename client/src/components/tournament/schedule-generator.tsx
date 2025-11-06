@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +43,17 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [draftGames, setDraftGames] = useState<any[]>([]);
+  const manualNavigation = useRef(false);
+  
+  // Reset manual navigation flag after step change completes
+  useEffect(() => {
+    if (manualNavigation.current) {
+      const timer = setTimeout(() => {
+        manualNavigation.current = false;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep]);
   
   // Auto-select first division if only one exists
   useEffect(() => {
@@ -67,6 +78,11 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
   // Determine initial step based on current state
   useEffect(() => {
+    // Skip if user has manually navigated
+    if (manualNavigation.current) {
+      return;
+    }
+    
     // Ignore temporary pools when determining the step - they should be replaced with real pools
     const realPools = filteredPools.filter((p: any) => !p.id.includes('_pool_temp_'));
     
@@ -455,13 +471,19 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => setCurrentStep('distribute')}
+                onClick={() => {
+                  manualNavigation.current = true;
+                  setCurrentStep('distribute');
+                }}
                 data-testid="button-back-to-distribute"
               >
                 Back to Distribute
               </Button>
               <Button
-                onClick={() => setCurrentStep('generate')}
+                onClick={() => {
+                  manualNavigation.current = true;
+                  setCurrentStep('generate');
+                }}
                 disabled={!allTeamsAssigned}
                 style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
                 data-testid="button-proceed-to-generate"
@@ -563,7 +585,10 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => setCurrentStep('review')}
+                onClick={() => {
+                  manualNavigation.current = true;
+                  setCurrentStep('review');
+                }}
                 data-testid="button-back-to-review"
               >
                 Back to Review
