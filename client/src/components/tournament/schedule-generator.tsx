@@ -208,7 +208,9 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
         title: "Schedule Committed",
         description: `Saved ${data.gamesCreated} pool play games`,
       });
+      // Invalidate all relevant queries to refresh UI
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}`] });
       setDraftGames([]);
       setCurrentStep('generate');
     },
@@ -569,11 +571,19 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                           const homeTeam = teams.find((t: any) => t.id === game.homeTeamId);
                           const awayTeam = teams.find((t: any) => t.id === game.awayTeamId);
                           const pool = pools.find((p: any) => p.id === game.poolId);
+                          const dateTimeStr = game.date && game.time 
+                            ? `${game.date} ${game.time}`
+                            : game.dateTime 
+                            ? new Date(game.dateTime).toLocaleString()
+                            : 'TBD';
+                          const location = game.subVenue 
+                            ? `${game.subVenue}`
+                            : game.location || 'TBD';
                           return (
                             <tr key={idx} className="border-b hover:bg-gray-50">
                               <td className="p-3">{game.gameNumber || idx + 1}</td>
-                              <td className="p-3">{new Date(game.dateTime).toLocaleString()}</td>
-                              <td className="p-3">{game.diamond || 'TBD'}</td>
+                              <td className="p-3">{dateTimeStr}</td>
+                              <td className="p-3">{location}</td>
                               <td className="p-3">{homeTeam?.name || 'TBD'}</td>
                               <td className="p-3">{awayTeam?.name || 'TBD'}</td>
                               <td className="p-3">{pool?.name || 'N/A'}</td>
