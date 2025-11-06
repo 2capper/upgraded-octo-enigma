@@ -14,6 +14,7 @@ import {
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, validateGameGuarantee } from "@shared/scheduleGeneration";
+import { nanoid } from "nanoid";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -1481,7 +1482,7 @@ Waterdown 10U AA
     }
   });
 
-  // Generate pool play schedule
+  // Generate pool play schedule (draft - not saved to database)
   app.post("/api/tournaments/:tournamentId/generate-schedule", requireAdmin, async (req, res) => {
     try {
       const { tournamentId } = req.params;
@@ -1533,8 +1534,8 @@ Waterdown 10U AA
         }
       }
       
-      // Generate the schedule
-      const games = generatePoolPlaySchedule(poolsWithTeams, {
+      // Generate the schedule (draft only - not saved)
+      const draftGames = generatePoolPlaySchedule(poolsWithTeams, {
         tournamentId,
         startDate: tournament.startDate,
         endDate: tournament.endDate,
@@ -1543,22 +1544,16 @@ Waterdown 10U AA
         diamondDetails: tournament.diamondDetails ? tournament.diamondDetails as Array<{ venue: string; subVenue?: string }> : undefined,
       });
       
-      // Save all games to database
-      const createdGames = [];
-      for (const game of games) {
-        const created = await storage.createGame(game);
-        createdGames.push(created);
-      }
-      
-      res.status(201).json({
-        message: `Successfully generated ${createdGames.length} pool play games`,
-        gamesCreated: createdGames.length,
-        games: createdGames
+      // Return draft games without saving to database
+      res.status(200).json({
+        message: `Generated draft schedule with ${draftGames.length} pool play games`,
+        gamesCount: draftGames.length,
+        draftGames: draftGames
       });
     } catch (error: any) {
       console.error("Error generating schedule:", error);
       
-      // If it's a capacity/scheduling error (not a database error), return 400
+      // If it's a capacity/scheduling error, return 400
       if (error.message && (
         error.message.includes('Cannot schedule all games') ||
         error.message.includes('Cannot guarantee')
@@ -1566,8 +1561,97 @@ Waterdown 10U AA
         return res.status(400).json({ error: error.message });
       }
       
-      // For other errors (like database errors), return 500
+      // For other errors, return 500
       res.status(500).json({ error: "Failed to generate schedule" });
+    }
+  });
+
+  // Commit draft schedule to database
+  app.post("/api/tournaments/:tournamentId/commit-schedule", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { draftGames } = req.body;
+      
+      if (!draftGames || !Array.isArray(draftGames) || draftGames.length === 0) {
+        return res.status(400).json({ error: "Draft games are required" });
+      }
+      
+      // Verify tournament exists
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      // Get valid pools for this tournament to verify games belong to correct tournament
+      const validPools = await storage.getPools(tournamentId);
+      const validPoolIds = new Set(validPools.map(p => p.id));
+      
+      // Get valid teams for this tournament
+      const validTeams = await storage.getTeams(tournamentId);
+      const validTeamIds = new Set(validTeams.map(t => t.id));
+      
+      // Validate each draft game before saving
+      const validatedGames = [];
+      for (let i = 0; i < draftGames.length; i++) {
+        const game = draftGames[i];
+        
+        // Validate game belongs to this tournament
+        if (game.tournamentId !== tournamentId) {
+          return res.status(400).json({ 
+            error: `Game ${i + 1} belongs to different tournament` 
+          });
+        }
+        
+        // Validate pool exists in this tournament
+        if (!validPoolIds.has(game.poolId)) {
+          return res.status(400).json({ 
+            error: `Game ${i + 1} references invalid pool for this tournament` 
+          });
+        }
+        
+        // Validate teams exist in this tournament
+        if (game.homeTeamId && !validTeamIds.has(game.homeTeamId)) {
+          return res.status(400).json({ 
+            error: `Game ${i + 1} references invalid home team` 
+          });
+        }
+        if (game.awayTeamId && !validTeamIds.has(game.awayTeamId)) {
+          return res.status(400).json({ 
+            error: `Game ${i + 1} references invalid away team` 
+          });
+        }
+        
+        // Validate using schema and regenerate ID for security
+        try {
+          const validated = insertGameSchema.parse(game);
+          // Regenerate ID on server to prevent ID spoofing/conflicts
+          const safeGame = {
+            ...validated,
+            id: `${tournamentId}-pool-${game.poolId}-game-${nanoid(8)}`
+          };
+          validatedGames.push(safeGame);
+        } catch (validationError: any) {
+          return res.status(400).json({ 
+            error: `Game ${i + 1} validation failed: ${validationError.message}` 
+          });
+        }
+      }
+      
+      // Save all validated games to database
+      const createdGames = [];
+      for (const game of validatedGames) {
+        const created = await storage.createGame(game);
+        createdGames.push(created);
+      }
+      
+      res.status(201).json({
+        message: `Successfully committed ${createdGames.length} pool play games`,
+        gamesCreated: createdGames.length,
+        games: createdGames
+      });
+    } catch (error: any) {
+      console.error("Error committing schedule:", error);
+      res.status(500).json({ error: "Failed to commit schedule" });
     }
   });
 

@@ -42,6 +42,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const [numberOfPools, setNumberOfPools] = useState('4');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
+  const [draftGames, setDraftGames] = useState<any[]>([]);
   
   // Auto-select first division if only one exists
   useEffect(() => {
@@ -150,22 +151,51 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       });
     },
     onSuccess: (data: any) => {
+      setDraftGames(data.draftGames || []);
       setMessage({ 
         type: 'success', 
-        text: `Successfully generated ${data.gamesCreated} games!` 
+        text: `Draft schedule ready! Review ${data.gamesCount || 0} games before committing.` 
       });
       toast({
-        title: "Schedule Generated",
-        description: `Created ${data.gamesCreated} pool play games`,
+        title: "Draft Schedule Ready",
+        description: `Generated ${data.gamesCount || 0} games. Review and commit when ready.`,
       });
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
-      setCurrentStep('generate');
     },
     onError: (error: any) => {
       const errorMessage = error.message || 'Failed to generate schedule';
       setMessage({ type: 'error', text: errorMessage });
       toast({
         title: "Schedule Generation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const commitScheduleMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', `/api/tournaments/${tournamentId}/commit-schedule`, {
+        draftGames
+      });
+    },
+    onSuccess: (data: any) => {
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully committed ${data.gamesCreated} games to the schedule!` 
+      });
+      toast({
+        title: "Schedule Committed",
+        description: `Saved ${data.gamesCreated} pool play games`,
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
+      setDraftGames([]);
+      setCurrentStep('generate');
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || 'Failed to commit schedule';
+      setMessage({ type: 'error', text: errorMessage });
+      toast({
+        title: "Commit Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -183,7 +213,13 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
   const handleGenerateSchedule = () => {
     setMessage({ type: '', text: '' });
+    setDraftGames([]);
     generateScheduleMutation.mutate();
+  };
+
+  const handleCommitSchedule = () => {
+    setMessage({ type: '', text: '' });
+    commitScheduleMutation.mutate();
   };
 
   const hasTeams = filteredTeams.length > 0;
@@ -481,6 +517,49 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               </Alert>
             )}
 
+            {/* Draft Games Review Table */}
+            {draftGames.length > 0 && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Draft Schedule Review</h4>
+                  <span className="text-sm text-[var(--text-secondary)]">{draftGames.length} games</span>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b sticky top-0">
+                        <tr>
+                          <th className="text-left p-3 font-semibold">Game</th>
+                          <th className="text-left p-3 font-semibold">Date & Time</th>
+                          <th className="text-left p-3 font-semibold">Diamond</th>
+                          <th className="text-left p-3 font-semibold">Home</th>
+                          <th className="text-left p-3 font-semibold">Away</th>
+                          <th className="text-left p-3 font-semibold">Pool</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draftGames.map((game: any, idx: number) => {
+                          const homeTeam = teams.find((t: any) => t.id === game.homeTeamId);
+                          const awayTeam = teams.find((t: any) => t.id === game.awayTeamId);
+                          const pool = pools.find((p: any) => p.id === game.poolId);
+                          return (
+                            <tr key={idx} className="border-b hover:bg-gray-50">
+                              <td className="p-3">{game.gameNumber || idx + 1}</td>
+                              <td className="p-3">{new Date(game.dateTime).toLocaleString()}</td>
+                              <td className="p-3">{game.diamond || 'TBD'}</td>
+                              <td className="p-3">{homeTeam?.name || 'TBD'}</td>
+                              <td className="p-3">{awayTeam?.name || 'TBD'}</td>
+                              <td className="p-3">{pool?.name || 'N/A'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 variant="outline"
@@ -489,24 +568,54 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               >
                 Back to Review
               </Button>
-              <Button
-                onClick={handleGenerateSchedule}
-                disabled={generateScheduleMutation.isPending || !tournament?.numberOfDiamonds}
-                style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
-                data-testid="button-generate-schedule"
-              >
-                {generateScheduleMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Schedule...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Generate Pool Play Schedule
-                  </>
-                )}
-              </Button>
+              {draftGames.length === 0 ? (
+                <Button
+                  onClick={handleGenerateSchedule}
+                  disabled={generateScheduleMutation.isPending || !tournament?.numberOfDiamonds}
+                  style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                  data-testid="button-generate-schedule"
+                >
+                  {generateScheduleMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Draft...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Generate Draft Schedule
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDraftGames([])}
+                    data-testid="button-cancel-draft"
+                  >
+                    Cancel Draft
+                  </Button>
+                  <Button
+                    onClick={handleCommitSchedule}
+                    disabled={commitScheduleMutation.isPending}
+                    style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                    data-testid="button-commit-schedule"
+                  >
+                    {commitScheduleMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Committing Schedule...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Commit Schedule to Database
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
 
             {hasExistingGames && (
