@@ -1507,12 +1507,24 @@ Waterdown 10U AA
         ? allPools.filter(p => p.ageDivisionId === divisionId)
         : allPools;
       
+      console.log('Schedule generation debug:', {
+        divisionId,
+        allPoolsCount: allPools.length,
+        filteredPoolsCount: pools.length,
+        allTeamsCount: allTeams.length
+      });
+      
       // Organize teams by pool
       const poolsWithTeams = pools.map(pool => ({
         id: pool.id,
         name: pool.name,
         teamIds: allTeams.filter(team => team.poolId === pool.id).map(team => team.id)
       }));
+      
+      console.log('Pools with teams:', poolsWithTeams.map(p => ({ 
+        name: p.name, 
+        teamCount: p.teamIds.length 
+      })));
       
       // Validate game guarantee if specified
       if (tournament.minGameGuarantee && tournament.numberOfDiamonds) {
