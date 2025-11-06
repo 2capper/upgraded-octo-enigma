@@ -1074,6 +1074,17 @@ export class DatabaseStorage implements IStorage {
     const divisionPools = await db.select().from(pools).where(eq(pools.ageDivisionId, divisionId));
     const regularPoolIds = divisionPools.filter(p => !p.name.toLowerCase().includes('playoff')).map(p => p.id);
 
+    // Delete any existing playoff games for this division to allow bracket regeneration
+    const playoffPoolIds = divisionPools.filter(p => p.name.toLowerCase().includes('playoff')).map(p => p.id);
+    if (playoffPoolIds.length > 0) {
+      await db.delete(games).where(
+        and(
+          eq(games.isPlayoff, true),
+          playoffPoolIds.length > 0 ? sql`${games.poolId} IN (${sql.join(playoffPoolIds.map(id => sql`${id}`), sql`, `)})` : sql`false`
+        )
+      );
+    }
+
     // Get all teams in the division (across all regular pools, excluding playoff pool)
     const divisionTeams = await db.select().from(teams)
       .where(regularPoolIds.length > 0 ? sql`${teams.poolId} IN (${sql.join(regularPoolIds.map(id => sql`${id}`), sql`, `)})` : sql`false`);
