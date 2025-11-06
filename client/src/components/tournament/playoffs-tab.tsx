@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -590,17 +591,19 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
                   {/* Playoff Bracket */}
                   {divisionPlayoffGames.length > 0 ? (
                 <div className="rounded-xl p-6" style={{ backgroundColor: tournament.primaryColor || '#1f2937' }}>
-                  <div className={`grid grid-cols-1 gap-8`} style={{ 
-                    gridTemplateColumns: rounds.length > 0 ? `repeat(${rounds.length}, minmax(0, 1fr))` : '1fr'
-                  }}>
+                  <Accordion type="multiple" defaultValue={rounds.map(r => `round-${r}`)} className="space-y-4">
                     {rounds.map(round => {
                       const roundGames = gamesByRound[round] || [];
                       const roundName = getRoundName(round, rounds.length);
                       const isFinals = round === rounds.length;
                       
                       return (
-                        <div key={round} className="space-y-6">
-                          <h4 className="text-lg font-bold text-white text-center uppercase tracking-wider">{roundName}</h4>
+                        <AccordionItem key={round} value={`round-${round}`} className="border-0">
+                          <AccordionTrigger className="text-lg font-bold text-white uppercase tracking-wider hover:no-underline px-4 py-3 rounded-lg" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+                            {roundName}
+                          </AccordionTrigger>
+                          <AccordionContent className="pt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           
                           {roundGames.map((game, gameIndex) => {
                             const isCompleted = game.status === 'completed';
@@ -690,10 +693,12 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
                               </div>
                             );
                           })}
-                        </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
                       );
                     })}
-                  </div>
+                  </Accordion>
                 </div>
               ) : (
                 <div className="text-center p-8 bg-gray-50 rounded-xl">
