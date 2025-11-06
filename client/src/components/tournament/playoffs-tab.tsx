@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { getPlayoffTeamCount } from '@shared/playoffFormats';
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
+import { PlayoffBracketPreview } from './playoff-bracket-preview';
 
 interface PlayoffsTabProps {
   teams: Team[];
@@ -402,11 +403,42 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
   if (!hasAnyPlayoffGames) {
     return (
       <div className="p-6">
-        <div className="text-center p-8 bg-gray-50 rounded-xl">
-          <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Playoff Games</h3>
-          <p className="text-gray-500">No playoff bracket has been generated yet.</p>
-        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">Playoff Bracket Preview</h3>
+        
+        {ageDivisions.length > 1 ? (
+          <Tabs defaultValue={ageDivisions[0]?.id} className="w-full">
+            <TabsList className="grid w-full mb-6" style={{ gridTemplateColumns: `repeat(${ageDivisions.length}, minmax(0, 1fr))` }}>
+              {ageDivisions.map((division) => (
+                <TabsTrigger key={division.id} value={division.id} className="text-sm md:text-base">
+                  {division.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            
+            {ageDivisions.map((division) => {
+              const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
+              return (
+                <TabsContent key={division.id} value={division.id}>
+                  <PlayoffBracketPreview
+                    playoffFormat={tournament.playoffFormat || 'top_8'}
+                    seedingPattern={tournament.seedingPattern || 'standard'}
+                    pools={divisionPools}
+                    primaryColor={tournament.primaryColor || undefined}
+                    secondaryColor={tournament.secondaryColor || undefined}
+                  />
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        ) : (
+          <PlayoffBracketPreview
+            playoffFormat={tournament.playoffFormat || 'top_8'}
+            seedingPattern={tournament.seedingPattern || 'standard'}
+            pools={pools}
+            primaryColor={tournament.primaryColor || undefined}
+            secondaryColor={tournament.secondaryColor || undefined}
+          />
+        )}
       </div>
     );
   }
@@ -443,13 +475,16 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
           const playoffTeams = divisionData.teams;
           
           if (divisionPlayoffGames.length === 0) {
+            const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
             return (
               <TabsContent key={division.id} value={division.id} className="mt-6">
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{division.name} Playoff Bracket Not Generated</h3>
-                  <p className="text-gray-500">No playoff bracket has been generated for this division yet.</p>
-                </div>
+                <PlayoffBracketPreview
+                  playoffFormat={tournament.playoffFormat || 'top_8'}
+                  seedingPattern={tournament.seedingPattern || 'standard'}
+                  pools={divisionPools}
+                  primaryColor={tournament.primaryColor || undefined}
+                  secondaryColor={tournament.secondaryColor || undefined}
+                />
               </TabsContent>
             );
           }
