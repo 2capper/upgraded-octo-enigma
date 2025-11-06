@@ -9,31 +9,22 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Game, Team } from '@shared/schema';
 
-// Convert Central Time to Eastern Time
-const convertCentralToEastern = (timeStr: string) => {
+// Format time for display (convert 24h to 12h format if needed)
+const formatTime = (timeStr: string) => {
   if (!timeStr) return 'TBD';
   
   try {
-    const [time, period] = timeStr.split(' ');
-    const timeParts = time.split(':');
-    const hours = parseInt(timeParts[0]) || 0;
-    const minutes = timeParts[1] ? parseInt(timeParts[1]) : 0;
-    
-    let hour24 = hours;
-    if (period?.toLowerCase() === 'pm' && hours !== 12) {
-      hour24 += 12;
-    } else if (period?.toLowerCase() === 'am' && hours === 12) {
-      hour24 = 0;
+    // If already in 12h format (contains AM/PM), return as-is
+    if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+      return timeStr;
     }
     
-    // Add 1 hour for Eastern Time (Eastern is 1 hour ahead of Central)
-    hour24 = (hour24 + 1) % 24;
+    // Convert 24h format to 12h format
+    const [hours, minutes] = timeStr.split(':').map(s => parseInt(s));
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
     
-    // Convert back to 12-hour format
-    const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-    const newPeriod = hour24 >= 12 ? 'PM' : 'AM';
-    
-    return `${hour12}:${minutes.toString().padStart(2, '0')} ${newPeriod} ET`;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   } catch (e) {
     return timeStr; // Return original if parsing fails
   }
@@ -269,7 +260,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                         {getTeamName(game.homeTeamId)} vs {getTeamName(game.awayTeamId)}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {game.date} at {convertCentralToEastern(game.time)}
+                        {game.date} at {formatTime(game.time)}
                       </div>
                       <div className="text-sm text-gray-500">
                         {game.location}
