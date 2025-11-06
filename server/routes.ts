@@ -1485,6 +1485,7 @@ Waterdown 10U AA
   app.post("/api/tournaments/:tournamentId/generate-schedule", requireAdmin, async (req, res) => {
     try {
       const { tournamentId } = req.params;
+      const { divisionId } = req.body;
       
       // Get tournament details
       const tournament = await storage.getTournament(tournamentId);
@@ -1497,8 +1498,13 @@ Waterdown 10U AA
       }
       
       // Get all pools and teams for this tournament
-      const pools = await storage.getPools(tournamentId);
+      const allPools = await storage.getPools(tournamentId);
       const allTeams = await storage.getTeams(tournamentId);
+      
+      // Filter pools by division if divisionId is provided
+      const pools = divisionId 
+        ? allPools.filter(p => p.ageDivisionId === divisionId)
+        : allPools;
       
       // Organize teams by pool
       const poolsWithTeams = pools.map(pool => ({

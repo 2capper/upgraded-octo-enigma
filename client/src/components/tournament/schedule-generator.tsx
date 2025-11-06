@@ -142,7 +142,12 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
   const generateScheduleMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', `/api/tournaments/${tournamentId}/generate-schedule`, {});
+      if (!selectedDivision) {
+        throw new Error('Please select a division first');
+      }
+      return await apiRequest('POST', `/api/tournaments/${tournamentId}/generate-schedule`, {
+        divisionId: selectedDivision
+      });
     },
     onSuccess: (data: any) => {
       setMessage({ 
