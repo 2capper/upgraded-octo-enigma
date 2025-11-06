@@ -45,13 +45,14 @@ export function ScheduleGenerator({ tournamentId, tournament, pools, teams, game
       });
     },
     onSuccess: (data: any) => {
+      const poolCount = data?.pools?.length || parseInt(numberOfPools);
       setMessage({ 
         type: 'success', 
-        text: `Successfully distributed ${teams.length} teams across ${data.pools.length} pools!` 
+        text: `Successfully distributed ${teams.length} teams across ${poolCount} pools!` 
       });
       toast({
         title: "Teams Distributed",
-        description: `Created ${data.pools.length} pools with teams evenly distributed`,
+        description: `Created ${poolCount} pools with teams evenly distributed`,
       });
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/pools`] });
