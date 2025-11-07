@@ -261,20 +261,20 @@ function DropZone({
       className={`absolute inset-0 flex items-center justify-center transition-all ${
         activeMatchup ? 'pointer-events-auto' : 'pointer-events-none'
       } ${
-        !isAvailable
-          ? 'bg-gray-100/50 dark:bg-gray-900/30 opacity-40'
+        !isAvailable && activeMatchup
+          ? 'bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500'
           : hasConflict
-            ? 'bg-red-100 dark:bg-red-900/20 animate-shake' 
+            ? 'bg-red-100 dark:bg-red-900/40 border-2 border-dashed border-[var(--clay-red)] animate-shake' 
             : isValid 
-              ? 'bg-[var(--field-green)]/10 shadow-inner' 
+              ? 'bg-[var(--field-green)]/20 border-2 border-dashed border-[var(--field-green)] shadow-lg' 
               : activeMatchup 
-                ? 'bg-gray-50/30 dark:bg-gray-800/30'
+                ? 'bg-blue-50/30 dark:bg-blue-900/10 border-2 border-dashed border-blue-300 dark:border-blue-700'
                 : ''
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
       {!isAvailable && activeMatchup ? (
-        <div className="text-xs text-gray-400 dark:text-gray-600 italic">
+        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
           Unavailable
         </div>
       ) : null}
