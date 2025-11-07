@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Users, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -228,6 +229,54 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     setActiveTeam(null);
   };
 
+  // Generate pool name for any index (A-Z, then AA, AB, etc.)
+  const getPoolName = (index: number): string => {
+    if (index < 26) {
+      return String.fromCharCode(65 + index); // A-Z
+    }
+    // For pools beyond Z, use AA, AB, AC, etc.
+    const firstLetter = String.fromCharCode(65 + Math.floor(index / 26) - 1);
+    const secondLetter = String.fromCharCode(65 + (index % 26));
+    return firstLetter + secondLetter;
+  };
+
+  // Create pools mutation
+  const createPoolsMutation = useMutation({
+    mutationFn: async () => {
+      if (!divisionId) {
+        throw new Error('Division ID is required to create pools');
+      }
+      if (!numberOfPools || numberOfPools === 0) {
+        throw new Error('Number of pools must be configured in tournament settings');
+      }
+      
+      const promises = [];
+      for (let i = 0; i < numberOfPools; i++) {
+        promises.push(
+          apiRequest('POST', `/api/tournaments/${tournamentId}/pools`, {
+            name: getPoolName(i),
+            ageDivisionId: divisionId,
+          })
+        );
+      }
+      return await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/pools`] });
+      toast({
+        title: 'Pools Created',
+        description: `Successfully created ${numberOfPools} pools`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Creation Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <Card>
@@ -243,24 +292,45 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
           )}
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            {/* Unassigned teams sidebar */}
-            <div className="lg:col-span-1">
-              <UnassignedDropZone teams={unassignedTeams} activeTeam={activeTeam} />
+          {filteredPools.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="mb-4">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  No pools have been created yet for this division.
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  Click below to create {numberOfPools} pools based on your tournament settings.
+                </p>
+              </div>
+              <Button
+                onClick={() => createPoolsMutation.mutate()}
+                disabled={createPoolsMutation.isPending}
+                style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                data-testid="button-create-pools"
+              >
+                {createPoolsMutation.isPending ? 'Creating...' : `Create ${numberOfPools} Pools`}
+              </Button>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Unassigned teams sidebar */}
+              <div className="lg:col-span-1">
+                <UnassignedDropZone teams={unassignedTeams} activeTeam={activeTeam} />
+              </div>
 
-            {/* Pool columns */}
-            <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {teamsByPool.map(({ pool, teams: poolTeams }) => (
-                <PoolDropZone 
-                  key={pool.id} 
-                  pool={pool} 
-                  teams={poolTeams}
-                  activeTeam={activeTeam}
-                />
-              ))}
+              {/* Pool columns */}
+              <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {teamsByPool.map(({ pool, teams: poolTeams }) => (
+                  <PoolDropZone 
+                    key={pool.id} 
+                    pool={pool} 
+                    teams={poolTeams}
+                    activeTeam={activeTeam}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
