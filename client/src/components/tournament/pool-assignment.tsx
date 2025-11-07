@@ -177,7 +177,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       queryClient.setQueryData<Team[]>(
         [`/api/tournaments/${tournamentId}/teams`],
         (oldTeams = []) => oldTeams.map(t => 
-          t.id === variables.teamId ? { ...t, poolId: variables.poolId as string } : t
+          t.id === variables.teamId ? { ...t, poolId: variables.poolId as any } : t
         )
       );
 
