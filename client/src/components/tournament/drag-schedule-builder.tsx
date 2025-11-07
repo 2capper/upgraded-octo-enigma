@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar, MapPin, X, Check } from 'lucide-react';
+import { Loader2, Calendar, MapPin, X, Check, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import type { Team, Diamond, Pool, Game, Tournament } from '@shared/schema';
@@ -499,6 +499,18 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     );
   }
 
+  const handleExportCSV = () => {
+    const params = new URLSearchParams();
+    if (divisionId) {
+      params.set('divisionId', divisionId);
+    }
+    if (selectedDate) {
+      params.set('date', selectedDate);
+    }
+    const url = `/api/tournaments/${tournamentId}/schedule-export${params.toString() ? '?' + params.toString() : ''}`;
+    window.open(url, '_blank');
+  };
+
   if (matchups.length === 0) {
     return (
       <div className="space-y-4">
@@ -537,7 +549,19 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                   {placedCount} of {matchups.length} games placed ({progress}%)
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {placedCount > 0 && (
+                  <Button
+                    onClick={handleExportCSV}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    data-testid="button-export-csv"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export CSV
+                  </Button>
+                )}
                 <Badge variant="outline">{unplacedMatchups.length} unplaced</Badge>
                 {placedCount === matchups.length && matchups.length > 0 && (
                   <Badge className="bg-green-500">

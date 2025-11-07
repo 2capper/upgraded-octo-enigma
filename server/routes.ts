@@ -1468,6 +1468,114 @@ Waterdown 10U AA
     }
   });
 
+  // CSV export endpoint
+  app.get("/api/tournaments/:tournamentId/schedule-export", async (req, res) => {
+    try {
+      const tournamentId = req.params.tournamentId;
+      const divisionId = req.query.divisionId as string | undefined;
+      const dateFilter = req.query.date as string | undefined;
+      
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      let allGames = await storage.getGames(tournamentId);
+      const teams = await storage.getTeams(tournamentId);
+      const pools = await storage.getPools(tournamentId);
+      const ageDivisions = await storage.getAgeDivisions(tournamentId);
+      
+      // Fetch diamonds with error handling for permission issues
+      let diamonds: any[] = [];
+      try {
+        diamonds = await storage.getDiamonds(tournament.organizationId);
+      } catch (error) {
+        console.warn("Could not fetch diamonds for CSV export:", error);
+        // Continue without diamond names
+      }
+
+      // Create lookup maps
+      const teamMap = new Map(teams.map(t => [t.id, t]));
+      const poolMap = new Map(pools.map(p => [p.id, p]));
+      const diamondMap = new Map(diamonds.map(d => [d.id, d]));
+      const ageDivisionMap = new Map(ageDivisions.map(d => [d.id, d]));
+
+      // Filter games by division if specified
+      let games = allGames;
+      if (divisionId) {
+        const divisionPools = pools.filter(p => p.ageDivisionId === divisionId);
+        const divisionPoolIds = new Set(divisionPools.map(p => p.id));
+        games = allGames.filter(g => g.poolId && divisionPoolIds.has(g.poolId));
+      }
+      
+      // Filter games by date if specified
+      if (dateFilter) {
+        games = games.filter(g => g.date === dateFilter);
+      }
+
+      // Helper function to escape CSV fields
+      const escapeCSV = (field: string | null | undefined): string => {
+        if (!field) return '';
+        const str = String(field);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      // Sort games chronologically using Date objects
+      const sortedGames = games.sort((a, b) => {
+        const dateA = new Date(`${a.date}T${a.time}:00`);
+        const dateB = new Date(`${b.date}T${b.time}:00`);
+        const timeDiff = dateA.getTime() - dateB.getTime();
+        
+        // If same time, sort by diamond
+        if (timeDiff === 0) {
+          return (a.diamondId || '').localeCompare(b.diamondId || '');
+        }
+        return timeDiff;
+      });
+
+      // Generate CSV headers
+      const headers = ['Date', 'Time', 'Diamond', 'Home Team', 'Away Team', 'Pool', 'Division', 'Duration (min)'];
+      const csvRows = [headers.join(',')];
+
+      // Generate CSV rows
+      for (const game of sortedGames) {
+        const homeTeam = teamMap.get(game.homeTeamId);
+        const awayTeam = teamMap.get(game.awayTeamId);
+        const pool = game.poolId ? poolMap.get(game.poolId) : null;
+        const diamond = game.diamondId ? diamondMap.get(game.diamondId) : null;
+        
+        // Get division from pool's age division (more reliable than team.division)
+        const division = pool?.ageDivisionId ? ageDivisionMap.get(pool.ageDivisionId)?.name : '';
+
+        const row = [
+          escapeCSV(game.date),
+          escapeCSV(game.time),
+          escapeCSV(diamond?.name || ''),
+          escapeCSV(homeTeam?.name || ''),
+          escapeCSV(awayTeam?.name || ''),
+          escapeCSV(pool?.name || ''),
+          escapeCSV(division || ''),
+          escapeCSV(String(game.durationMinutes || 90))
+        ];
+        csvRows.push(row.join(','));
+      }
+
+      const csvContent = csvRows.join('\n');
+
+      // Set headers for file download
+      const safeFileName = tournament.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}-schedule.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error exporting schedule:", error);
+      res.status(500).json({ error: "Failed to export schedule" });
+    }
+  });
+
   app.post("/api/tournaments/:tournamentId/games", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertGameSchema.parse({
