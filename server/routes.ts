@@ -13,7 +13,7 @@ import {
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
-import { generatePoolPlaySchedule, validateGameGuarantee } from "@shared/scheduleGeneration";
+import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1527,6 +1527,57 @@ Waterdown 10U AA
     }
   });
 
+  // Generate unplaced matchups (team pairings only, no time/diamond assignments)
+  app.post("/api/tournaments/:tournamentId/generate-matchups", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { divisionId } = req.body;
+      
+      // Get tournament details
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      if (tournament.type !== 'pool_play') {
+        return res.status(400).json({ error: "Matchup generation is only available for pool play tournaments" });
+      }
+      
+      // Get all pools and teams for this tournament
+      const allPools = await storage.getPools(tournamentId);
+      const allTeams = await storage.getTeams(tournamentId);
+      
+      // Filter pools by division if divisionId is provided
+      const pools = divisionId 
+        ? allPools.filter(p => p.ageDivisionId === divisionId)
+        : allPools;
+      
+      // Organize teams by pool
+      const poolsWithTeams = pools.map(pool => ({
+        id: pool.id,
+        name: pool.name,
+        teamIds: allTeams.filter(team => team.poolId === pool.id).map(team => team.id)
+      }));
+      
+      // Generate matchups without time/diamond assignments
+      const matchupResult = generateUnplacedMatchups(poolsWithTeams, {
+        tournamentId,
+        minGameGuarantee: tournament.minGameGuarantee || undefined,
+      });
+      
+      console.log('Generated matchups:', matchupResult.metadata);
+      
+      res.status(200).json({
+        message: `Generated ${matchupResult.metadata.totalMatchups} unplaced matchups`,
+        matchups: matchupResult.matchups,
+        metadata: matchupResult.metadata
+      });
+    } catch (error: any) {
+      console.error("Error generating matchups:", error);
+      res.status(500).json({ error: "Failed to generate matchups" });
+    }
+  });
+
   // Generate pool play schedule (draft - not saved to database)
   app.post("/api/tournaments/:tournamentId/generate-schedule", requireAdmin, async (req, res) => {
     try {
@@ -1867,6 +1918,153 @@ Waterdown 10U AA
     } catch (error: any) {
       console.error("Error committing schedule:", error);
       res.status(500).json({ error: "Failed to commit schedule" });
+    }
+  });
+
+  // Place a single game (for drag-and-drop schedule builder)
+  app.post("/api/games/place", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId, poolId, homeTeamId, awayTeamId, date, time, diamondId, matchupId } = req.body;
+      
+      if (!tournamentId || !poolId || !homeTeamId || !awayTeamId || !date || !time) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Verify tournament exists
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      // Get all teams to validate
+      const teams = await storage.getTeams(tournamentId);
+      const validTeamIds = new Set(teams.map(t => t.id));
+      
+      if (!validTeamIds.has(homeTeamId) || !validTeamIds.has(awayTeamId)) {
+        return res.status(400).json({ error: "Invalid team ID" });
+      }
+      
+      // Get diamond if specified
+      let diamond = null;
+      let location = '';
+      let subVenue = '';
+      
+      if (diamondId) {
+        diamond = await storage.getDiamond(diamondId);
+        if (!diamond) {
+          return res.status(400).json({ error: "Invalid diamond ID" });
+        }
+        location = diamond.location || diamond.name;
+        subVenue = diamond.name;
+        
+        // Validate diamond hours
+        const parseTime = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return h * 60 + m;
+        };
+        
+        const gameMinutes = parseTime(time);
+        const startMinutes = parseTime(diamond.availableStartTime);
+        const endMinutes = parseTime(diamond.availableEndTime);
+        
+        if (gameMinutes < startMinutes || gameMinutes > endMinutes) {
+          return res.status(400).json({ 
+            error: `Time ${time} is outside diamond "${diamond.name}" available hours (${diamond.availableStartTime}-${diamond.availableEndTime})`
+          });
+        }
+      }
+      
+      // Check for team conflicts at this time slot
+      const allGames = await storage.getGames(tournamentId);
+      const gamesAtTime = allGames.filter(g => g.date === date && g.time === time);
+      
+      for (const game of gamesAtTime) {
+        if (game.homeTeamId === homeTeamId || game.awayTeamId === homeTeamId ||
+            game.homeTeamId === awayTeamId || game.awayTeamId === awayTeamId) {
+          return res.status(400).json({ 
+            error: "One or both teams are already scheduled at this time" 
+          });
+        }
+        
+        // Check diamond conflict
+        if (diamondId && game.diamondId === diamondId) {
+          return res.status(400).json({ 
+            error: `Diamond "${diamond!.name}" is already in use at this time` 
+          });
+        }
+      }
+      
+      // Check rest period constraints if configured
+      if (tournament.minRestMinutes || tournament.maxGamesPerDay) {
+        const gamesOnDate = allGames.filter(g => g.date === date);
+        
+        // Check for both teams
+        for (const teamId of [homeTeamId, awayTeamId]) {
+          const teamGames = gamesOnDate.filter(g => 
+            g.homeTeamId === teamId || g.awayTeamId === teamId
+          );
+          
+          // Check max games per day
+          if (tournament.maxGamesPerDay && teamGames.length >= tournament.maxGamesPerDay) {
+            const team = teams.find(t => t.id === teamId);
+            return res.status(400).json({ 
+              error: `Team "${team?.name}" already has ${tournament.maxGamesPerDay} games on ${date}` 
+            });
+          }
+          
+          // Check rest periods
+          if (tournament.minRestMinutes) {
+            const parseTime = (t: string) => {
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
+            };
+            
+            const gameTimeMinutes = parseTime(time);
+            
+            for (const existingGame of teamGames) {
+              const existingTimeMinutes = parseTime(existingGame.time);
+              const timeDiff = Math.abs(gameTimeMinutes - existingTimeMinutes);
+              
+              if (timeDiff < tournament.minRestMinutes) {
+                const team = teams.find(t => t.id === teamId);
+                return res.status(400).json({ 
+                  error: `Team "${team?.name}" needs ${tournament.minRestMinutes} minutes rest between games (only ${timeDiff} minutes between ${existingGame.time} and ${time})` 
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      // Create the game
+      const gameId = `${tournamentId}-pool-${poolId}-game-${nanoid(8)}`;
+      const gameData = {
+        id: gameId,
+        homeTeamId,
+        awayTeamId,
+        tournamentId,
+        poolId,
+        status: 'scheduled' as const,
+        date,
+        time,
+        location,
+        subVenue,
+        diamondId: diamondId || null,
+        isPlayoff: false,
+        forfeitStatus: 'none' as const,
+        homeScore: null,
+        awayScore: null
+      };
+      
+      const createdGame = await storage.createGame(gameData);
+      
+      res.status(201).json({
+        message: "Game placed successfully",
+        game: createdGame
+      });
+    } catch (error: any) {
+      console.error("Error placing game:", error);
+      res.status(500).json({ error: "Failed to place game" });
     }
   });
 

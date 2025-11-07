@@ -69,6 +69,23 @@ export interface ScheduleValidationResult {
   violations: ScheduleViolation[];
 }
 
+export interface UnplacedMatchup {
+  id: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  poolId: string;
+  poolName: string;
+  tournamentId: string;
+}
+
+export interface MatchupGenerationResult {
+  matchups: UnplacedMatchup[];
+  metadata: {
+    totalMatchups: number;
+    poolCounts: Record<string, number>;
+  };
+}
+
 interface GameInfo {
   gameId: string;
   date: string;
@@ -408,6 +425,73 @@ export function generatePoolPlaySchedule(
   return {
     games,
     violations,
+  };
+}
+
+/**
+ * Generate unplaced matchups for manual scheduling
+ * Returns team pairings without time/diamond assignments
+ */
+export function generateUnplacedMatchups(
+  pools: Array<{ id: string; name: string; teamIds: string[] }>,
+  options: {
+    tournamentId: string;
+    minGameGuarantee?: number;
+  }
+): MatchupGenerationResult {
+  const matchups: UnplacedMatchup[] = [];
+  const poolCounts: Record<string, number> = {};
+  
+  pools.forEach((pool) => {
+    const teamIds = pool.teamIds;
+    const teamCount = teamIds.length;
+    
+    if (teamCount < 2) {
+      poolCounts[pool.id] = 0;
+      return;
+    }
+    
+    // Generate round-robin matchups
+    const roundRobinMatchups = generateRoundRobinMatchups(teamCount);
+    const naturalMinGames = calculateMinGamesPerTeam(teamCount);
+    
+    // Determine how many times to run round-robin to meet guarantee
+    let roundsNeeded = 1;
+    if (options.minGameGuarantee && options.minGameGuarantee > naturalMinGames) {
+      roundsNeeded = Math.ceil(options.minGameGuarantee / naturalMinGames);
+    }
+    
+    // Generate matchups for required number of rounds
+    let poolMatchupCount = 0;
+    for (let round = 0; round < roundsNeeded; round++) {
+      for (const matchup of roundRobinMatchups) {
+        const [homeIdx, awayIdx] = matchup;
+        const homeTeamId = teamIds[homeIdx];
+        const awayTeamId = teamIds[awayIdx];
+        
+        const unplacedMatchup: UnplacedMatchup = {
+          id: `unplaced-${options.tournamentId}-${pool.id}-${nanoid(8)}`,
+          homeTeamId,
+          awayTeamId,
+          poolId: pool.id,
+          poolName: pool.name,
+          tournamentId: options.tournamentId,
+        };
+        
+        matchups.push(unplacedMatchup);
+        poolMatchupCount++;
+      }
+    }
+    
+    poolCounts[pool.id] = poolMatchupCount;
+  });
+  
+  return {
+    matchups,
+    metadata: {
+      totalMatchups: matchups.length,
+      poolCounts,
+    },
   };
 }
 
