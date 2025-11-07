@@ -429,13 +429,18 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       const data = await response.json();
       return data.game;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (newGame, variables) => {
       // Track the matchup ID that was placed (from variables, not state)
       if (variables.matchupId) {
         setPlacedMatchupIds(prev => new Set([...Array.from(prev), variables.matchupId]));
       }
       
-      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
+      // Optimistically update games cache with new game
+      queryClient.setQueryData<Game[]>(
+        ['/api/tournaments', tournamentId, 'games'],
+        (oldGames = []) => [...oldGames, newGame]
+      );
+      
       toast({
         title: 'Game Placed',
         description: 'Game successfully scheduled',
@@ -454,9 +459,15 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
   const removeMutation = useMutation({
     mutationFn: async (gameId: string) => {
       await apiRequest('DELETE', `/api/games/${gameId}`);
+      return gameId;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
+    onSuccess: (gameId) => {
+      // Optimistically remove game from cache
+      queryClient.setQueryData<Game[]>(
+        ['/api/tournaments', tournamentId, 'games'],
+        (oldGames = []) => oldGames.filter(g => g.id !== gameId)
+      );
+      
       refetchMatchups(); // Refresh matchups to show removed game as available again
       toast({
         title: 'Game Removed',
@@ -471,8 +482,13 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       const response = await apiRequest('PUT', `/api/games/${gameId}`, { durationMinutes });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
+    onSuccess: (updatedGame) => {
+      // Optimistically update game in cache
+      queryClient.setQueryData<Game[]>(
+        ['/api/tournaments', tournamentId, 'games'],
+        (oldGames = []) => oldGames.map(g => g.id === updatedGame.game.id ? updatedGame.game : g)
+      );
+      
       toast({
         title: 'Duration Updated',
         description: 'Game duration successfully changed',

@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { DragScheduleBuilder } from './drag-schedule-builder';
+import { PoolAssignment } from './pool-assignment';
 import type { Team, Pool, AgeDivision, Game, Diamond } from '@shared/schema';
 
 interface ScheduleGeneratorProps {
@@ -544,80 +545,45 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
         </Card>
       )}
 
-      {/* Step 2: Review & Adjust */}
+      {/* Step 2: Review & Adjust with Drag-and-Drop */}
       {currentStep === 'review' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" style={{ color: 'var(--field-green)' }} />
-              Step 2: Review Pool Assignments
-            </CardTitle>
-            <CardDescription>
-              Review team distribution and make adjustments if needed
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {teamsByPool.map(({ pool, teams: poolTeams }: { pool: Pool; teams: Team[] }) => (
-                <div key={pool.id} className="border rounded-lg p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: 'var(--field-green)' }}>
-                      {poolTeams.length}
-                    </div>
-                    {pool.name}
-                  </h3>
-                  <div className="space-y-2">
-                    {poolTeams.map((team: any) => (
-                      <div key={team.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded">
-                        <span className="text-sm font-medium">{team.name}</span>
-                        <Select
-                          value={team.poolId}
-                          onValueChange={(newPoolId) => handleTeamPoolChange(team.id, newPoolId)}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs" data-testid={`select-pool-${team.id}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredPools.map((p: Pool) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  manualNavigation.current = true;
-                  setCurrentStep('distribute');
-                }}
-                data-testid="button-back-to-distribute"
-              >
-                Back to Distribute
-              </Button>
-              <Button
-                onClick={() => {
-                  manualNavigation.current = true;
-                  setCurrentStep('generate');
-                }}
-                disabled={!allTeamsAssigned}
-                style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
-                data-testid="button-proceed-to-generate"
-              >
-                Proceed to Generate Schedule
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <>
+          <PoolAssignment 
+            teams={filteredTeams}
+            pools={filteredPools}
+            tournamentId={tournamentId}
+            divisionId={selectedDivision || undefined}
+          />
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    manualNavigation.current = true;
+                    setCurrentStep('distribute');
+                  }}
+                  data-testid="button-back-to-distribute"
+                >
+                  Back to Distribute
+                </Button>
+                <Button
+                  onClick={() => {
+                    manualNavigation.current = true;
+                    setCurrentStep('generate');
+                  }}
+                  disabled={!allTeamsAssigned}
+                  style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+                  data-testid="button-proceed-to-generate"
+                >
+                  Proceed to Generate Schedule
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Step 3: Generate Schedule */}
