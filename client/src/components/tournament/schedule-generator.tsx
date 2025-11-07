@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle } from 'lucide-react';
+import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import type { Team, Pool, AgeDivision, Game, Diamond } from '@shared/schema';
 
 interface ScheduleGeneratorProps {
   tournamentId: string;
@@ -17,25 +19,38 @@ interface ScheduleGeneratorProps {
 
 type WorkflowStep = 'distribute' | 'review' | 'generate';
 
+interface Violation {
+  gameId: string;
+  teamId?: string;
+  message: string;
+  severity: 'error' | 'warning';
+}
+
 export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGeneratorProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
   // Fetch teams, pools, games, and age divisions directly in this component
-  const { data: teams = [], isLoading: teamsLoading } = useQuery({
+  const { data: teams = [], isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: [`/api/tournaments/${tournamentId}/teams`],
   });
   
-  const { data: pools = [], isLoading: poolsLoading } = useQuery({
+  const { data: pools = [], isLoading: poolsLoading } = useQuery<Pool[]>({
     queryKey: [`/api/tournaments/${tournamentId}/pools`],
   });
   
-  const { data: games = [], isLoading: gamesLoading } = useQuery({
+  const { data: games = [], isLoading: gamesLoading } = useQuery<Game[]>({
     queryKey: [`/api/tournaments/${tournamentId}/games`],
   });
   
-  const { data: ageDivisions = [] } = useQuery({
+  const { data: ageDivisions = [] } = useQuery<AgeDivision[]>({
     queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
+  });
+  
+  // Fetch diamonds for the organization
+  const { data: diamonds = [] } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', tournament?.organizationId, 'diamonds'],
+    enabled: !!tournament?.organizationId,
   });
   
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('distribute');
@@ -43,6 +58,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [draftGames, setDraftGames] = useState<any[]>([]);
+  const [violations, setViolations] = useState<Violation[]>([]);
   const manualNavigation = useRef(false);
   
   // Reset manual navigation flag after step change completes
@@ -64,17 +80,17 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   
   // Filter teams and pools by selected division
   const filteredTeams = selectedDivision 
-    ? teams.filter((t: any) => {
-        const teamPool = pools.find((p: any) => p.id === t.poolId);
-        return teamPool?.ageDivisionId === selectedDivision || t.division === ageDivisions.find((d: any) => d.id === selectedDivision)?.name;
+    ? teams.filter((t: Team) => {
+        const teamPool = pools.find((p: Pool) => p.id === t.poolId);
+        return teamPool?.ageDivisionId === selectedDivision || t.division === ageDivisions.find((d: AgeDivision) => d.id === selectedDivision)?.name;
       })
     : teams;
     
   const filteredPools = selectedDivision
-    ? pools.filter((p: any) => p.ageDivisionId === selectedDivision && !p.id.includes('_pool_temp_'))
-    : pools.filter((p: any) => !p.id.includes('_pool_temp_'));
+    ? pools.filter((p: Pool) => p.ageDivisionId === selectedDivision && !p.id.includes('_pool_temp_'))
+    : pools.filter((p: Pool) => !p.id.includes('_pool_temp_'));
   
-  const currentDivision = ageDivisions.find((d: any) => d.id === selectedDivision);
+  const currentDivision = ageDivisions.find((d: AgeDivision) => d.id === selectedDivision);
 
   // Determine initial step based on current state
   useEffect(() => {
@@ -84,16 +100,16 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     }
     
     // Ignore temporary pools when determining the step - they should be replaced with real pools
-    const realPools = filteredPools.filter((p: any) => !p.id.includes('_pool_temp_'));
+    const realPools = filteredPools.filter((p: Pool) => !p.id.includes('_pool_temp_'));
     
     // Priority: games > pools > distribute
     const divisionGames = selectedDivision 
-      ? games.filter((g: any) => !g.isPlayoff && realPools.some((p: any) => p.id === g.poolId))
-      : games.filter((g: any) => !g.isPlayoff);
+      ? games.filter((g: Game) => !g.isPlayoff && realPools.some((p: Pool) => p.id === g.poolId))
+      : games.filter((g: Game) => !g.isPlayoff);
       
     if (divisionGames.length > 0) {
       setCurrentStep('generate');
-    } else if (realPools.length > 0 && filteredTeams.every(t => t.poolId)) {
+    } else if (realPools.length > 0 && filteredTeams.every((t: Team) => t.poolId)) {
       setCurrentStep('review');
     }
     // If neither condition is met, stay at 'distribute' (default state)
@@ -171,14 +187,27 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       console.log('Generate schedule response:', data);
       console.log('Draft games array:', data.draftGames);
       console.log('Games count:', data.gamesCount);
+      console.log('Violations:', data.violations);
+      
       setDraftGames(data.draftGames || []);
+      setViolations(data.violations || []);
+      
+      const violationCount = data.violationsCount || data.violations?.length || 0;
+      const hasViolations = violationCount > 0;
+      
       setMessage({ 
-        type: 'success', 
-        text: `Draft schedule ready! Review ${data.gamesCount || 0} games before committing.` 
+        type: hasViolations ? 'info' : 'success', 
+        text: hasViolations 
+          ? `Draft schedule ready with ${violationCount} constraint violation(s). Review carefully before committing.`
+          : `Draft schedule ready! Review ${data.gamesCount || 0} games before committing.`
       });
+      
       toast({
-        title: "Draft Schedule Ready",
-        description: `Generated ${data.gamesCount || 0} games. Review and commit when ready.`,
+        title: hasViolations ? "Draft Schedule Ready (with violations)" : "Draft Schedule Ready",
+        description: hasViolations
+          ? `Generated ${data.gamesCount || 0} games with ${violationCount} violations. Review before committing.`
+          : `Generated ${data.gamesCount || 0} games. Review and commit when ready.`,
+        variant: hasViolations ? "destructive" : "default",
       });
     },
     onError: (error: any) => {
@@ -212,6 +241,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}`] });
       setDraftGames([]);
+      setViolations([]);
       setCurrentStep('generate');
     },
     onError: (error: any) => {
@@ -237,6 +267,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const handleGenerateSchedule = () => {
     setMessage({ type: '', text: '' });
     setDraftGames([]);
+    setViolations([]);
     generateScheduleMutation.mutate();
   };
 
@@ -247,14 +278,14 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
   const hasTeams = filteredTeams.length > 0;
   const hasPools = filteredPools.length > 0;
-  const allTeamsAssigned = filteredTeams.every(t => t.poolId);
-  const poolPlayGames = games.filter((g: any) => !g.isPlayoff);
+  const allTeamsAssigned = filteredTeams.every((t: Team) => t.poolId);
+  const poolPlayGames = games.filter((g: Game) => !g.isPlayoff);
   const hasExistingGames = poolPlayGames.length > 0;
 
   // Organize teams by pool for display
-  const teamsByPool = filteredPools.map(pool => ({
+  const teamsByPool = filteredPools.map((pool: Pool) => ({
     pool,
-    teams: filteredTeams.filter(t => t.poolId === pool.id)
+    teams: filteredTeams.filter((t: Team) => t.poolId === pool.id)
   }));
 
   return (
@@ -275,7 +306,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               >
                 All Divisions
               </Button>
-              {ageDivisions.map((division: any) => (
+              {ageDivisions.map((division: AgeDivision) => (
                 <Button
                   key={division.id}
                   onClick={() => setSelectedDivision(division.id)}
@@ -441,7 +472,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
-              {teamsByPool.map(({ pool, teams: poolTeams }) => (
+              {teamsByPool.map(({ pool, teams: poolTeams }: { pool: Pool; teams: Team[] }) => (
                 <div key={pool.id} className="border rounded-lg p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: 'var(--field-green)' }}>
@@ -461,7 +492,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {filteredPools.map((p: any) => (
+                            {filteredPools.map((p: Pool) => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.name}
                               </SelectItem>
@@ -532,7 +563,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                 <div className="text-sm text-[var(--text-secondary)] space-y-1">
                   <p>Total Teams: {filteredTeams.length}</p>
                   <p>Pools: {filteredPools.length}</p>
-                  <p>Teams per Pool: {teamsByPool.map(p => p.teams.length).join(', ')}</p>
+                  <p>Teams per Pool: {teamsByPool.map((p: { pool: Pool; teams: Team[] }) => p.teams.length).join(', ')}</p>
                 </div>
               </div>
             </div>
@@ -548,53 +579,146 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
 
             {/* Draft Games Review Table */}
             {draftGames.length > 0 && (
-              <div className="space-y-4 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">Draft Schedule Review</h4>
-                  <span className="text-sm text-[var(--text-secondary)]">{draftGames.length} games</span>
-                </div>
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b sticky top-0">
-                        <tr>
-                          <th className="text-left p-3 font-semibold">Game</th>
-                          <th className="text-left p-3 font-semibold">Date & Time</th>
-                          <th className="text-left p-3 font-semibold">Diamond</th>
-                          <th className="text-left p-3 font-semibold">Home</th>
-                          <th className="text-left p-3 font-semibold">Away</th>
-                          <th className="text-left p-3 font-semibold">Pool</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {draftGames.map((game: any, idx: number) => {
-                          const homeTeam = teams.find((t: any) => t.id === game.homeTeamId);
-                          const awayTeam = teams.find((t: any) => t.id === game.awayTeamId);
-                          const pool = pools.find((p: any) => p.id === game.poolId);
-                          const dateTimeStr = game.date && game.time 
-                            ? `${game.date} ${game.time}`
-                            : game.dateTime 
-                            ? new Date(game.dateTime).toLocaleString()
-                            : 'TBD';
-                          const location = game.subVenue 
-                            ? `${game.subVenue}`
-                            : game.location || 'TBD';
-                          return (
-                            <tr key={idx} className="border-b hover:bg-gray-50">
-                              <td className="p-3">{game.gameNumber || idx + 1}</td>
-                              <td className="p-3">{dateTimeStr}</td>
-                              <td className="p-3">{location}</td>
-                              <td className="p-3">{homeTeam?.name || 'TBD'}</td>
-                              <td className="p-3">{awayTeam?.name || 'TBD'}</td>
-                              <td className="p-3">{pool?.name || 'N/A'}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+              <TooltipProvider>
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Draft Schedule Review</h4>
+                    <span className="text-sm text-[var(--text-secondary)]">{draftGames.length} games</span>
+                  </div>
+                  
+                  {/* Violations Summary */}
+                  {(() => {
+                    const errorViolations = violations.filter(v => v.severity === 'error');
+                    const warningViolations = violations.filter(v => v.severity === 'warning');
+                    const gamesWithErrors = new Set(errorViolations.map(v => v.gameId)).size;
+                    const gamesWithWarnings = new Set(warningViolations.map(v => v.gameId)).size;
+                    
+                    return violations.length > 0 ? (
+                      <div className="grid gap-3 md:grid-cols-3" data-testid="violations-summary">
+                        <div className="p-3 border rounded-lg bg-gray-50">
+                          <div className="text-sm font-medium text-gray-600">Total Games</div>
+                          <div className="text-2xl font-bold" data-testid="text-total-games">{draftGames.length}</div>
+                        </div>
+                        {gamesWithErrors > 0 && (
+                          <div className="p-3 border border-red-200 rounded-lg bg-red-50">
+                            <div className="text-sm font-medium text-red-700">Games with Errors</div>
+                            <div className="text-2xl font-bold text-red-600" data-testid="text-error-count">{gamesWithErrors}</div>
+                          </div>
+                        )}
+                        {gamesWithWarnings > 0 && (
+                          <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
+                            <div className="text-sm font-medium text-yellow-700">Games with Warnings</div>
+                            <div className="text-2xl font-bold text-yellow-600" data-testid="text-warning-count">{gamesWithWarnings}</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Alert className="bg-green-50 border-green-200" data-testid="alert-schedule-valid">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-700">
+                          Schedule looks good! No constraint violations detected.
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  })()}
+                  
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b sticky top-0">
+                          <tr>
+                            <th className="text-left p-3 font-semibold">Game</th>
+                            <th className="text-left p-3 font-semibold">Date & Time</th>
+                            <th className="text-left p-3 font-semibold">Diamond</th>
+                            <th className="text-left p-3 font-semibold">Home</th>
+                            <th className="text-left p-3 font-semibold">Away</th>
+                            <th className="text-left p-3 font-semibold">Pool</th>
+                            <th className="text-left p-3 font-semibold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {draftGames.map((game: any, idx: number) => {
+                            const homeTeam = teams.find((t: Team) => t.id === game.homeTeamId);
+                            const awayTeam = teams.find((t: Team) => t.id === game.awayTeamId);
+                            const pool = pools.find((p: Pool) => p.id === game.poolId);
+                            const dateTimeStr = game.date && game.time 
+                              ? `${game.date} ${game.time}`
+                              : game.dateTime 
+                              ? new Date(game.dateTime).toLocaleString()
+                              : 'TBD';
+                            
+                            const diamond = game.diamondId 
+                              ? diamonds.find((d: Diamond) => d.id === game.diamondId)
+                              : null;
+                            const diamondName = diamond ? diamond.name : 'Not Assigned';
+                            
+                            const gameViolations = violations.filter(v => v.gameId === game.id);
+                            const hasErrors = gameViolations.some(v => v.severity === 'error');
+                            const hasWarnings = gameViolations.some(v => v.severity === 'warning');
+                            const hasViolations = gameViolations.length > 0;
+                            
+                            const rowClass = hasErrors 
+                              ? 'border-b hover:bg-red-50 bg-red-50/30 border-l-4 border-l-red-500'
+                              : hasWarnings 
+                              ? 'border-b hover:bg-yellow-50 bg-yellow-50/30 border-l-4 border-l-yellow-500'
+                              : 'border-b hover:bg-gray-50';
+                            
+                            return (
+                              <tr key={idx} className={rowClass} data-testid={`row-game-${game.id || idx}`}>
+                                <td className="p-3" data-testid={`text-game-number-${idx}`}>{game.gameNumber || idx + 1}</td>
+                                <td className="p-3" data-testid={`text-datetime-${idx}`}>{dateTimeStr}</td>
+                                <td className="p-3" data-testid={`text-diamond-${idx}`}>
+                                  <span className={!diamond ? 'text-gray-500 italic' : ''}>
+                                    {diamondName}
+                                  </span>
+                                </td>
+                                <td className="p-3" data-testid={`text-home-team-${idx}`}>{homeTeam?.name || 'TBD'}</td>
+                                <td className="p-3" data-testid={`text-away-team-${idx}`}>{awayTeam?.name || 'TBD'}</td>
+                                <td className="p-3" data-testid={`text-pool-${idx}`}>{pool?.name || 'N/A'}</td>
+                                <td className="p-3" data-testid={`status-${idx}`}>
+                                  {hasViolations ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1 cursor-help">
+                                          {hasErrors ? (
+                                            <XCircle className="h-4 w-4 text-red-600" data-testid={`icon-error-${idx}`} />
+                                          ) : (
+                                            <AlertCircle className="h-4 w-4 text-yellow-600" data-testid={`icon-warning-${idx}`} />
+                                          )}
+                                          <span className={hasErrors ? 'text-red-600 text-xs font-medium' : 'text-yellow-600 text-xs font-medium'}>
+                                            {gameViolations.length} {gameViolations.length === 1 ? 'issue' : 'issues'}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs">
+                                        <div className="space-y-1">
+                                          {gameViolations.map((v, i) => (
+                                            <div key={i} className="text-xs">
+                                              <span className={v.severity === 'error' ? 'text-red-600 font-semibold' : 'text-yellow-600 font-semibold'}>
+                                                {v.severity === 'error' ? 'ERROR' : 'WARNING'}:
+                                              </span>{' '}
+                                              {v.message}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <div className="flex items-center gap-1" data-testid={`status-valid-${idx}`}>
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      <span className="text-green-600 text-xs font-medium">Valid</span>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </TooltipProvider>
             )}
 
             <div className="flex gap-3 pt-4 border-t">
@@ -631,7 +755,10 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => setDraftGames([])}
+                    onClick={() => {
+                      setDraftGames([]);
+                      setViolations([]);
+                    }}
                     data-testid="button-cancel-draft"
                   >
                     Cancel Draft

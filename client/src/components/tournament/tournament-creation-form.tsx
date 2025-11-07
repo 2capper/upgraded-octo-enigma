@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Calendar, Type, Loader2, Users, Trophy, Palette, Image, Building2, Eye, Lock, Link, MapPin, X } from 'lucide-react';
+import { Plus, Calendar, Type, Loader2, Users, Trophy, Palette, Image, Building2, Eye, Lock, Link, MapPin, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { tournamentCreationSchema, type Organization } from '@shared/schema';
+import { tournamentCreationSchema, type Organization, type Diamond } from '@shared/schema';
 import { getAvailablePlayoffFormats, getDefaultPlayoffFormat, type PlayoffFormat } from '@shared/playoffFormats';
 import { getAvailableSeedingPatterns, getDefaultSeedingPattern, type SeedingPattern } from '@shared/seedingPatterns';
 
@@ -39,6 +40,10 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
     minGameGuarantee: undefined as number | undefined,
     numberOfDiamonds: undefined as number | undefined,
     diamondDetails: [] as Array<{ venue: string; subVenue?: string }>,
+    selectedDiamondIds: [] as string[],
+    minRestMinutes: 30,
+    restBetween2nd3rdGame: 60,
+    maxGamesPerDay: 3,
   });
   const [isOpen, setIsOpen] = useState(showForm);
   const lastPopulatedOrgIdRef = useRef<string | null>(null);
@@ -49,6 +54,12 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
   // Fetch organizations for selection
   const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
     queryKey: ['/api/organizations'],
+  });
+  
+  // Fetch diamonds for the selected organization
+  const { data: diamonds, isLoading: diamondsLoading } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', formData.organizationId, 'diamonds'],
+    enabled: !!formData.organizationId,
   });
   
   // Update form visibility when showForm prop changes
@@ -128,6 +139,10 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
         minGameGuarantee: undefined,
         numberOfDiamonds: undefined,
         diamondDetails: [],
+        selectedDiamondIds: [],
+        minRestMinutes: 30,
+        restBetween2nd3rdGame: 60,
+        maxGamesPerDay: 3,
       });
       lastPopulatedOrgIdRef.current = null; // Reset tracking for next tournament
       setIsOpen(false);
@@ -219,6 +234,18 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
         [field]: value,
       };
       return { ...prev, diamondDetails: newDiamondDetails };
+    });
+  };
+  
+  const toggleDiamondSelection = (diamondId: string) => {
+    setFormData(prev => {
+      const isSelected = prev.selectedDiamondIds.includes(diamondId);
+      return {
+        ...prev,
+        selectedDiamondIds: isSelected
+          ? prev.selectedDiamondIds.filter(id => id !== diamondId)
+          : [...prev.selectedDiamondIds, diamondId],
+      };
     });
   };
   
@@ -570,6 +597,140 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
               </div>
             </div>
           )}
+          
+          {/* Diamond Selection Section */}
+          {formData.organizationId && (
+            <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <MapPin className="w-4 h-4 mr-2" />
+                Diamond Selection
+              </h3>
+              <p className="text-sm text-gray-600">
+                Select diamonds/fields available for this tournament
+              </p>
+              
+              {diamondsLoading ? (
+                <div className="flex items-center space-x-2 text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading diamonds...</span>
+                </div>
+              ) : diamonds && diamonds.length > 0 ? (
+                <div className="space-y-2">
+                  {diamonds.map((diamond) => (
+                    <div 
+                      key={diamond.id} 
+                      className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+                    >
+                      <Checkbox
+                        id={`diamond-${diamond.id}`}
+                        checked={formData.selectedDiamondIds.includes(diamond.id)}
+                        onCheckedChange={() => toggleDiamondSelection(diamond.id)}
+                        data-testid={`checkbox-diamond-${diamond.id}`}
+                      />
+                      <Label 
+                        htmlFor={`diamond-${diamond.id}`}
+                        className="flex-1 cursor-pointer text-sm"
+                      >
+                        <span className="font-medium">{diamond.name}</span>
+                        {diamond.location && (
+                          <span className="text-gray-500 ml-2">({diamond.location})</span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                  No diamonds found for this organization. You can create diamonds in the organization settings.
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Scheduling Rules Section */}
+          <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-semibold text-gray-900 flex items-center">
+              <Clock className="w-4 h-4 mr-2" />
+              Scheduling Rules
+            </h3>
+            <p className="text-sm text-gray-600">
+              Configure scheduling constraints for automatic schedule generation
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="minRestMinutes">Min Rest Minutes</Label>
+                <Input
+                  id="minRestMinutes"
+                  type="number"
+                  min="0"
+                  max="240"
+                  value={formData.minRestMinutes}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      handleInputChange('minRestMinutes', 30);
+                    } else {
+                      handleInputChange('minRestMinutes', parseInt(val) || 30);
+                    }
+                  }}
+                  className="mt-1"
+                  data-testid="input-min-rest-minutes"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Minimum rest time between games for the same team
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="restBetween2nd3rdGame">Rest Between 2nd/3rd Game</Label>
+                <Input
+                  id="restBetween2nd3rdGame"
+                  type="number"
+                  min="0"
+                  max="240"
+                  value={formData.restBetween2nd3rdGame}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      handleInputChange('restBetween2nd3rdGame', 60);
+                    } else {
+                      handleInputChange('restBetween2nd3rdGame', parseInt(val) || 60);
+                    }
+                  }}
+                  className="mt-1"
+                  data-testid="input-rest-between-2nd-3rd-game"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Rest time between 2nd and 3rd game of the day
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="maxGamesPerDay">Max Games Per Day</Label>
+                <Input
+                  id="maxGamesPerDay"
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={formData.maxGamesPerDay}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      handleInputChange('maxGamesPerDay', 3);
+                    } else {
+                      handleInputChange('maxGamesPerDay', parseInt(val) || 3);
+                    }
+                  }}
+                  className="mt-1"
+                  data-testid="input-max-games-per-day"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum games a team can play in one day
+                </p>
+              </div>
+            </div>
+          </div>
           
           {/* Branding & Appearance Section */}
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg">

@@ -3,6 +3,7 @@ import {
   organizations,
   organizationAdmins,
   organizationFeatureFlags,
+  diamonds,
   tournaments, 
   ageDivisions, 
   pools, 
@@ -20,6 +21,8 @@ import {
   type InsertOrganizationAdmin,
   type OrganizationFeatureFlag,
   type InsertOrganizationFeatureFlag,
+  type Diamond,
+  type InsertDiamond,
   type Tournament,
   type InsertTournament,
   type AgeDivision,
@@ -64,6 +67,13 @@ export interface IStorage {
   getOrganizationAdmins(organizationId: string): Promise<OrganizationAdmin[]>;
   getUserOrganizations(userId: string): Promise<Organization[]>;
   isOrganizationAdmin(userId: string, organizationId: string): Promise<boolean>;
+  
+  // Diamond methods
+  getDiamonds(organizationId: string): Promise<Diamond[]>;
+  getDiamond(id: string): Promise<Diamond | undefined>;
+  createDiamond(diamond: InsertDiamond): Promise<Diamond>;
+  updateDiamond(id: string, diamond: Partial<InsertDiamond>): Promise<Diamond>;
+  deleteDiamond(id: string): Promise<void>;
   
   // Tournament methods
   getTournaments(organizationId?: string): Promise<Tournament[]>;
@@ -185,6 +195,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteOrganization(id: string): Promise<void> {
     await db.delete(organizations).where(eq(organizations.id, id));
+  }
+
+  // Diamond methods
+  async getDiamonds(organizationId: string): Promise<Diamond[]> {
+    return await db.select().from(diamonds).where(eq(diamonds.organizationId, organizationId));
+  }
+
+  async getDiamond(id: string): Promise<Diamond | undefined> {
+    const result = await db.select().from(diamonds).where(eq(diamonds.id, id));
+    return result[0];
+  }
+
+  async createDiamond(diamond: InsertDiamond): Promise<Diamond> {
+    const result = await db.insert(diamonds).values(diamond).returning();
+    return result[0];
+  }
+
+  async updateDiamond(id: string, diamond: Partial<InsertDiamond>): Promise<Diamond> {
+    const result = await db.update(diamonds).set(diamond).where(eq(diamonds.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteDiamond(id: string): Promise<void> {
+    await db.delete(diamonds).where(eq(diamonds.id, id));
   }
 
   // Organization admin methods

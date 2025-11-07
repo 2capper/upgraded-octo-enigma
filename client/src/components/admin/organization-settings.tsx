@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image } from 'lucide-react';
+import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import type { Organization } from '@shared/schema';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import type { Organization, Diamond, InsertDiamond } from '@shared/schema';
+import { insertDiamondSchema } from '@shared/schema';
 import { poolPlayFormats, type PlayoffFormatOption } from '@shared/playoffFormats';
 import { seedingPatternOptions, type SeedingPattern } from '@shared/seedingPatterns';
 
@@ -295,6 +301,384 @@ function EditOrganizationDialog({ organization, onSuccess }: EditOrganizationDia
   );
 }
 
+interface DiamondFormDialogProps {
+  organizationId: string;
+  diamond?: Diamond;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function DiamondFormDialog({ organizationId, diamond, isOpen, onOpenChange }: DiamondFormDialogProps) {
+  const { toast } = useToast();
+  const isEdit = !!diamond;
+
+  const form = useForm<InsertDiamond>({
+    resolver: zodResolver(insertDiamondSchema),
+    defaultValues: {
+      organizationId,
+      name: diamond?.name || '',
+      location: diamond?.location || '',
+      availableStartTime: diamond?.availableStartTime || '08:00',
+      availableEndTime: diamond?.availableEndTime || '20:00',
+      hasLights: diamond?.hasLights || false,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertDiamond) => {
+      return apiRequest('POST', `/api/organizations/${organizationId}/diamonds`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'diamonds'] });
+      toast({
+        title: "Diamond Created",
+        description: "The diamond has been created successfully.",
+      });
+      onOpenChange(false);
+      form.reset();
+    },
+    onError: () => {
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create diamond. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: InsertDiamond) => {
+      return apiRequest('PUT', `/api/diamonds/${diamond?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'diamonds'] });
+      toast({
+        title: "Diamond Updated",
+        description: "The diamond has been updated successfully.",
+      });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update diamond. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: InsertDiamond) => {
+    if (isEdit) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit Diamond' : 'Create Diamond'}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? 'Update the diamond information.' : 'Add a new diamond/field to your organization.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Diamond 1, Field A, etc."
+                      data-testid="input-diamond-name"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value || ''}
+                      placeholder="Park name, address, or field location"
+                      data-testid="input-diamond-location"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Optional location details for this diamond
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="availableStartTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Available Start Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="time"
+                        data-testid="input-diamond-start-time"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="availableEndTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Available End Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="time"
+                        data-testid="input-diamond-end-time"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="hasLights"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="checkbox-diamond-has-lights"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4" />
+                      Has Lights
+                    </FormLabel>
+                    <FormDescription>
+                      This diamond has lights for evening games
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isPending}
+                data-testid="button-cancel-diamond"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending}
+                data-testid="button-save-diamond"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isEdit ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>{isEdit ? 'Update Diamond' : 'Create Diamond'}</>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface DiamondManagementProps {
+  organizationId: string;
+  organizationSlug: string;
+}
+
+function DiamondManagement({ organizationId, organizationSlug }: DiamondManagementProps) {
+  const { toast } = useToast();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingDiamond, setEditingDiamond] = useState<Diamond | null>(null);
+
+  const { data: diamonds, isLoading } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', organizationId, 'diamonds'],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (diamondId: string) => {
+      return apiRequest('DELETE', `/api/diamonds/${diamondId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'diamonds'] });
+      toast({
+        title: "Diamond Deleted",
+        description: "The diamond has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete diamond. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (diamond: Diamond) => {
+    if (confirm(`Are you sure you want to delete "${diamond.name}"?`)) {
+      deleteMutation.mutate(diamond.id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-5 h-5" />
+          <h3 className="text-lg font-semibold">Diamonds</h3>
+        </div>
+        <Button
+          onClick={() => setIsCreateOpen(true)}
+          size="sm"
+          data-testid={`button-create-diamond-${organizationSlug}`}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Diamond
+        </Button>
+      </div>
+
+      {!diamonds || diamonds.length === 0 ? (
+        <div className="text-center py-8 border rounded-lg bg-muted/30">
+          <MapPin className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">
+            No diamonds configured yet. Create one to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Available Hours</TableHead>
+                <TableHead className="text-center">Has Lights</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {diamonds.map((diamond) => (
+                <TableRow key={diamond.id} data-testid={`row-diamond-${diamond.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-diamond-name-${diamond.id}`}>
+                    {diamond.name}
+                  </TableCell>
+                  <TableCell data-testid={`text-diamond-location-${diamond.id}`}>
+                    {diamond.location || (
+                      <span className="text-muted-foreground italic">No location</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-diamond-hours-${diamond.id}`}>
+                    {diamond.availableStartTime} - {diamond.availableEndTime}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {diamond.hasLights ? (
+                      <div className="flex items-center justify-center gap-1" data-testid={`icon-has-lights-${diamond.id}`}>
+                        <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm">Yes</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground" data-testid={`text-no-lights-${diamond.id}`}>
+                        No
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingDiamond(diamond)}
+                        data-testid={`button-edit-diamond-${diamond.id}`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(diamond)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-diamond-${diamond.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <DiamondFormDialog
+        organizationId={organizationId}
+        isOpen={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
+
+      {editingDiamond && (
+        <DiamondFormDialog
+          organizationId={organizationId}
+          diamond={editingDiamond}
+          isOpen={!!editingDiamond}
+          onOpenChange={(open) => !open && setEditingDiamond(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function OrganizationSettings() {
   const { toast } = useToast();
 
@@ -354,49 +738,56 @@ export function OrganizationSettings() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Timezone Display */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    Timezone
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Timezone Display */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      Timezone
+                    </div>
+                    <p className="text-sm font-mono" data-testid={`text-timezone-${org.slug}`}>
+                      {org.timezone || 'America/Toronto'}
+                    </p>
                   </div>
-                  <p className="text-sm font-mono" data-testid={`text-timezone-${org.slug}`}>
-                    {org.timezone || 'America/Toronto'}
-                  </p>
+
+                  {/* Colors Display */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Palette className="w-4 h-4" />
+                      Default Colors
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ backgroundColor: org.defaultPrimaryColor || '#22c55e' }}
+                        title="Primary"
+                        data-testid={`color-primary-${org.slug}`}
+                      />
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ backgroundColor: org.defaultSecondaryColor || '#ffffff' }}
+                        title="Secondary"
+                        data-testid={`color-secondary-${org.slug}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Playoff Format Display */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Trophy className="w-4 h-4" />
+                      Default Playoff Format
+                    </div>
+                    <p className="text-sm" data-testid={`text-playoff-format-${org.slug}`}>
+                      {poolPlayFormats.find(f => f.value === org.defaultPlayoffFormat)?.label || 'Top 6 Teams'}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Colors Display */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Palette className="w-4 h-4" />
-                    Default Colors
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <div
-                      className="w-8 h-8 rounded border"
-                      style={{ backgroundColor: org.defaultPrimaryColor || '#22c55e' }}
-                      title="Primary"
-                      data-testid={`color-primary-${org.slug}`}
-                    />
-                    <div
-                      className="w-8 h-8 rounded border"
-                      style={{ backgroundColor: org.defaultSecondaryColor || '#ffffff' }}
-                      title="Secondary"
-                      data-testid={`color-secondary-${org.slug}`}
-                    />
-                  </div>
-                </div>
-
-                {/* Playoff Format Display */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Trophy className="w-4 h-4" />
-                    Default Playoff Format
-                  </div>
-                  <p className="text-sm" data-testid={`text-playoff-format-${org.slug}`}>
-                    {poolPlayFormats.find(f => f.value === org.defaultPlayoffFormat)?.label || 'Top 6 Teams'}
-                  </p>
+                {/* Diamonds Management Section */}
+                <div className="pt-4 border-t">
+                  <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
                 </div>
               </div>
             </CardContent>

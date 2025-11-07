@@ -402,6 +402,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Diamond routes
+  app.get("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
+    try {
+      const { organizationId } = req.params;
+      const diamonds = await storage.getDiamonds(organizationId);
+      res.json(diamonds);
+    } catch (error) {
+      console.error("Error fetching diamonds:", error);
+      res.status(500).json({ error: "Failed to fetch diamonds" });
+    }
+  });
+
+  app.post("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
+    try {
+      const { organizationId } = req.params;
+      const diamond = await storage.createDiamond({ ...req.body, organizationId });
+      res.status(201).json(diamond);
+    } catch (error) {
+      console.error("Error creating diamond:", error);
+      res.status(500).json({ error: "Failed to create diamond" });
+    }
+  });
+
+  app.put("/api/diamonds/:id", requireOrgAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const diamond = await storage.updateDiamond(id, req.body);
+      res.json(diamond);
+    } catch (error) {
+      console.error("Error updating diamond:", error);
+      res.status(500).json({ error: "Failed to update diamond" });
+    }
+  });
+
+  app.delete("/api/diamonds/:id", requireOrgAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDiamond(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting diamond:", error);
+      res.status(500).json({ error: "Failed to delete diamond" });
+    }
+  });
+
   // Public tournament directory endpoint (no auth required)
   app.get("/api/public/tournaments", async (req, res) => {
     try {
@@ -1554,23 +1599,42 @@ Waterdown 10U AA
         hasDiamondDetails: !!tournament.diamondDetails
       });
       
+      // Fetch diamonds if selectedDiamondIds is set
+      let diamonds = undefined;
+      if (tournament.selectedDiamondIds && tournament.selectedDiamondIds.length > 0) {
+        diamonds = [];
+        for (const diamondId of tournament.selectedDiamondIds) {
+          const diamond = await storage.getDiamond(diamondId);
+          if (diamond) {
+            diamonds.push(diamond);
+          }
+        }
+      }
+
       // Generate the schedule (draft only - not saved)
-      const draftGames = generatePoolPlaySchedule(poolsWithTeams, {
+      const scheduleResult = generatePoolPlaySchedule(poolsWithTeams, {
         tournamentId,
         startDate: tournament.startDate,
         endDate: tournament.endDate,
         minGameGuarantee: tournament.minGameGuarantee || undefined,
         numberOfDiamonds: tournament.numberOfDiamonds || undefined,
         diamondDetails: tournament.diamondDetails ? tournament.diamondDetails as Array<{ venue: string; subVenue?: string }> : undefined,
+        diamonds: diamonds,
+        minRestMinutes: tournament.minRestMinutes,
+        restBetween2nd3rdGame: tournament.restBetween2nd3rdGame,
+        maxGamesPerDay: tournament.maxGamesPerDay,
       });
       
-      console.log('Generated games count:', draftGames.length);
+      console.log('Generated games count:', scheduleResult.games.length);
+      console.log('Violations count:', scheduleResult.violations.length);
       
-      // Return draft games without saving to database
+      // Return draft games and violations without saving to database
       res.status(200).json({
-        message: `Generated draft schedule with ${draftGames.length} pool play games`,
-        gamesCount: draftGames.length,
-        draftGames: draftGames
+        message: `Generated draft schedule with ${scheduleResult.games.length} pool play games`,
+        gamesCount: scheduleResult.games.length,
+        violationsCount: scheduleResult.violations.length,
+        draftGames: scheduleResult.games,
+        violations: scheduleResult.violations
       });
     } catch (error: any) {
       console.error("Error generating schedule:", error);
@@ -1611,6 +1675,135 @@ Waterdown 10U AA
       // Get valid teams for this tournament
       const validTeams = await storage.getTeams(tournamentId);
       const validTeamIds = new Set(validTeams.map(t => t.id));
+      
+      // Fetch diamonds if tournament uses them
+      let diamonds = undefined;
+      if (tournament.selectedDiamondIds && tournament.selectedDiamondIds.length > 0) {
+        diamonds = [];
+        for (const diamondId of tournament.selectedDiamondIds) {
+          const diamond = await storage.getDiamond(diamondId);
+          if (diamond) {
+            diamonds.push(diamond);
+          }
+        }
+      }
+      
+      // Re-validate constraints server-side
+      // This prevents bypassing frontend validation via direct API calls
+      const constraintErrors: string[] = [];
+      
+      if (diamonds && diamonds.length > 0) {
+        // Track team game counts per day for validation
+        const teamGamesPerDay = new Map<string, Map<string, number>>();
+        const teamGameTimes = new Map<string, Array<{ date: string; time: string; gameNumber: number }>>();
+        
+        for (let i = 0; i < draftGames.length; i++) {
+          const game = draftGames[i];
+          const gameDate = game.date;
+          const gameTime = game.time;
+          
+          // Check diamond assignment if diamondId is present
+          if (game.diamondId) {
+            const diamond = diamonds.find(d => d.id === game.diamondId);
+            if (!diamond) {
+              constraintErrors.push(`Game ${i + 1}: Invalid diamond assignment`);
+            } else {
+              // Validate diamond availability hours
+              const parseTime = (t: string) => {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+              };
+              
+              const gameMinutes = parseTime(gameTime);
+              const startMinutes = parseTime(diamond.availableStartTime);
+              const endMinutes = parseTime(diamond.availableEndTime);
+              
+              if (gameMinutes < startMinutes || gameMinutes > endMinutes) {
+                constraintErrors.push(
+                  `Game ${i + 1}: Time ${gameTime} is outside diamond "${diamond.name}" available hours (${diamond.availableStartTime}-${diamond.availableEndTime})`
+                );
+              }
+            }
+          }
+          
+          // Track games per team per day
+          for (const teamId of [game.homeTeamId, game.awayTeamId]) {
+            if (!teamId) continue;
+            
+            if (!teamGamesPerDay.has(teamId)) {
+              teamGamesPerDay.set(teamId, new Map());
+              teamGameTimes.set(teamId, []);
+            }
+            
+            const dayMap = teamGamesPerDay.get(teamId)!;
+            const currentCount = dayMap.get(gameDate) || 0;
+            dayMap.set(gameDate, currentCount + 1);
+            
+            // Check max games per day
+            if (tournament.maxGamesPerDay && currentCount + 1 > tournament.maxGamesPerDay) {
+              constraintErrors.push(
+                `Game ${i + 1}: Team exceeds max ${tournament.maxGamesPerDay} games per day on ${gameDate}`
+              );
+            }
+            
+            // Track game times for rest period validation
+            teamGameTimes.get(teamId)!.push({ 
+              date: gameDate, 
+              time: gameTime, 
+              gameNumber: currentCount + 1 
+            });
+          }
+        }
+        
+        // Validate rest periods between games
+        for (const [teamId, games] of Array.from(teamGameTimes.entries())) {
+          // Sort games by date and time
+          games.sort((a: { date: string; time: string; gameNumber: number }, b: { date: string; time: string; gameNumber: number }) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.time.localeCompare(b.time);
+          });
+          
+          for (let i = 1; i < games.length; i++) {
+            const prevGame = games[i - 1];
+            const currentGame = games[i];
+            
+            // Only check rest on same day
+            if (prevGame.date === currentGame.date) {
+              const parseTime = (t: string) => {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+              };
+              
+              const prevMinutes = parseTime(prevGame.time);
+              const currentMinutes = parseTime(currentGame.time);
+              const restMinutes = currentMinutes - prevMinutes;
+              
+              // Check special rest between 2nd and 3rd game
+              if (currentGame.gameNumber === 3 && tournament.restBetween2nd3rdGame) {
+                if (restMinutes < tournament.restBetween2nd3rdGame) {
+                  constraintErrors.push(
+                    `Team ${teamId}: Only ${restMinutes} minutes rest between 2nd and 3rd game (requires ${tournament.restBetween2nd3rdGame} minutes)`
+                  );
+                }
+              }
+              // Check minimum rest between any consecutive games
+              else if (tournament.minRestMinutes && restMinutes < tournament.minRestMinutes) {
+                constraintErrors.push(
+                  `Team ${teamId}: Only ${restMinutes} minutes rest between games (requires ${tournament.minRestMinutes} minutes)`
+                );
+              }
+            }
+          }
+        }
+      }
+      
+      // If there are constraint errors, reject the commit
+      if (constraintErrors.length > 0) {
+        return res.status(400).json({ 
+          error: "Schedule violates constraints",
+          violations: constraintErrors
+        });
+      }
       
       // Validate each draft game before saving
       const validatedGames = [];

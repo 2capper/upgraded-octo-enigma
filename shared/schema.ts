@@ -695,6 +695,10 @@ export const tournamentCreationSchema = insertTournamentSchema.extend({
     venue: z.string().min(1, "Venue name is required"),
     subVenue: z.string().optional(),
   })).optional(),
+  selectedDiamondIds: z.array(z.string()).optional(),
+  minRestMinutes: z.number().int().min(0).max(240).default(30),
+  restBetween2nd3rdGame: z.number().int().min(0).max(240).default(60),
+  maxGamesPerDay: z.number().int().min(1).max(5).default(3),
 });
 
 // Types
