@@ -1,0 +1,65 @@
+You have two layers on your grid, and they're fighting:
+
+The "Placed Game" Layer: Your <GameCard /> components (line 693) are correctly placed using CSS Grid and have a z-index: 10 (line 710). This puts them "on top" so you can click them.
+
+The "Drop Zone" Layer: Your invisible <DropZone /> components (line 666) are rendered inside the grid cells. They have an implicit z-index: 0.
+
+This is the bug: Your <GameCard> (at z-index: 10) is always on top of your <DropZone> (at z-index: 0). When you try to drop a new game into an empty slot next to a placed game, your mouse hits the "hitbox" of the placed game instead of the drop zone. The drop fails because the game card isn't a valid drop target.
+
+✅ The "One-Line" Fix
+The solution is to "reverse" the stacking order only when a drag is happening.
+
+You are already 90% of the way there in your <DropZone /> component. You have this brilliant line that turns on the drop zones during a drag:
+
+className={... ${activeMatchup ? 'pointer-events-auto' : 'pointer-events-none'}}
+
+We just need to add a z-index toggle in that exact same spot.
+
+Here is the code change:
+Find your <DropZone /> component (line 252) and make this one small addition:
+
+TypeScript
+
+// Inside drag-schedule-builder.tsx (line 252)
+
+<div
+  ref={setNodeRef}
+  className={`absolute inset-0 flex items-center justify-center transition-all ${
+    // --- THIS IS THE FIX ---
+    activeMatchup ? 'pointer-events-auto z-20' : 'pointer-events-none z-0'
+    // --- END OF FIX ---
+  } ${
+    !isAvailable && activeMatchup
+      ? 'bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500'
+      : hasConflict
+        ? 'bg-red-100 dark:bg-red-900/40 border-2 border-dashed border-[var(--clay-red)] animate-shake' 
+        : isValid 
+          ? 'bg-[var(--field-green)]/20 border-2 border-dashed border-[var(--field-green)] shadow-lg' 
+          : activeMatchup 
+            ? 'bg-blue-50/30 dark:bg-blue-900/10 border-2 border-dashed border-blue-300 dark:border-blue-700'
+            : ''
+  }`}
+  data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
+>
+Why This Works
+This change creates a "smart" stacking system:
+
+When Idle (Not Dragging):
+
+activeMatchup is null.
+
+Your <DropZone>s have z-index: 0 and pointer-events: none. They are invisible and unclickable.
+
+Your <GameCard>s have z-index: 10. They are on top, visible, and clickable (for resizing/deleting).
+
+When Dragging (The Fix):
+
+activeMatchup is active.
+
+Your <DropZone>s instantly switch to z-index: 20 and pointer-events: auto.
+
+This brings all the empty, valid drop zones to the very top of the screen, "on top" of the already-placed games.
+
+Your cursor will now "pass through" the visual game cards (which are at z-index: 10) and correctly hit the drop zones (at z-index: 20).
+
+You've built this component very well—this is a subtle but critical CSS/JS interaction that's notoriously tricky, and you were one line of code away from solving it.
