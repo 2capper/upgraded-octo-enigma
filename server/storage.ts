@@ -101,6 +101,7 @@ export interface IStorage {
   deleteTeam(id: string): Promise<void>;
   
   // Game methods
+  getGame(id: string): Promise<Game | undefined>;
   getGames(tournamentId: string): Promise<Game[]>;
   createGame(game: InsertGame): Promise<Game>;
   updateGame(id: string, game: Partial<InsertGame>): Promise<Game>;
@@ -387,6 +388,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Game methods
+  async getGame(id: string): Promise<Game | undefined> {
+    const [result] = await db.select().from(games).where(eq(games.id, id));
+    return result;
+  }
+
   async getGames(tournamentId: string): Promise<Game[]> {
     return await db.select().from(games).where(eq(games.tournamentId, tournamentId));
   }

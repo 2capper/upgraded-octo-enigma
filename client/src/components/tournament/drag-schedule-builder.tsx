@@ -81,19 +81,25 @@ function DropZone({
   diamond, 
   game,
   onRemove,
+  onResize,
   teams,
   pools,
   activeMatchup,
-  allGames
+  allGames,
+  timeInterval,
+  showToast
 }: { 
   slot: TimeSlot; 
   diamond: Diamond;
   game?: Game;
   onRemove: (gameId: string) => void;
+  onResize: (gameId: string, newDuration: number) => void;
   teams: Team[];
   pools: Pool[];
   activeMatchup: UnplacedMatchup | null;
   allGames: Game[];
+  timeInterval: number;
+  showToast: (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${slot.date}-${slot.time}-${diamond.id}`,
@@ -143,7 +149,80 @@ function DropZone({
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
       {game ? (
-        <div className="relative">
+        <div 
+          className="relative group"
+          onMouseDown={(e) => {
+            // Use closest() to handle clicks on text nodes inside the resize handle
+            const target = e.target as HTMLElement;
+            const resizeHandle = target.closest('.resize-handle');
+            
+            if (resizeHandle) {
+              e.preventDefault();
+              e.stopPropagation();
+              const startY = e.clientY;
+              const startDuration = game.durationMinutes || 90;
+              const pixelsPerMinute = 1.5; // Adjust sensitivity
+              
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                const deltaY = moveEvent.clientY - startY;
+                const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
+                const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
+                
+                // Visual feedback only - actual update happens on mouseup
+                if (resizeHandle) {
+                  resizeHandle.textContent = `${newDuration} min`;
+                }
+              };
+              
+              const handleMouseUp = (upEvent: MouseEvent) => {
+                const deltaY = upEvent.clientY - startY;
+                const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
+                const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
+                
+                // Reset handle text
+                if (resizeHandle) {
+                  resizeHandle.textContent = `${game.durationMinutes || 90} min`;
+                }
+                
+                if (newDuration !== startDuration) {
+                  // Validate no overlaps before committing
+                  const gameStartMinutes = parseInt(game.time.split(':')[0]) * 60 + parseInt(game.time.split(':')[1]);
+                  const gameEndMinutes = gameStartMinutes + newDuration;
+                  
+                  // Check for conflicts with other games on same diamond and date
+                  const hasOverlap = allGames.some(otherGame => {
+                    if (otherGame.id === game.id || otherGame.diamondId !== game.diamondId || otherGame.date !== game.date) {
+                      return false;
+                    }
+                    
+                    const otherStartMinutes = parseInt(otherGame.time.split(':')[0]) * 60 + parseInt(otherGame.time.split(':')[1]);
+                    const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
+                    
+                    // Check if ranges overlap
+                    return gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes;
+                  });
+                  
+                  if (hasOverlap) {
+                    // Show error - don't commit
+                    showToast({
+                      title: 'Cannot Resize',
+                      description: 'Game would overlap with another game on the same diamond',
+                      variant: 'destructive',
+                    });
+                  } else {
+                    onResize(game.id, newDuration);
+                  }
+                }
+                
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }
+          }}
+        >
           <button
             onClick={() => onRemove(game.id)}
             className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
@@ -156,13 +235,19 @@ function DropZone({
             <span className="text-[10px] text-gray-500 mx-1">vs</span>
             <span className="truncate">{awayTeam?.name || 'TBD'}</span>
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs mb-1">
             <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
               {pool?.name || 'Pool'}
             </Badge>
             {homeTeam?.division && (
               <span className="text-[10px] text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
             )}
+          </div>
+          <div 
+            className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+            data-testid={`resize-handle-${game.id}`}
+          >
+            {game.durationMinutes || 90} min
           </div>
         </div>
       ) : (
@@ -289,6 +374,28 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       toast({
         title: 'Game Removed',
         description: 'Game removed from schedule',
+      });
+    },
+  });
+
+  // Resize game mutation
+  const resizeMutation = useMutation({
+    mutationFn: async ({ gameId, durationMinutes }: { gameId: string; durationMinutes: number }) => {
+      const response = await apiRequest('PUT', `/api/games/${gameId}`, { durationMinutes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
+      toast({
+        title: 'Duration Updated',
+        description: 'Game duration successfully changed',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Update Failed',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -516,10 +623,13 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                                   diamond={diamond}
                                   game={game}
                                   onRemove={(gameId) => removeMutation.mutate(gameId)}
+                                  onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
                                   teams={teams}
                                   pools={pools}
                                   activeMatchup={activeMatchup}
                                   allGames={existingGames}
+                                  timeInterval={timeInterval}
+                                  showToast={toast}
                                 />
                               </td>
                             );

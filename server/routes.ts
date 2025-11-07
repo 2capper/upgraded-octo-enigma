@@ -1487,6 +1487,48 @@ Waterdown 10U AA
       // Validate the game update data
       const validatedData = gameUpdateSchema.parse(req.body);
       
+      // If duration, time, date, or diamond is being updated, validate no overlaps
+      if (validatedData.durationMinutes !== undefined || validatedData.time !== undefined || 
+          validatedData.date !== undefined || validatedData.diamondId !== undefined) {
+        const currentGame = await storage.getGame(req.params.id);
+        if (!currentGame) {
+          return res.status(404).json({ error: "Game not found" });
+        }
+        
+        // Compute effective game attributes (use updated values or fall back to current)
+        const effectiveDate = validatedData.date ?? currentGame.date;
+        const effectiveTime = validatedData.time ?? currentGame.time;
+        const effectiveDiamond = validatedData.diamondId ?? currentGame.diamondId;
+        const effectiveDuration = validatedData.durationMinutes ?? currentGame.durationMinutes;
+        
+        // Get all games on the same diamond and date
+        const tournamentGames = await storage.getGames(currentGame.tournamentId);
+        const conflictingGames = tournamentGames.filter(g => 
+          g.id !== currentGame.id && 
+          g.diamondId === effectiveDiamond && 
+          g.date === effectiveDate
+        );
+        
+        // Calculate effective game time range
+        const [hours, minutes] = effectiveTime.split(':').map(Number);
+        const gameStartMinutes = hours * 60 + minutes;
+        const gameEndMinutes = gameStartMinutes + effectiveDuration;
+        
+        // Check for overlaps
+        for (const otherGame of conflictingGames) {
+          const [otherHours, otherMinutes] = otherGame.time.split(':').map(Number);
+          const otherStartMinutes = otherHours * 60 + otherMinutes;
+          const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
+          
+          // Overlap if: gameEnd > otherStart AND gameStart < otherEnd
+          if (gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes) {
+            return res.status(409).json({ 
+              error: "Game would overlap with another game on the same diamond" 
+            });
+          }
+        }
+      }
+      
       // Get user ID from the authenticated session
       const user = req.user as any;
       const userId = user.claims.sub;
