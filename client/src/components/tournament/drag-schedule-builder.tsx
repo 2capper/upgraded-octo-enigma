@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar, MapPin, X, Check, Download } from 'lucide-react';
+import { Loader2, Calendar, MapPin, X, Check, Download, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import type { Team, Diamond, Pool, Game, Tournament } from '@shared/schema';
@@ -111,8 +111,13 @@ function DropZone({
   const awayTeam = game ? teams.find(t => t.id === game.awayTeamId) : null;
   const pool = game ? pools.find(p => p.id === game.poolId) : null;
 
+  // Check if time slot is within diamond's availability hours
+  const isAvailable = isTimeAvailable(slot.time, diamond);
+
   // Check for conflicts when hovering
   const hasConflict = isOver && activeMatchup && (() => {
+    // Block drops on unavailable time slots
+    if (!isAvailable) return true;
     // Check if slot is already occupied
     if (game) return true;
     
@@ -139,17 +144,23 @@ function DropZone({
     <div
       ref={setNodeRef}
       className={`min-h-[70px] p-2 border-2 rounded-lg transition-all ${
-        hasConflict
-          ? 'border-[var(--clay-red)] bg-red-100 dark:bg-red-900/20 animate-shake' 
-          : isValid 
-            ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
-            : game
-              ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
-              : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
+        !isAvailable
+          ? 'border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-900/30 opacity-40 cursor-not-allowed'
+          : hasConflict
+            ? 'border-[var(--clay-red)] bg-red-100 dark:bg-red-900/20 animate-shake' 
+            : isValid 
+              ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
+              : game
+                ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
+                : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
-      {game ? (
+      {!isAvailable && !game ? (
+        <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-600 italic">
+          Unavailable
+        </div>
+      ) : game ? (
         <div 
           className="relative group"
           onMouseDown={(e) => {
@@ -237,9 +248,17 @@ function DropZone({
             <span className="truncate">{awayTeam?.name || 'TBD'}</span>
           </div>
           <div className="flex items-center justify-between text-xs mb-1">
-            <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
-              {pool?.name || 'Pool'}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
+                {pool?.name || 'Pool'}
+              </Badge>
+              {!isAvailable && (
+                <Badge variant="outline" className="text-[10px] bg-[var(--clay-red)]/20 text-[var(--clay-red)] border-[var(--clay-red)]/30 px-1 py-0 flex items-center gap-0.5">
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  Outside hours
+                </Badge>
+              )}
+            </div>
             {homeTeam?.division && (
               <span className="text-[10px] text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
             )}
@@ -258,6 +277,20 @@ function DropZone({
       )}
     </div>
   );
+}
+
+// Helper function to check if a time is within diamond availability
+function isTimeAvailable(time: string, diamond: Diamond): boolean {
+  const [hours, minutes] = time.split(':').map(Number);
+  const timeMinutes = hours * 60 + minutes;
+  
+  const [startHours, startMinutes] = diamond.availableStartTime.split(':').map(Number);
+  const startTimeMinutes = startHours * 60 + startMinutes;
+  
+  const [endHours, endMinutes] = diamond.availableEndTime.split(':').map(Number);
+  const endTimeMinutes = endHours * 60 + endMinutes;
+  
+  return timeMinutes >= startTimeMinutes && timeMinutes < endTimeMinutes;
 }
 
 export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBuilderProps) {
@@ -424,6 +457,18 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     const snappedMins = snappedMinutes % 60;
     const snappedTime = `${String(snappedHours).padStart(2, '0')}:${String(snappedMins).padStart(2, '0')}`;
 
+    // Check if drop location is within diamond availability hours
+    const targetDiamond = diamonds.find(d => d.id === dropData.diamondId);
+    if (targetDiamond && !isTimeAvailable(snappedTime, targetDiamond)) {
+      toast({
+        title: 'Cannot Place Game',
+        description: `${targetDiamond.name} is not available at ${snappedTime}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
+        variant: 'destructive',
+      });
+      setActiveMatchup(null);
+      return;
+    }
+
     // Save matchup ID before clearing active matchup
     const matchupId = matchup.id;
     
@@ -442,7 +487,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     setActiveMatchup(null);
   };
 
-  // Generate time slots based on tournament dates and selected interval
+  // Generate time slots based on tournament dates, selected interval, and diamond availability
   const generateTimeSlots = (): TimeSlot[] => {
     if (!tournament) return [];
     
@@ -450,15 +495,33 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     const start = new Date(tournament.startDate);
     const end = new Date(tournament.endDate);
     
-    const startMinutes = 9 * 60; // 9 AM in minutes
-    const endMinutes = 17 * 60; // 5 PM in minutes
+    // Get selected diamonds for this tournament
+    const selectedDiamonds = diamonds.filter(d => 
+      tournament.selectedDiamondIds?.includes(d.id)
+    );
+    
+    // Calculate earliest start time and latest end time across all diamonds
+    let earliestStartMinutes = 9 * 60; // Default 9 AM
+    let latestEndMinutes = 17 * 60; // Default 5 PM
+    
+    if (selectedDiamonds.length > 0) {
+      earliestStartMinutes = Math.min(...selectedDiamonds.map(d => {
+        const [hours, minutes] = d.availableStartTime.split(':').map(Number);
+        return hours * 60 + minutes;
+      }));
+      
+      latestEndMinutes = Math.max(...selectedDiamonds.map(d => {
+        const [hours, minutes] = d.availableEndTime.split(':').map(Number);
+        return hours * 60 + minutes;
+      }));
+    }
     
     // Generate slots for each day
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       
-      // Generate time slots from 9 AM to 5 PM based on selected interval
-      for (let minuteOffset = startMinutes; minuteOffset < endMinutes; minuteOffset += timeInterval) {
+      // Generate time slots from earliest to latest based on selected interval
+      for (let minuteOffset = earliestStartMinutes; minuteOffset < latestEndMinutes; minuteOffset += timeInterval) {
         const h = Math.floor(minuteOffset / 60);
         const m = minuteOffset % 60;
         const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
