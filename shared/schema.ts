@@ -130,6 +130,7 @@ export const ageDivisions = pgTable("age_divisions", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  defaultGameDuration: integer("default_game_duration").notNull().default(90), // Default game duration in minutes for this division
 });
 
 export const pools = pgTable("pools", {

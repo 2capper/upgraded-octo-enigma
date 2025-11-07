@@ -1,0 +1,1 @@
+ALTER TABLE "age_divisions" ADD COLUMN "default_game_duration" integer DEFAULT 90 NOT NULL;
