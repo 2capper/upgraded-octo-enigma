@@ -80,7 +80,9 @@ function DropZone({
   game,
   onRemove,
   teams,
-  pools
+  pools,
+  activeMatchup,
+  allGames
 }: { 
   slot: TimeSlot; 
   diamond: Diamond;
@@ -88,6 +90,8 @@ function DropZone({
   onRemove: (gameId: string) => void;
   teams: Team[];
   pools: Pool[];
+  activeMatchup: UnplacedMatchup | null;
+  allGames: Game[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${slot.date}-${slot.time}-${diamond.id}`,
@@ -98,15 +102,41 @@ function DropZone({
   const awayTeam = game ? teams.find(t => t.id === game.awayTeamId) : null;
   const pool = game ? pools.find(p => p.id === game.poolId) : null;
 
+  // Check for conflicts when hovering
+  const hasConflict = isOver && activeMatchup && (() => {
+    // Check if slot is already occupied
+    if (game) return true;
+    
+    // Check if either team has a game at this time
+    const gamesAtTime = allGames.filter(g => g.date === slot.date && g.time === slot.time);
+    for (const existingGame of gamesAtTime) {
+      if (existingGame.homeTeamId === activeMatchup.homeTeamId || 
+          existingGame.awayTeamId === activeMatchup.homeTeamId ||
+          existingGame.homeTeamId === activeMatchup.awayTeamId || 
+          existingGame.awayTeamId === activeMatchup.awayTeamId) {
+        return true;
+      }
+      // Check diamond conflict
+      if (existingGame.diamondId === diamond.id) {
+        return true;
+      }
+    }
+    return false;
+  })();
+
+  const isValid = isOver && !hasConflict;
+
   return (
     <div
       ref={setNodeRef}
       className={`min-h-[70px] p-2 border-2 rounded-lg transition-all ${
-        isOver 
-          ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
-          : game
-            ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
-            : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
+        hasConflict
+          ? 'border-[var(--clay-red)] bg-red-100 dark:bg-red-900/20 animate-shake' 
+          : isValid 
+            ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
+            : game
+              ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
+              : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
@@ -450,6 +480,8 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                                   onRemove={(gameId) => removeMutation.mutate(gameId)}
                                   teams={teams}
                                   pools={pools}
+                                  activeMatchup={activeMatchup}
+                                  allGames={existingGames}
                                 />
                               </td>
                             );
