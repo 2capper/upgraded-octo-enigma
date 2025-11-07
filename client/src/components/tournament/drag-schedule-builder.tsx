@@ -226,9 +226,9 @@ function DropZone({
   const isAvailable = isTimeAvailable(slot.time, diamond);
 
   // Check for conflicts when hovering
-  const hasConflict = isOver && activeMatchup && (() => {
+  const conflictInfo = isOver && activeMatchup ? (() => {
     // Block drops on unavailable time slots
-    if (!isAvailable) return true;
+    if (!isAvailable) return { hasConflict: true, reason: 'unavailable' };
     
     // Check for games on the same date that might overlap
     const gamesOnSameDate = allGames.filter(g => g.date === slot.date);
@@ -238,7 +238,14 @@ function DropZone({
       // Check if new game would overlap with existing game on same diamond
       if (existingGame.diamondId === diamond.id && 
           timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
-        return true;
+        console.log('Diamond conflict:', { 
+          diamond: diamond.name, 
+          existingTime: existingGame.time, 
+          newTime: slot.time,
+          existingDuration,
+          newDuration: newGameDuration
+        });
+        return { hasConflict: true, reason: 'diamond' };
       }
       
       // Check if either team has an overlapping game
@@ -247,11 +254,21 @@ function DropZone({
            existingGame.homeTeamId === activeMatchup.awayTeamId || 
            existingGame.awayTeamId === activeMatchup.awayTeamId) &&
           timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
-        return true;
+        console.log('Team conflict:', {
+          teams: [activeMatchup.homeTeamId, activeMatchup.awayTeamId],
+          existingGame: [existingGame.homeTeamId, existingGame.awayTeamId],
+          existingTime: existingGame.time,
+          newTime: slot.time,
+          existingDuration,
+          newDuration: newGameDuration
+        });
+        return { hasConflict: true, reason: 'team' };
       }
     }
-    return false;
-  })();
+    return { hasConflict: false, reason: null };
+  })() : { hasConflict: false, reason: null };
+
+  const hasConflict = conflictInfo.hasConflict;
 
   const isValid = isOver && !hasConflict;
 
