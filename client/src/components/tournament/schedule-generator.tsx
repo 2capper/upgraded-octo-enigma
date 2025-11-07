@@ -56,6 +56,15 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     ? pools.filter((p: Pool) => (p.ageDivisionId === selectedDivision || p.ageDivisionId === null) && !p.id.includes('_pool_temp_'))
     : pools.filter((p: Pool) => !p.id.includes('_pool_temp_'));
   
+  // Debug logging
+  console.log('ScheduleGenerator Debug:', {
+    selectedDivision,
+    totalPools: pools.length,
+    filteredPoolsCount: filteredPools.length,
+    pools: pools.map((p: Pool) => ({ id: p.id, name: p.name, ageDivisionId: p.ageDivisionId, isTemp: p.id.includes('_pool_temp_') })),
+    filteredPools: filteredPools.map((p: Pool) => ({ id: p.id, name: p.name, ageDivisionId: p.ageDivisionId }))
+  });
+  
   const currentDivision = ageDivisions.find((d: AgeDivision) => d.id === selectedDivision);
 
   // Update division default game duration
