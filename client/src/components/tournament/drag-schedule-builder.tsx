@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Calendar, MapPin, X, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -264,6 +265,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
   const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(null);
   const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(new Set());
   const [timeInterval, setTimeInterval] = useState<number>(60); // 15, 30, or 60 minutes
+  const [selectedDate, setSelectedDate] = useState<string | null>(null); // Selected date for day filter
 
   // Fetch unplaced matchups
   const { data: matchups = [], isLoading: matchupsLoading, refetch: refetchMatchups } = useQuery<UnplacedMatchup[]>({
@@ -467,7 +469,20 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     return slots;
   };
 
-  const timeSlots = generateTimeSlots();
+  const allTimeSlots = generateTimeSlots();
+  
+  // Get unique dates from time slots
+  const uniqueDates = Array.from(new Set(allTimeSlots.map(slot => slot.date))).sort();
+  
+  // Initialize selected date to first date if not set
+  if (selectedDate === null && uniqueDates.length > 0 && tournament) {
+    setSelectedDate(uniqueDates[0]);
+  }
+  
+  // Filter time slots by selected date (or show all if no date selected)
+  const timeSlots = selectedDate 
+    ? allTimeSlots.filter(slot => slot.date === selectedDate)
+    : allTimeSlots;
   
   // Filter out matchups that have already been placed by their unique matchup IDs
   const unplacedMatchups = matchups.filter(m => !placedMatchupIds.has(m.id));
@@ -558,32 +573,55 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
           <div className="col-span-9">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Schedule Grid
                   </CardTitle>
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs text-gray-600 dark:text-gray-400">Time Interval:</Label>
-                    <RadioGroup
-                      value={String(timeInterval)}
-                      onValueChange={(value) => setTimeInterval(Number(value))}
-                      className="flex gap-3"
-                      data-testid="radio-time-interval"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="15" id="interval-15" data-testid="radio-interval-15" />
-                        <Label htmlFor="interval-15" className="text-xs cursor-pointer">15 min</Label>
+                  <div className="flex items-center gap-4">
+                    {uniqueDates.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-gray-600 dark:text-gray-400">Day:</Label>
+                        <Select value={selectedDate || ''} onValueChange={setSelectedDate} data-testid="select-day">
+                          <SelectTrigger className="w-[140px] h-8 text-xs">
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uniqueDates.map(date => (
+                              <SelectItem key={date} value={date} data-testid={`select-day-${date}`}>
+                                {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { 
+                                  weekday: 'short', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="30" id="interval-30" data-testid="radio-interval-30" />
-                        <Label htmlFor="interval-30" className="text-xs cursor-pointer">30 min</Label>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="60" id="interval-60" data-testid="radio-interval-60" />
-                        <Label htmlFor="interval-60" className="text-xs cursor-pointer">60 min</Label>
-                      </div>
-                    </RadioGroup>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-gray-600 dark:text-gray-400">Time Interval:</Label>
+                      <RadioGroup
+                        value={String(timeInterval)}
+                        onValueChange={(value) => setTimeInterval(Number(value))}
+                        className="flex gap-3"
+                        data-testid="radio-time-interval"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="15" id="interval-15" data-testid="radio-interval-15" />
+                          <Label htmlFor="interval-15" className="text-xs cursor-pointer">15 min</Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="30" id="interval-30" data-testid="radio-interval-30" />
+                          <Label htmlFor="interval-30" className="text-xs cursor-pointer">30 min</Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="60" id="interval-60" data-testid="radio-interval-60" />
+                          <Label htmlFor="interval-60" className="text-xs cursor-pointer">60 min</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
