@@ -121,7 +121,8 @@ function GameCard({
             const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
             
             if (resizeHandle) {
-              resizeHandle.textContent = `${newDuration} min`;
+              const newEndTime = getEndTime(game.time, newDuration);
+              resizeHandle.textContent = `${newDuration} min → ${newEndTime}`;
             }
           };
           
@@ -130,8 +131,9 @@ function GameCard({
             const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
             const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
             
-            if (resizeHandle) {
-              resizeHandle.textContent = `${game.durationMinutes || 90} min`;
+            if (resizeHandle && newDuration !== startDuration) {
+              const newEndTime = getEndTime(game.time, newDuration);
+              resizeHandle.textContent = `${newDuration} min → ${newEndTime}`;
             }
             
             if (newDuration !== startDuration) {
@@ -193,7 +195,7 @@ function GameCard({
         className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
         data-testid={`resize-handle-${game.id}`}
       >
-        {game.durationMinutes || 90} min
+        {game.durationMinutes || 90} min → {getEndTime(game.time, game.durationMinutes || 90)}
       </div>
     </div>
   );
