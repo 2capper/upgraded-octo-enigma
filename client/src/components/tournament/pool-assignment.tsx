@@ -153,15 +153,17 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     : teams;
 
   // Filter pools by division if specified - include unassigned pools (null ageDivisionId)
+  // Also filter out temporary pools created during CSV import
   const filteredPools = divisionId 
-    ? pools.filter(p => p.ageDivisionId === divisionId || p.ageDivisionId === null)
-    : pools;
+    ? pools.filter(p => (p.ageDivisionId === divisionId || p.ageDivisionId === null) && !p.id.includes('_pool_temp_'))
+    : pools.filter(p => !p.id.includes('_pool_temp_'));
 
   // Get number of pools from tournament settings
   const numberOfPools = tournament?.numberOfPools || filteredPools.length;
 
   // Group teams by pool
-  const unassignedTeams = filteredTeams.filter(t => !t.poolId);
+  // Treat teams in temporary pools as unassigned
+  const unassignedTeams = filteredTeams.filter(t => !t.poolId || t.poolId.includes('_pool_temp_'));
   const teamsByPool = filteredPools.map(pool => ({
     pool,
     teams: filteredTeams.filter(t => t.poolId === pool.id),
