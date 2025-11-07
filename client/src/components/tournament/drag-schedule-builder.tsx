@@ -4,6 +4,8 @@ import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, Drag
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Loader2, Calendar, MapPin, X, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -176,6 +178,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
   const { toast } = useToast();
   const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(null);
   const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(new Set());
+  const [timeInterval, setTimeInterval] = useState<number>(60); // 15, 30, or 60 minutes
 
   // Fetch unplaced matchups
   const { data: matchups = [], isLoading: matchupsLoading, refetch: refetchMatchups } = useQuery<UnplacedMatchup[]>({
@@ -304,6 +307,14 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       return;
     }
 
+    // Snap time to nearest interval
+    const [hours, minutes] = dropData.time.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes;
+    const snappedMinutes = Math.round(totalMinutes / timeInterval) * timeInterval;
+    const snappedHours = Math.floor(snappedMinutes / 60);
+    const snappedMins = snappedMinutes % 60;
+    const snappedTime = `${String(snappedHours).padStart(2, '0')}:${String(snappedMins).padStart(2, '0')}`;
+
     // Save matchup ID before clearing active matchup
     const matchupId = matchup.id;
     
@@ -313,7 +324,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       homeTeamId: matchup.homeTeamId,
       awayTeamId: matchup.awayTeamId,
       date: dropData.date,
-      time: dropData.time,
+      time: snappedTime, // Use snapped time instead of raw drop time
       diamondId: dropData.diamondId,
       matchupId: matchupId, // Pass matchup ID for tracking
       durationMinutes: 90, // Default 1.5 hours - will be adjustable later
@@ -322,7 +333,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     setActiveMatchup(null);
   };
 
-  // Generate time slots based on tournament dates
+  // Generate time slots based on tournament dates and selected interval
   const generateTimeSlots = (): TimeSlot[] => {
     if (!tournament) return [];
     
@@ -330,14 +341,17 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     const start = new Date(tournament.startDate);
     const end = new Date(tournament.endDate);
     
+    const startMinutes = 9 * 60; // 9 AM in minutes
+    const endMinutes = 17 * 60; // 5 PM in minutes
+    
     // Generate slots for each day
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       
-      // Generate time slots from 9 AM to 5 PM (every 90 minutes)
-      for (let hour = 9; hour < 17; hour += 1.5) {
-        const h = Math.floor(hour);
-        const m = (hour % 1) * 60;
+      // Generate time slots from 9 AM to 5 PM based on selected interval
+      for (let minuteOffset = startMinutes; minuteOffset < endMinutes; minuteOffset += timeInterval) {
+        const h = Math.floor(minuteOffset / 60);
+        const m = minuteOffset % 60;
         const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         slots.push({ date: dateStr, time: timeStr });
       }
@@ -437,10 +451,34 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
           <div className="col-span-9">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Schedule Grid
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Schedule Grid
+                  </CardTitle>
+                  <div className="flex items-center gap-3">
+                    <Label className="text-xs text-gray-600 dark:text-gray-400">Time Interval:</Label>
+                    <RadioGroup
+                      value={String(timeInterval)}
+                      onValueChange={(value) => setTimeInterval(Number(value))}
+                      className="flex gap-3"
+                      data-testid="radio-time-interval"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <RadioGroupItem value="15" id="interval-15" data-testid="radio-interval-15" />
+                        <Label htmlFor="interval-15" className="text-xs cursor-pointer">15 min</Label>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <RadioGroupItem value="30" id="interval-30" data-testid="radio-interval-30" />
+                        <Label htmlFor="interval-30" className="text-xs cursor-pointer">30 min</Label>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <RadioGroupItem value="60" id="interval-60" data-testid="radio-interval-60" />
+                        <Label htmlFor="interval-60" className="text-xs cursor-pointer">60 min</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
