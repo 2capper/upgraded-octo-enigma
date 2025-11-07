@@ -557,12 +557,23 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
            existingGame.homeTeamId === matchup.awayTeamId || 
            existingGame.awayTeamId === matchup.awayTeamId) &&
           timeRangesOverlap(snappedTime, gameDuration, existingGame.time, existingDuration)) {
-        const teamName = teams.find(t => 
-          t.id === matchup.homeTeamId || t.id === matchup.awayTeamId
-        )?.name || 'A team';
+        // Find which team(s) actually have the conflict
+        const conflictingTeamIds = new Set<string>();
+        if (existingGame.homeTeamId === matchup.homeTeamId || existingGame.awayTeamId === matchup.homeTeamId) {
+          conflictingTeamIds.add(matchup.homeTeamId);
+        }
+        if (existingGame.homeTeamId === matchup.awayTeamId || existingGame.awayTeamId === matchup.awayTeamId) {
+          conflictingTeamIds.add(matchup.awayTeamId);
+        }
+        
+        const conflictingTeamNames = Array.from(conflictingTeamIds)
+          .map(id => teams.find(t => t.id === id)?.name)
+          .filter(Boolean)
+          .join(' and ');
+        
         toast({
           title: 'Cannot Place Game',
-          description: `${teamName} already has a game that overlaps with this time slot`,
+          description: `${conflictingTeamNames || 'A team'} already has a game that overlaps with this time slot`,
           variant: 'destructive',
         });
         setActiveMatchup(null);
