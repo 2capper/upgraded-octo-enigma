@@ -156,6 +156,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
           pools={filteredPools}
           tournamentId={tournamentId}
           divisionId={selectedDivision || undefined}
+          tournament={tournament}
         />
       )}
       

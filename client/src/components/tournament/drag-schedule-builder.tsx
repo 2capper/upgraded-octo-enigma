@@ -542,20 +542,23 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       return;
     }
 
-    // Snap time to nearest interval
-    const [hours, minutes] = dropData.time.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes;
-    const snappedMinutes = Math.round(totalMinutes / timeInterval) * timeInterval;
-    const snappedHours = Math.floor(snappedMinutes / 60);
-    const snappedMins = snappedMinutes % 60;
-    const snappedTime = `${String(snappedHours).padStart(2, '0')}:${String(snappedMins).padStart(2, '0')}`;
+    // Debug logging to diagnose diamond mismatch
+    console.log('DROP EVENT:', {
+      dropData,
+      dropOverId: event.over?.id,
+      allDiamonds: diamonds.map(d => ({ id: d.id, name: d.name })),
+      targetDiamond: diamonds.find(d => d.id === dropData.diamondId)?.name
+    });
+
+    // Use exact time from drop slot (no snapping)
+    const droppedTime = dropData.time;
 
     // Check if drop location is within diamond availability hours
     const targetDiamond = diamonds.find(d => d.id === dropData.diamondId);
-    if (targetDiamond && !isTimeAvailable(snappedTime, targetDiamond)) {
+    if (targetDiamond && !isTimeAvailable(droppedTime, targetDiamond)) {
       toast({
         title: 'Cannot Place Game',
-        description: `${targetDiamond.name} is not available at ${snappedTime}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
+        description: `${targetDiamond.name} is not available at ${droppedTime}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
         variant: 'destructive',
       });
       setActiveMatchup(null);
@@ -569,12 +572,12 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       
       // Check if new game would overlap with existing game on same diamond
       if (existingGame.diamondId === dropData.diamondId && 
-          timeRangesOverlap(snappedTime, gameDuration, existingGame.time, existingDuration)) {
-        const endTime = getEndTime(snappedTime, gameDuration);
+          timeRangesOverlap(droppedTime, gameDuration, existingGame.time, existingDuration)) {
+        const endTime = getEndTime(droppedTime, gameDuration);
         const existingEndTime = getEndTime(existingGame.time, existingDuration);
         toast({
           title: 'Cannot Place Game',
-          description: `This ${gameDuration}-minute game (${snappedTime}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
+          description: `This ${gameDuration}-minute game (${droppedTime}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
           variant: 'destructive',
         });
         setActiveMatchup(null);
@@ -586,7 +589,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
            existingGame.awayTeamId === matchup.homeTeamId ||
            existingGame.homeTeamId === matchup.awayTeamId || 
            existingGame.awayTeamId === matchup.awayTeamId) &&
-          timeRangesOverlap(snappedTime, gameDuration, existingGame.time, existingDuration)) {
+          timeRangesOverlap(droppedTime, gameDuration, existingGame.time, existingDuration)) {
         // Find which team(s) actually have the conflict
         const conflictingTeamIds = new Set<string>();
         if (existingGame.homeTeamId === matchup.homeTeamId || existingGame.awayTeamId === matchup.homeTeamId) {
@@ -620,7 +623,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       homeTeamId: matchup.homeTeamId,
       awayTeamId: matchup.awayTeamId,
       date: dropData.date,
-      time: snappedTime, // Use snapped time instead of raw drop time
+      time: droppedTime, // Use exact time from drop slot
       diamondId: dropData.diamondId,
       matchupId: matchupId, // Pass matchup ID for tracking
       durationMinutes: gameDuration, // Use division's default or overridden duration

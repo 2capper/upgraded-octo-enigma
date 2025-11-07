@@ -13,6 +13,7 @@ interface PoolAssignmentProps {
   pools: Pool[];
   tournamentId: string;
   divisionId?: string;
+  tournament?: any;
 }
 
 function DraggableTeam({ team }: { team: Team }) {
@@ -137,7 +138,7 @@ function UnassignedDropZone({ teams, activeTeam }: { teams: Team[]; activeTeam: 
   );
 }
 
-export function PoolAssignment({ teams, pools, tournamentId, divisionId }: PoolAssignmentProps) {
+export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournament }: PoolAssignmentProps) {
   const { toast } = useToast();
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
 
@@ -155,6 +156,9 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId }: PoolA
   const filteredPools = divisionId 
     ? pools.filter(p => p.ageDivisionId === divisionId)
     : pools;
+
+  // Get number of pools from tournament settings
+  const numberOfPools = tournament?.numberOfPools || filteredPools.length;
 
   // Group teams by pool
   const unassignedTeams = filteredTeams.filter(t => !t.poolId);
@@ -230,6 +234,11 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId }: PoolA
             <Users className="w-5 h-5" style={{ color: 'var(--field-green)' }} />
             Assign Teams to Pools
           </CardTitle>
+          {tournament && (
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Tournament configured for <Badge variant="outline">{numberOfPools} pools</Badge> · {filteredTeams.length} teams total
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
