@@ -258,19 +258,23 @@ function DropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`h-full p-2 border-2 rounded-lg transition-all ${
+      className={`absolute inset-0 flex items-center justify-center transition-all ${
+        activeMatchup ? 'pointer-events-auto' : 'pointer-events-none'
+      } ${
         !isAvailable
-          ? 'border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-900/30 opacity-40 cursor-not-allowed'
+          ? 'bg-gray-100/50 dark:bg-gray-900/30 opacity-40'
           : hasConflict
-            ? 'border-[var(--clay-red)] bg-red-100 dark:bg-red-900/20 animate-shake' 
+            ? 'bg-red-100 dark:bg-red-900/20 animate-shake' 
             : isValid 
-              ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
-              : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
+              ? 'bg-[var(--field-green)]/10 shadow-inner' 
+              : activeMatchup 
+                ? 'bg-gray-50/30 dark:bg-gray-800/30'
+                : ''
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
-      {!isAvailable ? (
-        <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-600 italic">
+      {!isAvailable && activeMatchup ? (
+        <div className="text-xs text-gray-400 dark:text-gray-600 italic">
           Unavailable
         </div>
       ) : null}
@@ -889,7 +893,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                             {selectedDiamonds.map((diamond: Diamond) => (
                               <div 
                                 key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
-                                className="border border-t-0 border-l-0 p-1"
+                                className="border border-t-0 border-l-0 relative"
                               >
                                 <DropZone 
                                   slot={slot} 
