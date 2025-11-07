@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -320,6 +320,23 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     queryKey: ['/api/tournaments', tournamentId],
   });
 
+  // Fetch age divisions to get defaultGameDuration
+  const { data: ageDivisions = [] } = useQuery<Array<{ id: string; name: string; tournamentId: string; defaultGameDuration: number }>>({
+    queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
+  });
+
+  // Get current division's default game duration
+  const currentDivision = ageDivisions.find(d => d.id === divisionId);
+  const defaultDuration = currentDivision?.defaultGameDuration || 90;
+
+  // Game duration state (can be overridden)
+  const [gameDuration, setGameDuration] = useState<number>(defaultDuration);
+
+  // Update gameDuration when division or defaultDuration changes
+  useEffect(() => {
+    setGameDuration(defaultDuration);
+  }, [defaultDuration]);
+
   // Fetch diamonds
   const { data: diamonds = [] } = useQuery<Diamond[]>({
     queryKey: ['/api/organizations', tournament?.organizationId || '', 'diamonds'],
@@ -481,7 +498,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       time: snappedTime, // Use snapped time instead of raw drop time
       diamondId: dropData.diamondId,
       matchupId: matchupId, // Pass matchup ID for tracking
-      durationMinutes: 90, // Default 1.5 hours - will be adjustable later
+      durationMinutes: gameDuration, // Use division's default or overridden duration
     });
     
     setActiveMatchup(null);
@@ -687,6 +704,21 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                         </Select>
                       </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-gray-600 dark:text-gray-400">Game Duration:</Label>
+                      <Select value={String(gameDuration)} onValueChange={(value) => setGameDuration(Number(value))} data-testid="select-game-duration">
+                        <SelectTrigger className="w-[110px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="60" data-testid="duration-60">60 min</SelectItem>
+                          <SelectItem value="75" data-testid="duration-75">75 min</SelectItem>
+                          <SelectItem value="90" data-testid="duration-90">90 min</SelectItem>
+                          <SelectItem value="105" data-testid="duration-105">105 min</SelectItem>
+                          <SelectItem value="120" data-testid="duration-120">120 min</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Label className="text-xs text-gray-600 dark:text-gray-400">Time Interval:</Label>
                       <RadioGroup
