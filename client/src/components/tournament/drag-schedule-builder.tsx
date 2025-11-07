@@ -29,7 +29,7 @@ interface TimeSlot {
   time: string;
 }
 
-function DraggableMatchup({ matchup, teams }: { matchup: UnplacedMatchup; teams: Team[] }) {
+function DraggableMatchup({ matchup, teams, pools }: { matchup: UnplacedMatchup; teams: Team[]; pools: Pool[] }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: matchup.id,
     data: matchup,
@@ -37,6 +37,7 @@ function DraggableMatchup({ matchup, teams }: { matchup: UnplacedMatchup; teams:
 
   const homeTeam = teams.find(t => t.id === matchup.homeTeamId);
   const awayTeam = teams.find(t => t.id === matchup.awayTeamId);
+  const pool = pools.find(p => p.id === matchup.poolId);
 
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
@@ -49,14 +50,25 @@ function DraggableMatchup({ matchup, teams }: { matchup: UnplacedMatchup; teams:
       style={style}
       {...listeners}
       {...attributes}
-      className="p-2 bg-white dark:bg-gray-800 border rounded cursor-grab active:cursor-grabbing hover:border-blue-500 transition-colors"
+      className="group p-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all"
       data-testid={`matchup-${matchup.id}`}
     >
-      <div className="text-xs font-medium text-gray-900 dark:text-gray-100">
-        {homeTeam?.name || 'Unknown'} vs {awayTeam?.name || 'Unknown'}
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white">
+          {homeTeam?.name || 'Unknown'}
+        </div>
+        <div className="text-xs text-gray-500">vs</div>
+        <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white">
+          {awayTeam?.name || 'Unknown'}
+        </div>
       </div>
-      <div className="text-xs text-gray-500 dark:text-gray-400">
-        {matchup.poolName}
+      <div className="flex items-center justify-between text-xs">
+        <Badge variant="outline" className="bg-[var(--field-green)]/10 text-[var(--field-green)] border-[var(--field-green)]/30">
+          {pool?.name || matchup.poolName}
+        </Badge>
+        {homeTeam?.division && (
+          <span className="text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
+        )}
       </div>
     </div>
   );
@@ -66,27 +78,35 @@ function DropZone({
   slot, 
   diamond, 
   game,
-  onRemove
+  onRemove,
+  teams,
+  pools
 }: { 
   slot: TimeSlot; 
   diamond: Diamond;
   game?: Game;
   onRemove: (gameId: string) => void;
+  teams: Team[];
+  pools: Pool[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${slot.date}-${slot.time}-${diamond.id}`,
     data: { date: slot.date, time: slot.time, diamondId: diamond.id },
   });
 
+  const homeTeam = game ? teams.find(t => t.id === game.homeTeamId) : null;
+  const awayTeam = game ? teams.find(t => t.id === game.awayTeamId) : null;
+  const pool = game ? pools.find(p => p.id === game.poolId) : null;
+
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[60px] p-2 border-2 border-dashed rounded transition-colors ${
+      className={`min-h-[70px] p-2 border-2 rounded-lg transition-all ${
         isOver 
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+          ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
           : game
-            ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-            : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
+            ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
+            : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
@@ -94,21 +114,28 @@ function DropZone({
         <div className="relative">
           <button
             onClick={() => onRemove(game.id)}
-            className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+            className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
             data-testid={`remove-game-${game.id}`}
           >
             <X className="w-3 h-3" />
           </button>
-          <div className="text-xs font-medium text-gray-900 dark:text-gray-100 pr-4">
-            Game Placed
+          <div className="flex items-center justify-between text-xs font-semibold text-[var(--deep-navy)] dark:text-white mb-0.5">
+            <span className="truncate">{homeTeam?.name || 'TBD'}</span>
+            <span className="text-[10px] text-gray-500 mx-1">vs</span>
+            <span className="truncate">{awayTeam?.name || 'TBD'}</span>
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {game.location || 'TBD'}
+          <div className="flex items-center justify-between text-xs">
+            <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
+              {pool?.name || 'Pool'}
+            </Badge>
+            {homeTeam?.division && (
+              <span className="text-[10px] text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
+            )}
           </div>
         </div>
       ) : (
-        <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
-          Drop here
+        <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-500">
+          Drop matchup here
         </div>
       )}
     </div>
@@ -191,6 +218,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       time: string;
       diamondId: string;
       matchupId: string;
+      durationMinutes?: number;
     }) => {
       const response = await apiRequest('POST', '/api/games/place', gameData);
       const data = await response.json();
@@ -199,7 +227,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     onSuccess: (_, variables) => {
       // Track the matchup ID that was placed (from variables, not state)
       if (variables.matchupId) {
-        setPlacedMatchupIds(prev => new Set([...prev, variables.matchupId]));
+        setPlacedMatchupIds(prev => new Set([...Array.from(prev), variables.matchupId]));
       }
       
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
@@ -258,6 +286,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       time: dropData.time,
       diamondId: dropData.diamondId,
       matchupId: matchupId, // Pass matchup ID for tracking
+      durationMinutes: 90, // Default 1.5 hours - will be adjustable later
     });
     
     setActiveMatchup(null);
@@ -367,7 +396,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                   <p className="text-sm text-gray-500 text-center py-4">All games placed!</p>
                 ) : (
                   unplacedMatchups.map(matchup => (
-                    <DraggableMatchup key={matchup.id} matchup={matchup} teams={teams} />
+                    <DraggableMatchup key={matchup.id} matchup={matchup} teams={teams} pools={pools} />
                   ))
                 )}
               </CardContent>
@@ -419,6 +448,8 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                                   diamond={diamond}
                                   game={game}
                                   onRemove={(gameId) => removeMutation.mutate(gameId)}
+                                  teams={teams}
+                                  pools={pools}
                                 />
                               </td>
                             );
@@ -436,12 +467,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
 
       <DragOverlay>
         {activeMatchup && (
-          <div className="p-2 bg-white dark:bg-gray-800 border-2 border-blue-500 rounded shadow-lg">
-            <div className="text-xs font-medium">
-              {teams.find(t => t.id === activeMatchup.homeTeamId)?.name || 'Unknown'} vs{' '}
-              {teams.find(t => t.id === activeMatchup.awayTeamId)?.name || 'Unknown'}
-            </div>
-          </div>
+          <DraggableMatchup matchup={activeMatchup} teams={teams} pools={pools} />
         )}
       </DragOverlay>
     </DndContext>

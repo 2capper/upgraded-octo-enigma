@@ -1924,7 +1924,7 @@ Waterdown 10U AA
   // Place a single game (for drag-and-drop schedule builder)
   app.post("/api/games/place", requireAdmin, async (req, res) => {
     try {
-      const { tournamentId, poolId, homeTeamId, awayTeamId, date, time, diamondId, matchupId } = req.body;
+      const { tournamentId, poolId, homeTeamId, awayTeamId, date, time, diamondId, matchupId, durationMinutes } = req.body;
       
       if (!tournamentId || !poolId || !homeTeamId || !awayTeamId || !date || !time) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -2047,6 +2047,7 @@ Waterdown 10U AA
         status: 'scheduled' as const,
         date,
         time,
+        durationMinutes: durationMinutes || 90, // Default to 90 minutes (1.5 hours)
         location,
         subVenue,
         diamondId: diamondId || null,

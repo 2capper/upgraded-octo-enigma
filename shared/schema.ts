@@ -176,6 +176,7 @@ export const games = pgTable("games", {
   forfeitStatus: text("forfeit_status").notNull().default("none"), // "none" | "home" | "away"
   date: text("date").notNull(),
   time: text("time").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(90), // Game duration in minutes (default 1.5 hours)
   location: text("location").notNull(),
   subVenue: text("sub_venue"),
   diamondId: varchar("diamond_id").references(() => diamonds.id, { onDelete: "set null" }), // Assigned diamond/field

@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN "duration_minutes" integer DEFAULT 90 NOT NULL;
