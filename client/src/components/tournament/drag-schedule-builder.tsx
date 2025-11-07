@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,47 +77,148 @@ function DraggableMatchup({ matchup, teams, pools }: { matchup: UnplacedMatchup;
   );
 }
 
+// Game card component for displaying scheduled games
+function GameCard({
+  game,
+  teams,
+  pools,
+  allGames,
+  timeInterval,
+  onRemove,
+  onResize,
+  showToast,
+}: {
+  game: Game;
+  teams: Team[];
+  pools: Pool[];
+  allGames: Game[];
+  timeInterval: number;
+  onRemove: (gameId: string) => void;
+  onResize: (gameId: string, newDuration: number) => void;
+  showToast: (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
+}) {
+  const homeTeam = teams.find(t => t.id === game.homeTeamId);
+  const awayTeam = teams.find(t => t.id === game.awayTeamId);
+  const pool = pools.find(p => p.id === game.poolId);
+
+  return (
+    <div 
+      className="relative group h-full"
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        const resizeHandle = target.closest('.resize-handle');
+        
+        if (resizeHandle) {
+          e.preventDefault();
+          e.stopPropagation();
+          const startY = e.clientY;
+          const startDuration = game.durationMinutes || 90;
+          const pixelsPerMinute = 1.5;
+          
+          const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaY = moveEvent.clientY - startY;
+            const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
+            const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
+            
+            if (resizeHandle) {
+              resizeHandle.textContent = `${newDuration} min`;
+            }
+          };
+          
+          const handleMouseUp = (upEvent: MouseEvent) => {
+            const deltaY = upEvent.clientY - startY;
+            const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
+            const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
+            
+            if (resizeHandle) {
+              resizeHandle.textContent = `${game.durationMinutes || 90} min`;
+            }
+            
+            if (newDuration !== startDuration) {
+              const gameStartMinutes = parseInt(game.time.split(':')[0]) * 60 + parseInt(game.time.split(':')[1]);
+              const gameEndMinutes = gameStartMinutes + newDuration;
+              
+              const hasOverlap = allGames.some(otherGame => {
+                if (otherGame.id === game.id || otherGame.diamondId !== game.diamondId || otherGame.date !== game.date) {
+                  return false;
+                }
+                
+                const otherStartMinutes = parseInt(otherGame.time.split(':')[0]) * 60 + parseInt(otherGame.time.split(':')[1]);
+                const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
+                
+                return gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes;
+              });
+              
+              if (hasOverlap) {
+                showToast({
+                  title: 'Cannot Resize',
+                  description: 'Game would overlap with another game on the same diamond',
+                  variant: 'destructive',
+                });
+              } else {
+                onResize(game.id, newDuration);
+              }
+            }
+            
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+          };
+          
+          document.addEventListener('mousemove', handleMouseMove);
+          document.addEventListener('mouseup', handleMouseUp);
+        }
+      }}
+    >
+      <button
+        onClick={() => onRemove(game.id)}
+        className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
+        data-testid={`remove-game-${game.id}`}
+      >
+        <X className="w-3 h-3" />
+      </button>
+      <div className="flex items-center justify-between text-xs font-semibold text-[var(--deep-navy)] dark:text-white mb-0.5">
+        <span className="truncate">{homeTeam?.name || 'TBD'}</span>
+        <span className="text-[10px] text-gray-500 mx-1">vs</span>
+        <span className="truncate">{awayTeam?.name || 'TBD'}</span>
+      </div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
+          {pool?.name || 'Pool'}
+        </Badge>
+        {homeTeam?.division && (
+          <span className="text-[10px] text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
+        )}
+      </div>
+      <div 
+        className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+        data-testid={`resize-handle-${game.id}`}
+      >
+        {game.durationMinutes || 90} min
+      </div>
+    </div>
+  );
+}
+
+// Lightweight drop zone for drag-drop targeting only
 function DropZone({ 
   slot, 
   diamond, 
-  game,
-  onRemove,
-  onResize,
-  teams,
-  pools,
   activeMatchup,
   allGames,
   timeInterval,
-  showToast,
   newGameDuration
 }: { 
   slot: TimeSlot; 
   diamond: Diamond;
-  game?: Game;
-  onRemove: (gameId: string) => void;
-  onResize: (gameId: string, newDuration: number) => void;
-  teams: Team[];
-  pools: Pool[];
   activeMatchup: UnplacedMatchup | null;
   allGames: Game[];
   timeInterval: number;
-  showToast: (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
   newGameDuration: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${slot.date}-${slot.time}-${diamond.id}`,
     data: { date: slot.date, time: slot.time, diamondId: diamond.id },
   });
-
-  const homeTeam = game ? teams.find(t => t.id === game.homeTeamId) : null;
-  const awayTeam = game ? teams.find(t => t.id === game.awayTeamId) : null;
-  const pool = game ? pools.find(p => p.id === game.poolId) : null;
-
-  // Calculate visual height based on game duration
-  const gameDurationMinutes = game?.durationMinutes || 90;
-  const slotsSpanned = Math.ceil(gameDurationMinutes / timeInterval);
-  const heightPerSlot = 70; // Base height in pixels
-  const calculatedHeight = game ? slotsSpanned * heightPerSlot : heightPerSlot;
 
   // Check if time slot is within diamond's availability hours
   const isAvailable = isTimeAvailable(slot.time, diamond);
@@ -126,8 +227,6 @@ function DropZone({
   const hasConflict = isOver && activeMatchup && (() => {
     // Block drops on unavailable time slots
     if (!isAvailable) return true;
-    // Check if slot is already occupied
-    if (game) return true;
     
     // Check for games on the same date that might overlap
     const gamesOnSameDate = allGames.filter(g => g.date === slot.date);
@@ -157,139 +256,22 @@ function DropZone({
   return (
     <div
       ref={setNodeRef}
-      style={{ minHeight: `${calculatedHeight}px` }}
-      className={`p-2 border-2 rounded-lg transition-all ${
+      className={`h-full p-2 border-2 rounded-lg transition-all ${
         !isAvailable
           ? 'border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-900/30 opacity-40 cursor-not-allowed'
           : hasConflict
             ? 'border-[var(--clay-red)] bg-red-100 dark:bg-red-900/20 animate-shake' 
             : isValid 
               ? 'border-[var(--field-green)] bg-[var(--field-green)]/10 shadow-lg scale-105' 
-              : game
-                ? 'border-[var(--field-green)] bg-[var(--field-green)]/5'
-                : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
+              : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400'
       }`}
       data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
     >
-      {!isAvailable && !game ? (
+      {!isAvailable ? (
         <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-600 italic">
           Unavailable
         </div>
-      ) : game ? (
-        <div 
-          className="relative group"
-          onMouseDown={(e) => {
-            // Use closest() to handle clicks on text nodes inside the resize handle
-            const target = e.target as HTMLElement;
-            const resizeHandle = target.closest('.resize-handle');
-            
-            if (resizeHandle) {
-              e.preventDefault();
-              e.stopPropagation();
-              const startY = e.clientY;
-              const startDuration = game.durationMinutes || 90;
-              const pixelsPerMinute = 1.5; // Adjust sensitivity
-              
-              const handleMouseMove = (moveEvent: MouseEvent) => {
-                const deltaY = moveEvent.clientY - startY;
-                const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
-                const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
-                
-                // Visual feedback only - actual update happens on mouseup
-                if (resizeHandle) {
-                  resizeHandle.textContent = `${newDuration} min`;
-                }
-              };
-              
-              const handleMouseUp = (upEvent: MouseEvent) => {
-                const deltaY = upEvent.clientY - startY;
-                const deltaMinutes = Math.round(deltaY / pixelsPerMinute / timeInterval) * timeInterval;
-                const newDuration = Math.max(timeInterval, Math.min(480, startDuration + deltaMinutes));
-                
-                // Reset handle text
-                if (resizeHandle) {
-                  resizeHandle.textContent = `${game.durationMinutes || 90} min`;
-                }
-                
-                if (newDuration !== startDuration) {
-                  // Validate no overlaps before committing
-                  const gameStartMinutes = parseInt(game.time.split(':')[0]) * 60 + parseInt(game.time.split(':')[1]);
-                  const gameEndMinutes = gameStartMinutes + newDuration;
-                  
-                  // Check for conflicts with other games on same diamond and date
-                  const hasOverlap = allGames.some(otherGame => {
-                    if (otherGame.id === game.id || otherGame.diamondId !== game.diamondId || otherGame.date !== game.date) {
-                      return false;
-                    }
-                    
-                    const otherStartMinutes = parseInt(otherGame.time.split(':')[0]) * 60 + parseInt(otherGame.time.split(':')[1]);
-                    const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
-                    
-                    // Check if ranges overlap
-                    return gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes;
-                  });
-                  
-                  if (hasOverlap) {
-                    // Show error - don't commit
-                    showToast({
-                      title: 'Cannot Resize',
-                      description: 'Game would overlap with another game on the same diamond',
-                      variant: 'destructive',
-                    });
-                  } else {
-                    onResize(game.id, newDuration);
-                  }
-                }
-                
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-              
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }
-          }}
-        >
-          <button
-            onClick={() => onRemove(game.id)}
-            className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
-            data-testid={`remove-game-${game.id}`}
-          >
-            <X className="w-3 h-3" />
-          </button>
-          <div className="flex items-center justify-between text-xs font-semibold text-[var(--deep-navy)] dark:text-white mb-0.5">
-            <span className="truncate">{homeTeam?.name || 'TBD'}</span>
-            <span className="text-[10px] text-gray-500 mx-1">vs</span>
-            <span className="truncate">{awayTeam?.name || 'TBD'}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0">
-                {pool?.name || 'Pool'}
-              </Badge>
-              {!isAvailable && (
-                <Badge variant="outline" className="text-[10px] bg-[var(--clay-red)]/20 text-[var(--clay-red)] border-[var(--clay-red)]/30 px-1 py-0 flex items-center gap-0.5">
-                  <AlertTriangle className="w-2.5 h-2.5" />
-                  Outside hours
-                </Badge>
-              )}
-            </div>
-            {homeTeam?.division && (
-              <span className="text-[10px] text-gray-600 dark:text-gray-400">{homeTeam.division}</span>
-            )}
-          </div>
-          <div 
-            className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
-            data-testid={`resize-handle-${game.id}`}
-          >
-            {game.durationMinutes || 90} min
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-500">
-          Drop matchup here
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -388,6 +370,11 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     queryKey: ['/api/organizations', tournament?.organizationId || '', 'diamonds'],
     enabled: !!tournament?.organizationId,
   });
+
+  // Get selected diamonds for this tournament
+  const selectedDiamonds = diamonds.filter((d: Diamond) => 
+    tournament?.selectedDiamondIds?.includes(d.id)
+  );
 
   // Fetch existing games
   const { data: allGames = [] } = useQuery<Game[]>({
@@ -841,56 +828,88 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium">
-                          Time
-                        </th>
-                        {diamonds.slice(0, tournament?.selectedDiamondIds?.length || 1).map((diamond: Diamond) => (
-                          <th key={diamond.id} className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {diamond.name}
-                            </div>
-                          </th>
+                  {/* CSS Grid schedule */}
+                  <div 
+                    className="grid gap-0 border-collapse relative"
+                    style={{
+                      gridTemplateColumns: `120px repeat(${selectedDiamonds.length}, 1fr)`,
+                      gridTemplateRows: `40px repeat(${timeSlots.length}, 70px)`,
+                    }}
+                  >
+                    {/* Header row */}
+                    <div className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center">
+                      Time
+                    </div>
+                    {selectedDiamonds.map((diamond: Diamond) => (
+                      <div key={diamond.id} className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {diamond.name}
+                      </div>
+                    ))}
+
+                    {/* Time labels and empty drop zones for ALL slots */}
+                    {timeSlots.map((slot, rowIndex) => (
+                      <React.Fragment key={`slot-${slot.date}-${slot.time}`}>
+                        {/* Time label */}
+                        <div className="border p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800/50 flex flex-col justify-center">
+                          <div>{slot.date}</div>
+                          <div className="text-gray-500">{slot.time}</div>
+                        </div>
+
+                        {/* Empty drop zones for each diamond at each time */}
+                        {selectedDiamonds.map((diamond: Diamond) => (
+                          <div 
+                            key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
+                            className="border p-1"
+                          >
+                            <DropZone 
+                              slot={slot} 
+                              diamond={diamond}
+                              activeMatchup={activeMatchup}
+                              allGames={existingGames}
+                              timeInterval={timeInterval}
+                              newGameDuration={gameDuration}
+                            />
+                          </div>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {timeSlots.map(slot => (
-                        <tr key={`${slot.date}-${slot.time}`}>
-                          <td className="border p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800/50">
-                            <div>{slot.date}</div>
-                            <div className="text-gray-500">{slot.time}</div>
-                          </td>
-                          {diamonds.slice(0, tournament?.selectedDiamondIds?.length || 1).map((diamond: Diamond) => {
-                            const game = existingGames.find(
-                              g => g.date === slot.date && g.time === slot.time && g.diamondId === diamond.id
-                            );
-                            return (
-                              <td key={diamond.id} className="border p-1">
-                                <DropZone 
-                                  slot={slot} 
-                                  diamond={diamond}
-                                  game={game}
-                                  onRemove={(gameId) => removeMutation.mutate(gameId)}
-                                  onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
-                                  teams={teams}
-                                  pools={pools}
-                                  activeMatchup={activeMatchup}
-                                  allGames={existingGames}
-                                  timeInterval={timeInterval}
-                                  showToast={toast}
-                                  newGameDuration={gameDuration}
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </React.Fragment>
+                    ))}
+
+                    {/* Placed games as overlays with row spanning */}
+                    {existingGames.map((game) => {
+                      const slotIndex = timeSlots.findIndex(s => s.date === game.date && s.time === game.time);
+                      const diamondIndex = selectedDiamonds.findIndex(d => d.id === game.diamondId);
+                      
+                      if (slotIndex === -1 || diamondIndex === -1) return null;
+                      
+                      const rowSpan = Math.ceil((game.durationMinutes || 90) / timeInterval);
+                      const gridRowStart = slotIndex + 2; // +2 for header row
+                      const gridColumnStart = diamondIndex + 2; // +2 for time column
+                      
+                      return (
+                        <div
+                          key={`game-${game.id}`}
+                          className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg"
+                          style={{
+                            gridRow: `${gridRowStart} / span ${rowSpan}`,
+                            gridColumn: gridColumnStart,
+                            zIndex: 10,
+                          }}
+                        >
+                          <GameCard 
+                            game={game}
+                            teams={teams}
+                            pools={pools}
+                            allGames={existingGames}
+                            timeInterval={timeInterval}
+                            onRemove={(gameId) => removeMutation.mutate(gameId)}
+                            onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
+                            showToast={toast}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>
