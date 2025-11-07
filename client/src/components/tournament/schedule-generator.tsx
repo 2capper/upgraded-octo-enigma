@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle, XCircle } from 'lucide-react';
+import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle, XCircle, MousePointer2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { DragScheduleBuilder } from './drag-schedule-builder';
 import type { Team, Pool, AgeDivision, Game, Diamond } from '@shared/schema';
 
 interface ScheduleGeneratorProps {
