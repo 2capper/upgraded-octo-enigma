@@ -332,6 +332,41 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
         </Card>
       )}
       
+      {/* Schedule Builder Method Selector */}
+      <Tabs defaultValue="drag-drop" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="drag-drop" data-testid="tab-drag-drop-builder">
+            <MousePointer2 className="w-4 h-4 mr-2" />
+            Drag-and-Drop Builder
+          </TabsTrigger>
+          <TabsTrigger value="automated" data-testid="tab-automated-generator">
+            <Shuffle className="w-4 h-4 mr-2" />
+            Automated Generator (Legacy)
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="drag-drop" className="space-y-6 mt-6">
+          {selectedDivision ? (
+            <DragScheduleBuilder
+              tournamentId={tournamentId}
+              divisionId={selectedDivision}
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Please select an age division above to use the drag-and-drop schedule builder.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="automated" className="space-y-6 mt-6">
+      
       {/* Progress Steps */}
       <Card>
         <CardHeader>
@@ -798,6 +833,8 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
