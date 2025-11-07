@@ -293,6 +293,37 @@ function isTimeAvailable(time: string, diamond: Diamond): boolean {
   return timeMinutes >= startTimeMinutes && timeMinutes < endTimeMinutes;
 }
 
+// Helper function to convert time string to minutes since midnight
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+// Helper function to calculate end time given start time and duration
+function getEndTime(startTime: string, durationMinutes: number): string {
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = startMinutes + durationMinutes;
+  const hours = Math.floor(endMinutes / 60);
+  const mins = endMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
+
+// Helper function to check if two time ranges overlap
+function timeRangesOverlap(
+  start1: string, 
+  duration1: number, 
+  start2: string, 
+  duration2: number
+): boolean {
+  const start1Minutes = timeToMinutes(start1);
+  const end1Minutes = start1Minutes + duration1;
+  const start2Minutes = timeToMinutes(start2);
+  const end2Minutes = start2Minutes + duration2;
+  
+  // Ranges overlap if one starts before the other ends
+  return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
+}
+
 export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBuilderProps) {
   const { toast } = useToast();
   const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(null);
