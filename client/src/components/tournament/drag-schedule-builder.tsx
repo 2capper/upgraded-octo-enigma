@@ -248,19 +248,23 @@ function DropZone({
         return { hasConflict: true, reason: 'diamond' };
       }
       
-      // Check if either team has an overlapping game
-      if ((existingGame.homeTeamId === activeMatchup.homeTeamId || 
-           existingGame.awayTeamId === activeMatchup.homeTeamId ||
-           existingGame.homeTeamId === activeMatchup.awayTeamId || 
-           existingGame.awayTeamId === activeMatchup.awayTeamId) &&
-          timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
-        console.log('Team conflict:', {
-          teams: [activeMatchup.homeTeamId, activeMatchup.awayTeamId],
-          existingGame: [existingGame.homeTeamId, existingGame.awayTeamId],
-          existingTime: existingGame.time,
-          newTime: slot.time,
+      // Check if either team has an overlapping game (regardless of diamond)
+      const hasTeamOverlap = (
+        existingGame.homeTeamId === activeMatchup.homeTeamId || 
+        existingGame.awayTeamId === activeMatchup.homeTeamId ||
+        existingGame.homeTeamId === activeMatchup.awayTeamId || 
+        existingGame.awayTeamId === activeMatchup.awayTeamId
+      );
+      
+      if (hasTeamOverlap && timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
+        console.log('Team conflict detected:', {
+          newMatchup: { home: activeMatchup.homeTeamId, away: activeMatchup.awayTeamId },
+          existingGame: { home: existingGame.homeTeamId, away: existingGame.awayTeamId },
+          newSlot: { date: slot.date, time: slot.time, diamond: diamond.name },
+          existingSlot: { date: existingGame.date, time: existingGame.time, diamond: existingGame.diamondId },
           existingDuration,
-          newDuration: newGameDuration
+          newDuration: newGameDuration,
+          overlap: true
         });
         return { hasConflict: true, reason: 'team' };
       }
