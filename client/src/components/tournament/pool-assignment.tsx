@@ -157,17 +157,6 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     ? pools.filter(p => p.ageDivisionId === divisionId || p.ageDivisionId === null)
     : pools;
 
-  // Debug logging
-  console.log('PoolAssignment Debug:', {
-    divisionId,
-    totalPools: pools.length,
-    filteredPoolsCount: filteredPools.length,
-    totalTeams: teams.length,
-    filteredTeamsCount: filteredTeams.length,
-    pools: pools.map(p => ({ id: p.id, name: p.name, ageDivisionId: p.ageDivisionId })),
-    filteredPools: filteredPools.map(p => ({ id: p.id, name: p.name, ageDivisionId: p.ageDivisionId }))
-  });
-
   // Get number of pools from tournament settings
   const numberOfPools = tournament?.numberOfPools || filteredPools.length;
 
