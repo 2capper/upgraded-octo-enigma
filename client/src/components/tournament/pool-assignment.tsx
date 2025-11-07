@@ -147,14 +147,14 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     ? teams.filter(t => {
         // Find the pool for this team
         const teamPool = pools.find(p => p.id === t.poolId);
-        // Include if team has no pool, or if pool matches division
-        return !t.poolId || teamPool?.ageDivisionId === divisionId;
+        // Include if team has no pool, pool matches division, or pool is unassigned (null ageDivisionId)
+        return !t.poolId || teamPool?.ageDivisionId === divisionId || teamPool?.ageDivisionId === null;
       })
     : teams;
 
-  // Filter pools by division if specified
+  // Filter pools by division if specified - include unassigned pools (null ageDivisionId)
   const filteredPools = divisionId 
-    ? pools.filter(p => p.ageDivisionId === divisionId)
+    ? pools.filter(p => p.ageDivisionId === divisionId || p.ageDivisionId === null)
     : pools;
 
   // Get number of pools from tournament settings

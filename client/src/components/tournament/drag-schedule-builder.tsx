@@ -280,7 +280,7 @@ function DropZone({
     <div
       ref={setNodeRef}
       className={`absolute inset-0 flex items-center justify-center transition-all ${
-        activeMatchup ? 'pointer-events-auto' : 'pointer-events-none'
+        activeMatchup ? 'pointer-events-auto z-20' : 'pointer-events-none z-0'
       } ${
         !isAvailable && activeMatchup
           ? 'bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500'

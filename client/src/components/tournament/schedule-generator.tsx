@@ -47,12 +47,13 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   const filteredTeams = selectedDivision 
     ? teams.filter((t: Team) => {
         const teamPool = pools.find((p: Pool) => p.id === t.poolId);
-        return teamPool?.ageDivisionId === selectedDivision || t.division === ageDivisions.find((d: AgeDivision) => d.id === selectedDivision)?.name;
+        // Include teams that: have no pool, have a pool matching the division, have an unassigned pool, or match division by name
+        return !t.poolId || teamPool?.ageDivisionId === selectedDivision || teamPool?.ageDivisionId === null || t.division === ageDivisions.find((d: AgeDivision) => d.id === selectedDivision)?.name;
       })
     : teams;
     
   const filteredPools = selectedDivision
-    ? pools.filter((p: Pool) => p.ageDivisionId === selectedDivision && !p.id.includes('_pool_temp_'))
+    ? pools.filter((p: Pool) => (p.ageDivisionId === selectedDivision || p.ageDivisionId === null) && !p.id.includes('_pool_temp_'))
     : pools.filter((p: Pool) => !p.id.includes('_pool_temp_'));
   
   const currentDivision = ageDivisions.find((d: AgeDivision) => d.id === selectedDivision);
