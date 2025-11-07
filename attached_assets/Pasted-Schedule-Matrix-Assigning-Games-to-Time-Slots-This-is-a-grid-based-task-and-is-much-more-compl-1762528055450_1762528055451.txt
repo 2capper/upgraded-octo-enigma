@@ -1,0 +1,35 @@
+Schedule Matrix" (Assigning Games to Time Slots)
+This is a "grid-based" task and is much more complex. The goal is to make a "busy" screen feel simple and to prevent conflicts.
+
+Here is the UI/UX I recommend:
+
+The "Unscheduled Game Bank": This is the most important UI concept. After the matchups are created, display them in a "bank" or "sidebar."
+
+Example: A scrolling list of cards: [Falcons vs Hawks], [Jays vs Titans], [Hawks vs Jays].Pool Info, Division
+
+UX: The user's only job is to drag these game cards from the bank onto the calendar grid.
+
+Instant Conflict Detection (The "Killer Feature"): This is the magic. Your UI must do the heavy lifting.
+
+Scenario: The user drags [Falcons vs Hawks] towards the Sat 8:00 AM slot on Diamond 1.
+
+UX: As they are hovering (before they drop!), your UI must instantly check: "Are the Falcons or the Hawks already playing at 8:00 AM on any other diamond?"
+
+Feedback:
+
+If YES, the Sat 8:00 AM slot on Diamond 1 should turn RED and shake. The drop is disabled.
+
+If NO, the slot turns GREEN, confirming "This is a valid slot."
+
+Visual State Differentiation: Use color to communicate state at a glance.
+
+
+"Snap-to-Grid" and "Resize": Don't let the user drop a game at "8:07 AM." The game block should "snap" to the 15-minute or 30-minute lines on your grid. You should also be able to grab the bottom of the game block to "resize" it, changing its duration from 1.5 to 2 hours.
+
+The Game Block when placed should have the [Falcons vs Hawks], Pool, Division remain in visble in the block
+
+the UI should be able to be filtered by day and include the diamond availabily data already input --- (9:00am ro 11:00PM) no games should be able to be scheudled outside that availabilty window
+
+The time blocks should be adjustable as well, the user can pick 15, 30 or 60 minute blocks
+
+Lastly, a report should be available in reports (csv/simple table that would provide a and exportable report to share the schedule with umpires or city offivials etc)  
