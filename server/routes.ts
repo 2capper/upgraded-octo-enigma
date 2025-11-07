@@ -613,6 +613,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/age-divisions/:divisionId", requireAdmin, async (req, res) => {
+    try {
+      const { divisionId } = req.params;
+      const updateData = insertAgeDivisionSchema.partial().parse(req.body);
+      
+      const updated = await storage.updateAgeDivision(divisionId, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Age division not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating age division:", error);
+      res.status(400).json({ error: "Invalid age division data" });
+    }
+  });
+
   // Pool routes
   app.get("/api/tournaments/:tournamentId/pools", async (req, res) => {
     try {

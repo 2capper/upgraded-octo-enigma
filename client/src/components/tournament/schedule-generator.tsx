@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle, XCircle, MousePointer2, Download } from 'lucide-react';
+import { Calendar, Loader2, AlertCircle, CheckCircle2, Users, ArrowRight, Shuffle, XCircle, MousePointer2, Download, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -175,6 +175,26 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
     }
   });
 
+  const updateDivisionDuration = useMutation({
+    mutationFn: async ({ divisionId, duration }: { divisionId: string; duration: number }) => {
+      return await apiRequest('PUT', `/api/age-divisions/${divisionId}`, { defaultGameDuration: duration });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/age-divisions`] });
+      toast({
+        title: "Default Duration Updated",
+        description: "New games will use the updated duration",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || 'Failed to update default duration',
+        variant: "destructive",
+      });
+    }
+  });
+
   const generateScheduleMutation = useMutation({
     mutationFn: async () => {
       if (!selectedDivision) {
@@ -324,9 +344,38 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
               ))}
             </div>
             {selectedDivision && currentDivision && (
-              <p className="text-center text-sm text-gray-600 mt-4">
-                Managing schedule for <span className="font-semibold">{currentDivision.name}</span> division
-              </p>
+              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between max-w-md mx-auto">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-gray-500" />
+                    <Label className="text-sm text-gray-700 dark:text-gray-300">Default Game Duration:</Label>
+                  </div>
+                  <Select 
+                    value={String(currentDivision.defaultGameDuration || 90)} 
+                    onValueChange={(value) => {
+                      updateDivisionDuration.mutate({ 
+                        divisionId: currentDivision.id, 
+                        duration: Number(value) 
+                      });
+                    }}
+                    data-testid="select-division-default-duration"
+                  >
+                    <SelectTrigger className="w-[110px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="60">60 min</SelectItem>
+                      <SelectItem value="75">75 min</SelectItem>
+                      <SelectItem value="90">90 min</SelectItem>
+                      <SelectItem value="105">105 min</SelectItem>
+                      <SelectItem value="120">120 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  New games will default to this duration when placed on the schedule grid
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
