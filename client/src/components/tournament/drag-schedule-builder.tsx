@@ -88,7 +88,8 @@ function DropZone({
   activeMatchup,
   allGames,
   timeInterval,
-  showToast
+  showToast,
+  newGameDuration
 }: { 
   slot: TimeSlot; 
   diamond: Diamond;
@@ -101,6 +102,7 @@ function DropZone({
   allGames: Game[];
   timeInterval: number;
   showToast: (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
+  newGameDuration: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${slot.date}-${slot.time}-${diamond.id}`,
@@ -110,6 +112,12 @@ function DropZone({
   const homeTeam = game ? teams.find(t => t.id === game.homeTeamId) : null;
   const awayTeam = game ? teams.find(t => t.id === game.awayTeamId) : null;
   const pool = game ? pools.find(p => p.id === game.poolId) : null;
+
+  // Calculate visual height based on game duration
+  const gameDurationMinutes = game?.durationMinutes || 90;
+  const slotsSpanned = Math.ceil(gameDurationMinutes / timeInterval);
+  const heightPerSlot = 70; // Base height in pixels
+  const calculatedHeight = game ? slotsSpanned * heightPerSlot : heightPerSlot;
 
   // Check if time slot is within diamond's availability hours
   const isAvailable = isTimeAvailable(slot.time, diamond);
@@ -121,17 +129,23 @@ function DropZone({
     // Check if slot is already occupied
     if (game) return true;
     
-    // Check if either team has a game at this time
-    const gamesAtTime = allGames.filter(g => g.date === slot.date && g.time === slot.time);
-    for (const existingGame of gamesAtTime) {
-      if (existingGame.homeTeamId === activeMatchup.homeTeamId || 
-          existingGame.awayTeamId === activeMatchup.homeTeamId ||
-          existingGame.homeTeamId === activeMatchup.awayTeamId || 
-          existingGame.awayTeamId === activeMatchup.awayTeamId) {
+    // Check for games on the same date that might overlap
+    const gamesOnSameDate = allGames.filter(g => g.date === slot.date);
+    for (const existingGame of gamesOnSameDate) {
+      const existingDuration = existingGame.durationMinutes || 90;
+      
+      // Check if new game would overlap with existing game on same diamond
+      if (existingGame.diamondId === diamond.id && 
+          timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
         return true;
       }
-      // Check diamond conflict
-      if (existingGame.diamondId === diamond.id) {
+      
+      // Check if either team has an overlapping game
+      if ((existingGame.homeTeamId === activeMatchup.homeTeamId || 
+           existingGame.awayTeamId === activeMatchup.homeTeamId ||
+           existingGame.homeTeamId === activeMatchup.awayTeamId || 
+           existingGame.awayTeamId === activeMatchup.awayTeamId) &&
+          timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
         return true;
       }
     }
@@ -143,7 +157,8 @@ function DropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[70px] p-2 border-2 rounded-lg transition-all ${
+      style={{ minHeight: `${calculatedHeight}px` }}
+      className={`p-2 border-2 rounded-lg transition-all ${
         !isAvailable
           ? 'border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-900/30 opacity-40 cursor-not-allowed'
           : hasConflict
@@ -517,6 +532,44 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       return;
     }
 
+    // Check for overlapping games
+    const gamesOnSameDate = existingGames.filter(g => g.date === dropData.date);
+    for (const existingGame of gamesOnSameDate) {
+      const existingDuration = existingGame.durationMinutes || 90;
+      
+      // Check if new game would overlap with existing game on same diamond
+      if (existingGame.diamondId === dropData.diamondId && 
+          timeRangesOverlap(snappedTime, gameDuration, existingGame.time, existingDuration)) {
+        const endTime = getEndTime(snappedTime, gameDuration);
+        const existingEndTime = getEndTime(existingGame.time, existingDuration);
+        toast({
+          title: 'Cannot Place Game',
+          description: `This ${gameDuration}-minute game (${snappedTime}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
+          variant: 'destructive',
+        });
+        setActiveMatchup(null);
+        return;
+      }
+      
+      // Check if either team has an overlapping game
+      if ((existingGame.homeTeamId === matchup.homeTeamId || 
+           existingGame.awayTeamId === matchup.homeTeamId ||
+           existingGame.homeTeamId === matchup.awayTeamId || 
+           existingGame.awayTeamId === matchup.awayTeamId) &&
+          timeRangesOverlap(snappedTime, gameDuration, existingGame.time, existingDuration)) {
+        const teamName = teams.find(t => 
+          t.id === matchup.homeTeamId || t.id === matchup.awayTeamId
+        )?.name || 'A team';
+        toast({
+          title: 'Cannot Place Game',
+          description: `${teamName} already has a game that overlaps with this time slot`,
+          variant: 'destructive',
+        });
+        setActiveMatchup(null);
+        return;
+      }
+    }
+
     // Save matchup ID before clearing active matchup
     const matchupId = matchup.id;
     
@@ -818,6 +871,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                                   allGames={existingGames}
                                   timeInterval={timeInterval}
                                   showToast={toast}
+                                  newGameDuration={gameDuration}
                                 />
                               </td>
                             );
