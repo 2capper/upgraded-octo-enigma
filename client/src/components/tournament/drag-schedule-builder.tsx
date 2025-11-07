@@ -846,87 +846,100 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  {/* CSS Grid schedule */}
-                  <div 
-                    className="grid gap-0 border-collapse relative"
-                    style={{
-                      gridTemplateColumns: `120px repeat(${selectedDiamonds.length}, 1fr)`,
-                      gridTemplateRows: `40px repeat(${timeSlots.length}, 70px)`,
-                    }}
-                  >
-                    {/* Header row */}
-                    <div className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center">
-                      Time
-                    </div>
-                    {selectedDiamonds.map((diamond: Diamond) => (
-                      <div key={diamond.id} className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {diamond.name}
+                  {/* Two-column layout: fixed time column + scrollable grid */}
+                  <div className="flex">
+                    {/* Fixed Time Column */}
+                    <div className="flex-shrink-0 w-[120px]">
+                      {/* Time header */}
+                      <div className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center h-[40px]">
+                        Time
                       </div>
-                    ))}
-
-                    {/* Time labels and empty drop zones for ALL slots */}
-                    {timeSlots.map((slot, rowIndex) => (
-                      <React.Fragment key={`slot-${slot.date}-${slot.time}`}>
-                        {/* Time label */}
-                        <div className="border p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800/50 flex flex-col justify-center">
+                      {/* Time labels */}
+                      {timeSlots.map((slot) => (
+                        <div 
+                          key={`time-${slot.date}-${slot.time}`}
+                          className="border border-t-0 p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800/50 flex flex-col justify-center h-[70px]"
+                        >
                           <div>{slot.date}</div>
                           <div className="text-gray-500">{slot.time}</div>
                         </div>
+                      ))}
+                    </div>
 
-                        {/* Empty drop zones for each diamond at each time */}
+                    {/* Scrollable Diamond Grid */}
+                    <div className="flex-1 relative">
+                      <div 
+                        className="grid gap-0 relative"
+                        style={{
+                          gridTemplateColumns: `repeat(${selectedDiamonds.length}, 1fr)`,
+                          gridTemplateRows: `40px repeat(${timeSlots.length}, 70px)`,
+                        }}
+                      >
+                        {/* Diamond headers */}
                         {selectedDiamonds.map((diamond: Diamond) => (
-                          <div 
-                            key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
-                            className="border p-1"
-                          >
-                            <DropZone 
-                              slot={slot} 
-                              diamond={diamond}
-                              activeMatchup={activeMatchup}
-                              allGames={existingGames}
-                              timeInterval={timeInterval}
-                              newGameDuration={gameDuration}
-                            />
+                          <div key={diamond.id} className="border border-l-0 p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {diamond.name}
                           </div>
                         ))}
-                      </React.Fragment>
-                    ))}
 
-                    {/* Placed games as overlays with row spanning */}
-                    {existingGames.map((game) => {
-                      const slotIndex = timeSlots.findIndex(s => s.date === game.date && s.time === game.time);
-                      const diamondIndex = selectedDiamonds.findIndex(d => d.id === game.diamondId);
-                      
-                      if (slotIndex === -1 || diamondIndex === -1) return null;
-                      
-                      const rowSpan = Math.ceil((game.durationMinutes || 90) / timeInterval);
-                      const gridRowStart = slotIndex + 2; // +2 for header row
-                      const gridColumnStart = diamondIndex + 2; // +2 for time column
-                      
-                      return (
-                        <div
-                          key={`game-${game.id}`}
-                          className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg"
-                          style={{
-                            gridRow: `${gridRowStart} / span ${rowSpan}`,
-                            gridColumn: gridColumnStart,
-                            zIndex: 10,
-                          }}
-                        >
-                          <GameCard 
-                            game={game}
-                            teams={teams}
-                            pools={pools}
-                            allGames={existingGames}
-                            timeInterval={timeInterval}
-                            onRemove={(gameId) => removeMutation.mutate(gameId)}
-                            onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
-                            showToast={toast}
-                          />
-                        </div>
-                      );
-                    })}
+                        {/* Empty drop zones grid */}
+                        {timeSlots.map((slot) => (
+                          <React.Fragment key={`slot-${slot.date}-${slot.time}`}>
+                            {selectedDiamonds.map((diamond: Diamond) => (
+                              <div 
+                                key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
+                                className="border border-t-0 border-l-0 p-1"
+                              >
+                                <DropZone 
+                                  slot={slot} 
+                                  diamond={diamond}
+                                  activeMatchup={activeMatchup}
+                                  allGames={existingGames}
+                                  timeInterval={timeInterval}
+                                  newGameDuration={gameDuration}
+                                />
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        ))}
+
+                        {/* Placed games as positioned overlays */}
+                        {existingGames.map((game) => {
+                          const slotIndex = timeSlots.findIndex(s => s.date === game.date && s.time === game.time);
+                          const diamondIndex = selectedDiamonds.findIndex(d => d.id === game.diamondId);
+                          
+                          if (slotIndex === -1 || diamondIndex === -1) return null;
+                          
+                          const rowSpan = Math.ceil((game.durationMinutes || 90) / timeInterval);
+                          const gridRowStart = slotIndex + 2; // +2 for header row
+                          const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
+                          
+                          return (
+                            <div
+                              key={`game-${game.id}`}
+                              className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg"
+                              style={{
+                                gridRow: `${gridRowStart} / span ${rowSpan}`,
+                                gridColumn: gridColumnStart,
+                                zIndex: 10,
+                              }}
+                            >
+                              <GameCard 
+                                game={game}
+                                teams={teams}
+                                pools={pools}
+                                allGames={existingGames}
+                                timeInterval={timeInterval}
+                                onRemove={(gameId) => removeMutation.mutate(gameId)}
+                                onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
+                                showToast={toast}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>

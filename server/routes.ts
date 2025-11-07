@@ -599,6 +599,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to auto-create pools for a division
+  async function autoCreatePoolsForDivision(tournamentId: string, divisionId: string) {
+    const tournament = await storage.getTournament(tournamentId);
+    if (!tournament) {
+      throw new Error("Tournament not found");
+    }
+
+    const numberOfPools = tournament.numberOfPools || 2;
+    
+    // Check if pools already exist for this division
+    const existingPools = await storage.getPools(tournamentId);
+    const divisionPools = existingPools.filter(p => p.ageDivisionId === divisionId);
+    if (divisionPools.length > 0) {
+      console.log(`Pools already exist for division ${divisionId}, skipping auto-creation`);
+      return;
+    }
+    
+    // Generate pool names dynamically for any number of pools
+    function getPoolName(index: number): string {
+      if (index < 26) {
+        return String.fromCharCode(65 + index); // A-Z
+      }
+      // For pools beyond Z, use AA, AB, AC, etc.
+      const firstLetter = String.fromCharCode(65 + Math.floor(index / 26) - 1);
+      const secondLetter = String.fromCharCode(65 + (index % 26));
+      return firstLetter + secondLetter;
+    }
+    
+    for (let i = 0; i < numberOfPools; i++) {
+      await storage.createPool({
+        id: nanoid(),
+        name: getPoolName(i),
+        tournamentId,
+        ageDivisionId: divisionId,
+      });
+    }
+    
+    console.log(`Auto-created ${numberOfPools} pools for division ${divisionId}`);
+  }
+
   app.post("/api/tournaments/:tournamentId/age-divisions", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertAgeDivisionSchema.parse({
@@ -606,6 +646,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tournamentId: req.params.tournamentId
       });
       const ageDivision = await storage.createAgeDivision(validatedData);
+      
+      // Auto-create pools for this division
+      await autoCreatePoolsForDivision(req.params.tournamentId, ageDivision.id);
+      
       res.status(201).json(ageDivision);
     } catch (error) {
       console.error("Error creating age division:", error);
@@ -2400,7 +2444,10 @@ Waterdown 10U AA
           if (existing) {
             return existing;
           }
-          return storage.createAgeDivision({ ...div, tournamentId });
+          const newDivision = await storage.createAgeDivision({ ...div, tournamentId });
+          // Auto-create pools for new divisions
+          await autoCreatePoolsForDivision(tournamentId, newDivision.id);
+          return newDivision;
         })
       );
 
