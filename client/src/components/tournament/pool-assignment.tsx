@@ -230,15 +230,18 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     setActiveTeam(null);
   };
 
-  // Generate pool name for any index (A-Z, then AA, AB, etc.)
+  // Generate pool name for any index (Pool A-Z, then Pool AA, Pool AB, etc.)
   const getPoolName = (index: number): string => {
+    let letter = '';
     if (index < 26) {
-      return String.fromCharCode(65 + index); // A-Z
+      letter = String.fromCharCode(65 + index); // A-Z
+    } else {
+      // For pools beyond Z, use AA, AB, AC, etc.
+      const firstLetter = String.fromCharCode(65 + Math.floor(index / 26) - 1);
+      const secondLetter = String.fromCharCode(65 + (index % 26));
+      letter = firstLetter + secondLetter;
     }
-    // For pools beyond Z, use AA, AB, AC, etc.
-    const firstLetter = String.fromCharCode(65 + Math.floor(index / 26) - 1);
-    const secondLetter = String.fromCharCode(65 + (index % 26));
-    return firstLetter + secondLetter;
+    return `Pool ${letter}`;
   };
 
   // Create pools mutation
