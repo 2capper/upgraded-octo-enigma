@@ -20,6 +20,7 @@ const teamFormSchema = z.object({
   city: z.string().optional(),
   coachName: z.string().optional(),
   teamNumber: z.string().optional(),
+  coachUserId: z.string().optional(),
 });
 
 type TeamFormData = z.infer<typeof teamFormSchema>;
@@ -31,6 +32,7 @@ interface HouseLeagueTeam {
   city?: string;
   coachName?: string;
   teamNumber?: string;
+  coachUserId?: string;
   organizationId: string;
 }
 
@@ -55,6 +57,7 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
       city: "",
       coachName: "",
       teamNumber: "",
+      coachUserId: "",
     },
   });
 
