@@ -10,6 +10,8 @@ import { TeamManagement } from "@/components/booking/team-management";
 import { BookingRequestList } from "@/components/booking/booking-request-list";
 import { CoordinatorApprovalDashboard } from "@/components/booking/coordinator-approval-dashboard";
 import { BookingReports } from "@/components/booking/booking-reports";
+import { CalendarSubscription } from "@/components/booking/calendar-subscription";
+import type { HouseLeagueTeam } from "@shared/schema";
 
 export default function BookingDashboard() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -23,8 +25,14 @@ export default function BookingDashboard() {
     queryKey: [`/api/organizations/${orgId}/user-role`],
   });
 
+  const { data: teams } = useQuery<HouseLeagueTeam[]>({
+    queryKey: [`/api/organizations/${orgId}/house-league-teams`],
+  });
+
   const isAdmin = userRole?.isAdmin || false;
   const isCoordinator = userRole?.role === 'select_coordinator' || userRole?.role === 'diamond_coordinator';
+  
+  const myTeam = teams?.find(team => team.coachUserId === user?.id);
 
   if (roleLoading) {
     return (
@@ -101,6 +109,17 @@ export default function BookingDashboard() {
                   </Link>
                 </div>
               </div>
+              
+              {myTeam && (
+                <CalendarSubscription
+                  type="team"
+                  entityId={myTeam.id}
+                  organizationId={orgId!}
+                  currentToken={myTeam.calendarSubscriptionToken}
+                  entityName={myTeam.name}
+                />
+              )}
+              
               <BookingRequestList organizationId={orgId!} />
             </div>
           </TabsContent>
@@ -128,15 +147,27 @@ export default function BookingDashboard() {
 
           {isAdmin && (
             <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Diamond Restrictions</CardTitle>
-                  <CardDescription>Configure which diamonds can be used by each division</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500 text-center py-8">Diamond restrictions will appear here</p>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                {organization && (
+                  <CalendarSubscription
+                    type="organization"
+                    entityId={organization.id}
+                    organizationId={orgId!}
+                    currentToken={organization.calendarSubscriptionToken}
+                    entityName={organization.name}
+                  />
+                )}
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Diamond Restrictions</CardTitle>
+                    <CardDescription>Configure which diamonds can be used by each division</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-500 text-center py-8">Diamond restrictions will appear here</p>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           )}
         </Tabs>

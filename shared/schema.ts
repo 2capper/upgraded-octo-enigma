@@ -60,6 +60,7 @@ export const organizations = pgTable("organizations", {
   defaultSecondaryColor: text("default_secondary_color").default("#ffffff"), // Default secondary color for new tournaments
   defaultPlayoffFormat: text("default_playoff_format").default("top_6"), // Default playoff format for new tournaments
   defaultSeedingPattern: text("default_seeding_pattern").default("standard"), // Default seeding pattern for new tournaments
+  calendarSubscriptionToken: text("calendar_subscription_token").unique(), // Unique token for calendar subscription URL
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -487,6 +488,9 @@ export const houseLeagueTeams = pgTable("house_league_teams", {
   
   // Status
   isActive: boolean("is_active").notNull().default(true),
+  
+  // Calendar subscription
+  calendarSubscriptionToken: text("calendar_subscription_token").unique(), // Unique token for team calendar subscription URL
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

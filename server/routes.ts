@@ -15,6 +15,8 @@ import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrg
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
+import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -3434,6 +3436,161 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error deleting diamond restriction:", error);
       res.status(500).json({ error: "Failed to delete restriction" });
+    }
+  });
+
+  // Calendar Subscription Endpoints (Public - no auth required)
+  app.get('/api/calendar/team/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const team = await storage.getHouseLeagueTeamByToken(token);
+      if (!team) {
+        return res.status(404).send('Calendar not found');
+      }
+      
+      const org = await storage.getOrganization(team.organizationId);
+      if (!org) {
+        return res.status(404).send('Organization not found');
+      }
+      
+      const bookings = await storage.getBookingRequests(team.organizationId, {
+        teamId: team.id,
+        status: 'confirmed',
+      });
+      
+      const timezone = org.timezone || 'America/Toronto';
+      
+      const events: CalendarEvent[] = bookings.map(booking => {
+        const startDateTime = fromZonedTime(`${booking.date} ${booking.startTime}`, timezone);
+        const endDateTime = fromZonedTime(`${booking.date} ${booking.endTime}`, timezone);
+        
+        let summary = `${booking.bookingType.toUpperCase()}: ${team.name}`;
+        if (booking.opponentName) {
+          summary += ` vs ${booking.opponentName}`;
+        }
+        
+        let description = `${booking.bookingType} for ${team.name}`;
+        if (booking.notes) {
+          description += `\n\nNotes: ${booking.notes}`;
+        }
+        
+        const location = booking.requestedDiamondName || 'TBD';
+        
+        return {
+          id: booking.id,
+          summary,
+          description,
+          location,
+          startDateTime,
+          endDateTime,
+          status: booking.status,
+        };
+      });
+      
+      const icsContent = generateICSFile(
+        events,
+        org.timezone || 'America/Toronto',
+        `${team.name} - ${team.division}`
+      );
+      
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${team.name.replace(/\s+/g, '-')}-calendar.ics"`);
+      res.send(icsContent);
+    } catch (error) {
+      console.error("Error generating team calendar:", error);
+      res.status(500).send('Error generating calendar');
+    }
+  });
+
+  app.get('/api/calendar/organization/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const org = await storage.getOrganizationByToken(token);
+      if (!org) {
+        return res.status(404).send('Calendar not found');
+      }
+      
+      const bookings = await storage.getBookingRequests(org.id, {
+        status: 'confirmed',
+      });
+      
+      const teams = await storage.getHouseLeagueTeams(org.id);
+      const teamsMap = new Map(teams.map(t => [t.id, t]));
+      const timezone = org.timezone || 'America/Toronto';
+      
+      const events: CalendarEvent[] = bookings.map(booking => {
+        const startDateTime = fromZonedTime(`${booking.date} ${booking.startTime}`, timezone);
+        const endDateTime = fromZonedTime(`${booking.date} ${booking.endTime}`, timezone);
+        
+        const team = teamsMap.get(booking.houseLeagueTeamId);
+        const teamName = team?.name || 'Unknown Team';
+        
+        let summary = `${booking.bookingType.toUpperCase()}: ${teamName}`;
+        if (booking.opponentName) {
+          summary += ` vs ${booking.opponentName}`;
+        }
+        
+        let description = `${booking.bookingType} for ${teamName}`;
+        if (booking.notes) {
+          description += `\n\nNotes: ${booking.notes}`;
+        }
+        
+        const location = booking.requestedDiamondName || 'TBD';
+        
+        return {
+          id: booking.id,
+          summary,
+          description,
+          location,
+          startDateTime,
+          endDateTime,
+          status: booking.status,
+        };
+      });
+      
+      const icsContent = generateICSFile(
+        events,
+        org.timezone || 'America/Toronto',
+        `${org.name} - All Bookings`
+      );
+      
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${org.name.replace(/\s+/g, '-')}-calendar.ics"`);
+      res.send(icsContent);
+    } catch (error) {
+      console.error("Error generating organization calendar:", error);
+      res.status(500).send('Error generating calendar');
+    }
+  });
+
+  // Token Generation Endpoints (Admin only)
+  app.post('/api/organizations/:orgId/house-league-teams/:teamId/generate-calendar-token', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, teamId } = req.params;
+      const token = nanoid(32);
+      
+      const team = await storage.updateHouseLeagueTeam(teamId, { calendarSubscriptionToken: token }, orgId);
+      
+      res.json({ token: team.calendarSubscriptionToken });
+    } catch (error) {
+      console.error("Error generating team calendar token:", error);
+      res.status(500).json({ error: "Failed to generate calendar token" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/generate-calendar-token', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const token = nanoid(32);
+      
+      const org = await storage.updateOrganization(orgId, { calendarSubscriptionToken: token });
+      
+      res.json({ token: org.calendarSubscriptionToken });
+    } catch (error) {
+      console.error("Error generating organization calendar token:", error);
+      res.status(500).json({ error: "Failed to generate calendar token" });
     }
   });
 

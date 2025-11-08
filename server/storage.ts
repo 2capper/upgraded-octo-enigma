@@ -69,6 +69,7 @@ export interface IStorage {
   getOrganizations(): Promise<Organization[]>;
   getOrganization(id: string): Promise<Organization | undefined>;
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  getOrganizationByToken(token: string): Promise<Organization | undefined>;
   createOrganization(organization: InsertOrganization): Promise<Organization>;
   updateOrganization(id: string, organization: Partial<InsertOrganization>): Promise<Organization>;
   deleteOrganization(id: string): Promise<void>;
@@ -155,6 +156,7 @@ export interface IStorage {
   // House League Team methods
   getHouseLeagueTeams(organizationId: string): Promise<HouseLeagueTeam[]>;
   getHouseLeagueTeam(id: string, organizationId?: string): Promise<HouseLeagueTeam | undefined>;
+  getHouseLeagueTeamByToken(token: string): Promise<HouseLeagueTeam | undefined>;
   createHouseLeagueTeam(team: InsertHouseLeagueTeam): Promise<HouseLeagueTeam>;
   updateHouseLeagueTeam(id: string, team: Partial<InsertHouseLeagueTeam>, organizationId: string): Promise<HouseLeagueTeam>;
   deleteHouseLeagueTeam(id: string, organizationId: string): Promise<void>;
@@ -218,6 +220,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
     const [org] = await db.select().from(organizations).where(eq(organizations.slug, slug));
+    return org || undefined;
+  }
+
+  async getOrganizationByToken(token: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.calendarSubscriptionToken, token));
     return org || undefined;
   }
 
@@ -1309,6 +1316,11 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(houseLeagueTeams.organizationId, organizationId));
     }
     const [team] = await db.select().from(houseLeagueTeams).where(and(...conditions));
+    return team;
+  }
+
+  async getHouseLeagueTeamByToken(token: string): Promise<HouseLeagueTeam | undefined> {
+    const [team] = await db.select().from(houseLeagueTeams).where(eq(houseLeagueTeams.calendarSubscriptionToken, token));
     return team;
   }
 
