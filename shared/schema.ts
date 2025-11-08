@@ -77,6 +77,20 @@ export const diamonds = pgTable("diamonds", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const organizationIcalFeeds = pgTable("organization_ical_feeds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "Baseball House League" | "Softball House League" | "13U Division"
+  feedUrl: text("feed_url").notNull(), // WordPress Events Calendar iCal feed URL
+  diamondMapping: jsonb("diamond_mapping"), // Maps WordPress calendar diamond names to Dugout Desk diamond IDs: { "Diamond 1": "uuid-here", "Diamond 2": "uuid-here" }
+  lastSyncAt: timestamp("last_sync_at"), // Last successful sync timestamp
+  lastSyncStatus: text("last_sync_status"), // "success" | "error"
+  lastSyncError: text("last_sync_error"), // Error message if sync failed
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Organization admins junction table
 export const organizationAdmins = pgTable("organization_admins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -600,6 +614,40 @@ export const notificationLog = pgTable("notification_log", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// External calendar events synced from WordPress Events Calendar
+export const externalCalendarEvents = pgTable("external_calendar_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  icalFeedId: varchar("ical_feed_id").notNull().references(() => organizationIcalFeeds.id, { onDelete: "cascade" }),
+  
+  // Event details from WordPress
+  externalEventId: text("external_event_id").notNull(), // UID from iCal feed
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Timing
+  startDate: text("start_date").notNull(), // YYYY-MM-DD
+  startTime: text("start_time").notNull(), // HH:mm
+  endDate: text("end_date").notNull(),
+  endTime: text("end_time").notNull(),
+  
+  // Location/Diamond
+  diamondId: varchar("diamond_id").references(() => diamonds.id, { onDelete: "set null" }), // Mapped diamond
+  rawLocation: text("raw_location"), // Original location text from WordPress
+  
+  // Metadata
+  division: text("division"), // Parsed from event title/description
+  teamName: text("team_name"), // Parsed team name if available
+  
+  // Sync tracking
+  lastSyncedAt: timestamp("last_synced_at").notNull().defaultNow(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("external_event_ical_uid_idx").on(table.icalFeedId, table.externalEventId),
+]);
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   tournaments: many(tournaments),
@@ -809,6 +857,18 @@ export const insertHouseLeagueTeamSchema = createInsertSchema(houseLeagueTeams).
   updatedAt: true,
 });
 
+export const insertOrganizationIcalFeedSchema = createInsertSchema(organizationIcalFeeds).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertExternalCalendarEventSchema = createInsertSchema(externalCalendarEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({
   id: true,
   createdAt: true,
@@ -939,6 +999,12 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type HouseLeagueTeam = typeof houseLeagueTeams.$inferSelect;
 export type InsertHouseLeagueTeam = z.infer<typeof insertHouseLeagueTeamSchema>;
+
+export type OrganizationIcalFeed = typeof organizationIcalFeeds.$inferSelect;
+export type InsertOrganizationIcalFeed = z.infer<typeof insertOrganizationIcalFeedSchema>;
+
+export type ExternalCalendarEvent = typeof externalCalendarEvents.$inferSelect;
+export type InsertExternalCalendarEvent = z.infer<typeof insertExternalCalendarEventSchema>;
 
 export type BookingRequest = typeof bookingRequests.$inferSelect;
 export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
