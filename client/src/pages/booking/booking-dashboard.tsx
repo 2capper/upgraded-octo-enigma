@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ClipboardList, Users, Settings } from "lucide-react";
+import { Calendar, ClipboardList, Users, Settings, PlusCircle } from "lucide-react";
 import { Link } from "wouter";
 import { TeamManagement } from "@/components/booking/team-management";
 import { BookingRequestList } from "@/components/booking/booking-request-list";
@@ -79,12 +79,20 @@ export default function BookingDashboard() {
                   <h3 className="text-lg font-semibold">My Booking Requests</h3>
                   <p className="text-sm text-gray-500">View and manage your diamond booking requests</p>
                 </div>
-                <Link href={`/booking/${orgId}/new-request`}>
-                  <Button data-testid="button-new-request">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    New Request
-                  </Button>
-                </Link>
+                <div className="flex gap-2">
+                  <Link href={`/booking/${orgId}/calendar`}>
+                    <Button variant="outline" data-testid="button-view-calendar">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      View Calendar
+                    </Button>
+                  </Link>
+                  <Link href={`/booking/${orgId}/new-request`}>
+                    <Button data-testid="button-new-request">
+                      <PlusCircle className="w-4 h-4 mr-2" />
+                      New Request
+                    </Button>
+                  </Link>
+                </div>
               </div>
               <BookingRequestList organizationId={orgId!} />
             </div>

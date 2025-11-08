@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, MapPin, Users, CheckCircle, XCircle, FileText, AlertCircle } from "lucide-react";
+import { Link } from "wouter";
+import { Calendar, Clock, MapPin, Users, CheckCircle, XCircle, FileText, AlertCircle, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 interface BookingRequest {
@@ -147,13 +148,21 @@ export function CoordinatorApprovalDashboard({ organizationId, userRole }: Coord
   return (
     <>
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold">
-            {userRole === "select_coordinator" ? "Select Coordinator" : "Diamond Coordinator"} Approvals
-          </h3>
-          <p className="text-sm text-gray-500">
-            {requests?.length || 0} request{requests?.length !== 1 ? 's' : ''} pending your review
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">
+              {userRole === "select_coordinator" ? "Select Coordinator" : "Diamond Coordinator"} Approvals
+            </h3>
+            <p className="text-sm text-gray-500">
+              {requests?.length || 0} request{requests?.length !== 1 ? 's' : ''} pending your review
+            </p>
+          </div>
+          <Link href={`/booking/${organizationId}/calendar`}>
+            <Button variant="outline" data-testid="button-coordinator-calendar">
+              <Eye className="w-4 h-4 mr-2" />
+              View Calendar
+            </Button>
+          </Link>
         </div>
 
         {!requests || requests.length === 0 ? (
