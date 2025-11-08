@@ -18,6 +18,7 @@ import TournamentCommsComingSoon from "@/pages/coming-soon/tournament-comms";
 import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
 import BookingDashboard from "@/pages/booking/booking-dashboard";
 import NewBookingRequest from "@/pages/booking/new-booking-request";
+import BookingRequestDetail from "@/pages/booking/booking-request-detail";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -88,6 +89,9 @@ function Router() {
       </Route>
       <Route path="/booking/:orgId/new-request">
         {() => <RequireAuth component={NewBookingRequest} />}
+      </Route>
+      <Route path="/booking/:orgId/request/:requestId">
+        {() => <RequireAuth component={BookingRequestDetail} />}
       </Route>
       
       {/* Protected admin routes */}

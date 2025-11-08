@@ -162,6 +162,7 @@ export interface IStorage {
   // Booking Request methods
   getBookingRequests(organizationId: string, filters: { status?: string, teamId?: string, startDate?: string, endDate?: string }): Promise<BookingRequest[]>;
   getBookingRequest(id: string, organizationId?: string): Promise<BookingRequest | undefined>;
+  getBookingApprovals(requestId: string, organizationId?: string): Promise<BookingApproval[]>;
   createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest>;
   updateBookingRequest(id: string, request: Partial<InsertBookingRequest>, organizationId: string): Promise<BookingRequest>;
   submitBookingRequest(id: string, userId: string, organizationId: string): Promise<BookingRequest>;
@@ -1373,6 +1374,22 @@ export class DatabaseStorage implements IStorage {
     }
     const [request] = await db.select().from(bookingRequests).where(and(...conditions));
     return request;
+  }
+
+  async getBookingApprovals(requestId: string, organizationId?: string): Promise<BookingApproval[]> {
+    const conditions = [eq(bookingApprovals.bookingRequestId, requestId)];
+    
+    // Optionally verify the request belongs to the organization
+    if (organizationId) {
+      const request = await this.getBookingRequest(requestId, organizationId);
+      if (!request) {
+        return [];
+      }
+    }
+    
+    return await db.select().from(bookingApprovals)
+      .where(and(...conditions))
+      .orderBy(bookingApprovals.createdAt);
   }
 
   async createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest> {

@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { Calendar, Clock, MapPin, Users, FileText, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 interface BookingRequest {
   id: string;
@@ -49,6 +53,9 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export function BookingRequestList({ organizationId }: BookingRequestListProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: requests, isLoading: requestsLoading } = useQuery<BookingRequest[]>({
     queryKey: [`/api/organizations/${organizationId}/booking-requests`, { status: selectedStatus !== "all" ? selectedStatus : undefined }],
@@ -60,6 +67,27 @@ export function BookingRequestList({ organizationId }: BookingRequestListProps) 
 
   const { data: diamonds } = useQuery<Diamond[]>({
     queryKey: [`/api/organizations/${organizationId}/diamonds`],
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      return await apiRequest(`/api/organizations/${organizationId}/booking-requests/${requestId}/cancel`, "POST", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/booking-requests`] });
+      toast({
+        title: "Request cancelled",
+        description: "Your booking request has been cancelled.",
+      });
+      setCancelRequestId(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cancel request. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const getTeamName = (teamId: string) => {
@@ -200,11 +228,23 @@ export function BookingRequestList({ organizationId }: BookingRequestListProps) 
                 )}
 
                 <div className="mt-4 flex gap-2">
-                  <Button variant="outline" size="sm" data-testid={`button-view-${request.id}`}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setLocation(`/booking/${organizationId}/request/${request.id}`)}
+                    data-testid={`button-view-${request.id}`}
+                  >
                     View Details
                   </Button>
                   {(request.status === "draft" || request.status === "submitted") && (
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" data-testid={`button-cancel-${request.id}`}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700" 
+                      onClick={() => setCancelRequestId(request.id)}
+                      disabled={cancelMutation.isPending}
+                      data-testid={`button-cancel-${request.id}`}
+                    >
                       Cancel Request
                     </Button>
                   )}
@@ -214,6 +254,27 @@ export function BookingRequestList({ organizationId }: BookingRequestListProps) 
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!cancelRequestId} onOpenChange={(open) => !open && setCancelRequestId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel booking request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel your booking request. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-dialog-close">No, keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelRequestId && cancelMutation.mutate(cancelRequestId)}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-cancel-dialog-confirm"
+            >
+              Yes, cancel request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

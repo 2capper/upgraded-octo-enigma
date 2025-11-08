@@ -2974,13 +2974,34 @@ Waterdown 10U AA
   app.get('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
+      const userId = req.user.claims.sub;
       const request = await storage.getBookingRequest(requestId, orgId);
       
       if (!request) {
         return res.status(404).json({ error: "Booking request not found" });
       }
       
-      res.json(request);
+      // Verify user owns this booking OR is an admin
+      const dbUser = await storage.getUser(userId);
+      const isOrgAdmin = dbUser?.isSuperAdmin || await storage.isOrganizationAdmin(userId, orgId);
+      
+      if (!isOrgAdmin && request.submittedBy !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Return rich response with team, diamond, and approvals
+      const [team, diamond, approvals] = await Promise.all([
+        storage.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
+        storage.getDiamond(request.diamondId),
+        storage.getBookingApprovals(requestId, orgId),
+      ]);
+      
+      res.json({
+        ...request,
+        team,
+        diamond,
+        approvals,
+      });
     } catch (error) {
       console.error("Error fetching booking request:", error);
       res.status(500).json({ error: "Failed to fetch booking request" });
