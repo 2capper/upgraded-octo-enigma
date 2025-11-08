@@ -425,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Diamond routes
-  app.get("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
+  app.get("/api/organizations/:organizationId/diamonds", isAuthenticated, async (req, res) => {
     try {
       const { organizationId } = req.params;
       const diamonds = await storage.getDiamonds(organizationId);
@@ -466,6 +466,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting diamond:", error);
       res.status(500).json({ error: "Failed to delete diamond" });
+    }
+  });
+
+  // Diamond Restrictions routes
+  app.get("/api/organizations/:organizationId/diamond-restrictions", isAuthenticated, async (req, res) => {
+    try {
+      const { organizationId } = req.params;
+      const restrictions = await storage.getDiamondRestrictions(organizationId);
+      res.json(restrictions);
+    } catch (error) {
+      console.error("Error fetching diamond restrictions:", error);
+      res.status(500).json({ error: "Failed to fetch diamond restrictions" });
+    }
+  });
+
+  app.post("/api/organizations/:organizationId/diamond-restrictions", requireOrgAdmin, async (req, res) => {
+    try {
+      const { organizationId } = req.params;
+      const restriction = await storage.createDiamondRestriction({
+        ...req.body,
+        organizationId,
+      });
+      res.status(201).json(restriction);
+    } catch (error) {
+      console.error("Error creating diamond restriction:", error);
+      res.status(500).json({ error: "Failed to create diamond restriction" });
+    }
+  });
+
+  app.put("/api/diamond-restrictions/:id", requireOrgAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const restriction = await storage.updateDiamondRestriction(id, req.body);
+      res.json(restriction);
+    } catch (error) {
+      console.error("Error updating diamond restriction:", error);
+      res.status(500).json({ error: "Failed to update diamond restriction" });
+    }
+  });
+
+  app.delete("/api/diamond-restrictions/:id", requireOrgAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDiamondRestriction(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting diamond restriction:", error);
+      res.status(500).json({ error: "Failed to delete diamond restriction" });
     }
   });
 

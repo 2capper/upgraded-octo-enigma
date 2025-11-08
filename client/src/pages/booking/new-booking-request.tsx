@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Calendar, Clock, MapPin } from "lucide-react";
 import { Link } from "wouter";
+import { useEffect } from "react";
 
 const bookingFormSchema = z.object({
   houseLeagueTeamId: z.string().min(1, "Please select a team"),
@@ -48,6 +49,13 @@ interface Diamond {
   location?: string;
 }
 
+interface DiamondRestriction {
+  id: string;
+  division: string;
+  allowedDiamonds: string[];
+  reason?: string;
+}
+
 export default function NewBookingRequest() {
   const { orgId } = useParams<{ orgId: string }>();
   const [, setLocation] = useLocation();
@@ -59,6 +67,10 @@ export default function NewBookingRequest() {
 
   const { data: diamonds, isLoading: diamondsLoading } = useQuery<Diamond[]>({
     queryKey: [`/api/organizations/${orgId}/diamonds`],
+  });
+
+  const { data: restrictions } = useQuery<DiamondRestriction[]>({
+    queryKey: [`/api/organizations/${orgId}/diamond-restrictions`],
   });
 
   const form = useForm<BookingFormData>({
@@ -74,6 +86,51 @@ export default function NewBookingRequest() {
       notes: "",
     },
   });
+
+  const selectedTeamId = form.watch("houseLeagueTeamId");
+  const selectedTeam = teams?.find(t => t.id === selectedTeamId);
+  
+  const getRestrictionForDivision = (division: string | undefined) => {
+    if (!division || !restrictions) return null;
+    return restrictions.find(r => r.division === division);
+  };
+
+  const isDiamondAllowed = (diamond: Diamond) => {
+    if (!selectedTeam) return true;
+    
+    const restriction = getRestrictionForDivision(selectedTeam.division);
+    if (!restriction) return true;
+    
+    return restriction.allowedDiamonds.includes(diamond.name);
+  };
+
+  const getFilteredDiamonds = () => {
+    if (!diamonds) return [];
+    if (!selectedTeam) return diamonds;
+    
+    const restriction = getRestrictionForDivision(selectedTeam.division);
+    if (!restriction) return diamonds;
+    
+    return diamonds.filter(d => restriction.allowedDiamonds.includes(d.name));
+  };
+
+  const restrictionMessage = selectedTeam ? (() => {
+    const restriction = getRestrictionForDivision(selectedTeam.division);
+    if (!restriction) return null;
+    
+    return `${selectedTeam.division} teams can only use: ${restriction.allowedDiamonds.join(', ')}${restriction.reason ? ` (${restriction.reason})` : ''}`;
+  })() : null;
+
+  // Clear diamond selection if it becomes invalid when team changes
+  useEffect(() => {
+    const currentDiamondId = form.getValues("diamondId");
+    if (currentDiamondId && diamonds) {
+      const currentDiamond = diamonds.find(d => d.id === currentDiamondId);
+      if (currentDiamond && !isDiamondAllowed(currentDiamond)) {
+        form.setValue("diamondId", "");
+      }
+    }
+  }, [selectedTeamId, diamonds, restrictions]);
 
   const saveDraftMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
@@ -247,13 +304,23 @@ export default function NewBookingRequest() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {diamonds?.map((diamond) => (
+                            {getFilteredDiamonds().map((diamond) => (
                               <SelectItem key={diamond.id} value={diamond.id} data-testid={`option-diamond-${diamond.id}`}>
                                 {diamond.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {restrictionMessage && (
+                          <FormDescription className="text-blue-600 font-medium">
+                            {restrictionMessage}
+                          </FormDescription>
+                        )}
+                        {!selectedTeam && (
+                          <FormDescription>
+                            Please select a team first to see available diamonds
+                          </FormDescription>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
