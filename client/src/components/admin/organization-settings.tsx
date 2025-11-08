@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb, ShieldAlert, Calendar, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb, ShieldAlert, Calendar, RefreshCw, AlertCircle, CheckCircle2, Mail, Phone, User, Users, Send, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,16 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import type { Organization, Diamond, InsertDiamond, OrganizationIcalFeed, InsertOrganizationIcalFeed } from '@shared/schema';
-import { insertDiamondSchema, insertOrganizationIcalFeedSchema } from '@shared/schema';
+import type { Organization, Diamond, InsertDiamond, OrganizationIcalFeed, InsertOrganizationIcalFeed, OrganizationCoordinator, InsertOrganizationCoordinator, CoachInvitation, HouseLeagueTeam } from '@shared/schema';
+import { insertDiamondSchema, insertOrganizationIcalFeedSchema, insertOrganizationCoordinatorSchema } from '@shared/schema';
 import { poolPlayFormats, type PlayoffFormatOption } from '@shared/playoffFormats';
 import { seedingPatternOptions, type SeedingPattern } from '@shared/seedingPatterns';
+import { z } from 'zod';
 
 interface DiamondRestriction {
   id: string;
@@ -1065,6 +1067,527 @@ function DiamondRestrictionFormDialog({ organizationId, divisions, diamonds, res
   );
 }
 
+interface CoordinatorCardProps {
+  organizationId: string;
+  role: 'select_coordinator' | 'diamond_coordinator' | 'uic' | 'treasurer';
+  roleLabel: string;
+  existingCoordinator?: OrganizationCoordinator;
+}
+
+function CoordinatorCard({ organizationId, role, roleLabel, existingCoordinator }: CoordinatorCardProps) {
+  const { toast } = useToast();
+  
+  // Convert role with underscores to hyphens for test IDs
+  const testIdRole = role.replace(/_/g, '-');
+  
+  const coordinatorSchema = insertOrganizationCoordinatorSchema.extend({
+    email: z.string().email('Please enter a valid email address'),
+  });
+
+  const form = useForm<InsertOrganizationCoordinator>({
+    resolver: zodResolver(coordinatorSchema),
+    defaultValues: {
+      organizationId,
+      role,
+      email: existingCoordinator?.email || '',
+      phone: existingCoordinator?.phone || '',
+      firstName: existingCoordinator?.firstName || '',
+      lastName: existingCoordinator?.lastName || '',
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: InsertOrganizationCoordinator) => {
+      return apiRequest('POST', `/api/organizations/${organizationId}/coordinators`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'coordinators'] });
+      toast({
+        title: "Coordinator Saved",
+        description: `${roleLabel} has been updated successfully.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: `Failed to save ${roleLabel}. Please try again.`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: InsertOrganizationCoordinator) => {
+    saveMutation.mutate(data);
+  };
+
+  return (
+    <Card data-testid={`card-coordinator-${testIdRole}`}>
+      <CardHeader>
+        <CardTitle className="text-base">{roleLabel}</CardTitle>
+        <CardDescription className="text-sm">
+          Contact information for {roleLabel.toLowerCase()}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5 text-sm">
+                    <Mail className="w-3.5 h-3.5" />
+                    Email *
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="email"
+                      placeholder="coordinator@example.com"
+                      data-testid={`input-${testIdRole}-email`}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5 text-sm">
+                    <Phone className="w-3.5 h-3.5" />
+                    Phone
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value || ''}
+                      type="tel"
+                      placeholder="(555) 123-4567"
+                      data-testid={`input-${testIdRole}-phone`}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-sm">
+                      <User className="w-3.5 h-3.5" />
+                      First Name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="John"
+                        data-testid={`input-${testIdRole}-first-name`}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-sm">
+                      <User className="w-3.5 h-3.5" />
+                      Last Name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="Doe"
+                        data-testid={`input-${testIdRole}-last-name`}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="w-full"
+              data-testid={`button-save-${testIdRole}`}
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Coordinator'
+              )}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface CoordinatorsManagementProps {
+  organizationId: string;
+}
+
+function CoordinatorsManagement({ organizationId }: CoordinatorsManagementProps) {
+  const { data: coordinators, isLoading } = useQuery<OrganizationCoordinator[]>({
+    queryKey: ['/api/organizations', organizationId, 'coordinators'],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const coordinatorRoles: Array<{
+    role: 'select_coordinator' | 'diamond_coordinator' | 'uic' | 'treasurer';
+    label: string;
+  }> = [
+    { role: 'select_coordinator', label: 'Select Coordinator' },
+    { role: 'diamond_coordinator', label: 'Diamond Coordinator' },
+    { role: 'uic', label: 'UIC (Umpire in Chief)' },
+    { role: 'treasurer', label: 'Treasurer' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <User className="w-5 h-5" />
+        <h3 className="text-lg font-semibold">Organization Coordinators</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Manage coordinators who will receive booking approval notifications
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {coordinatorRoles.map(({ role, label }) => {
+          const existingCoordinator = coordinators?.find((c) => c.role === role);
+          return (
+            <CoordinatorCard
+              key={role}
+              organizationId={organizationId}
+              role={role}
+              roleLabel={label}
+              existingCoordinator={existingCoordinator}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface CoachInvitationsManagementProps {
+  organizationId: string;
+}
+
+function CoachInvitationsManagement({ organizationId }: CoachInvitationsManagementProps) {
+  const { toast } = useToast();
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+
+  const invitationSchema = z.object({
+    email: z.string().email('Please enter a valid email address'),
+  });
+
+  const form = useForm<{ email: string }>({
+    resolver: zodResolver(invitationSchema),
+    defaultValues: {
+      email: '',
+    },
+  });
+
+  const { data: invitations, isLoading: invitationsLoading } = useQuery<CoachInvitation[]>({
+    queryKey: ['/api/organizations', organizationId, 'invitations'],
+  });
+
+  const { data: teams, isLoading: teamsLoading } = useQuery<HouseLeagueTeam[]>({
+    queryKey: ['/api/organizations', organizationId, 'house-league-teams'],
+  });
+
+  const createInvitationMutation = useMutation({
+    mutationFn: async (data: { email: string; teamIds: string[] }) => {
+      return apiRequest('POST', `/api/organizations/${organizationId}/invitations`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'invitations'] });
+      toast({
+        title: "Invitation Sent",
+        description: "The coach invitation has been sent successfully.",
+      });
+      form.reset();
+      setSelectedTeamIds([]);
+    },
+    onError: () => {
+      toast({
+        title: "Invitation Failed",
+        description: "Failed to send invitation. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeInvitationMutation = useMutation({
+    mutationFn: async (invitationId: string) => {
+      return apiRequest('DELETE', `/api/organizations/${organizationId}/invitations/${invitationId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'invitations'] });
+      toast({
+        title: "Invitation Revoked",
+        description: "The coach invitation has been revoked successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Revoke Failed",
+        description: "Failed to revoke invitation. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: { email: string }) => {
+    if (selectedTeamIds.length === 0) {
+      toast({
+        title: "No Teams Selected",
+        description: "Please select at least one team for the invitation.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createInvitationMutation.mutate({ email: data.email, teamIds: selectedTeamIds });
+  };
+
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeamIds(prev =>
+      prev.includes(teamId)
+        ? prev.filter(id => id !== teamId)
+        : [...prev, teamId]
+    );
+  };
+
+  const handleRevoke = (invitationId: string) => {
+    if (confirm('Are you sure you want to revoke this invitation?')) {
+      revokeInvitationMutation.mutate(invitationId);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+      case 'accepted':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Accepted</Badge>;
+      case 'revoked':
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Revoked</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getTeamNames = (teamIds: string[]) => {
+    if (!teams) return '';
+    return teamIds
+      .map(id => teams.find(t => t.id === id)?.name)
+      .filter(Boolean)
+      .join(', ');
+  };
+
+  if (invitationsLoading || teamsLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Mail className="w-5 h-5" />
+        <h3 className="text-lg font-semibold">Coach Invitations</h3>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Invite coaches to access the booking system
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Invitation Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Send Invitation</CardTitle>
+            <CardDescription>Invite a coach to manage team bookings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5" />
+                        Coach Email *
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="email"
+                          placeholder="coach@example.com"
+                          data-testid="input-coach-email"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    Teams *
+                  </Label>
+                  <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {!teams || teams.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        No teams available. Create teams first.
+                      </p>
+                    ) : (
+                      teams.map((team) => (
+                        <div key={team.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={selectedTeamIds.includes(team.id)}
+                            onCheckedChange={() => toggleTeam(team.id)}
+                            data-testid={`checkbox-team-${team.id}`}
+                          />
+                          <label
+                            htmlFor={`team-${team.id}`}
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {team.name} ({team.division})
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTeamIds.length} team(s) selected
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={createInvitationMutation.isPending}
+                  className="w-full"
+                  data-testid="button-send-invitation"
+                >
+                  {createInvitationMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Invitation
+                    </>
+                  )}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        {/* Invitations List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Sent Invitations</CardTitle>
+            <CardDescription>Manage pending and accepted invitations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!invitations || invitations.length === 0 ? (
+              <div className="text-center py-8 border rounded-lg bg-muted/30">
+                <Mail className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  No invitations yet. Send one to get started.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invitations.map((invitation) => (
+                  <div
+                    key={invitation.id}
+                    className="border rounded-lg p-3 space-y-2"
+                    data-testid={`invitation-${invitation.id}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <p className="font-medium text-sm" data-testid={`text-invitation-email-${invitation.id}`}>
+                            {invitation.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(invitation.status)}
+                          <span className="text-xs text-muted-foreground" data-testid={`text-invitation-date-${invitation.id}`}>
+                            {formatDistanceToNow(new Date(invitation.createdAt), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground mt-0.5" />
+                          <p className="text-xs text-muted-foreground" data-testid={`text-invitation-teams-${invitation.id}`}>
+                            {getTeamNames(invitation.teamIds)}
+                          </p>
+                        </div>
+                      </div>
+                      {invitation.status === 'pending' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRevoke(invitation.id)}
+                          disabled={revokeInvitationMutation.isPending}
+                          data-testid={`button-revoke-${invitation.id}`}
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 interface ICalFeedFormDialogProps {
   organizationId: string;
   feed?: OrganizationIcalFeed;
@@ -1668,6 +2191,16 @@ export function OrganizationSettings() {
                 {/* Diamonds Management Section */}
                 <div className="pt-4 border-t">
                   <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
+                </div>
+
+                {/* Coordinators Management Section */}
+                <div className="pt-4 border-t">
+                  <CoordinatorsManagement organizationId={org.id} />
+                </div>
+
+                {/* Coach Invitations Management Section */}
+                <div className="pt-4 border-t">
+                  <CoachInvitationsManagement organizationId={org.id} />
                 </div>
 
                 {/* iCal Feeds Management Section */}
