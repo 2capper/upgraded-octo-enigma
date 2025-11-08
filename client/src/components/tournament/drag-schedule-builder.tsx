@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,105 +201,64 @@ function GameCard({
   );
 }
 
-// Lightweight drop zone for drag-drop targeting only
-function DropZone({ 
-  slot, 
-  diamond, 
+// Single droppable zone component that covers the entire grid
+function GridDropZone({
   activeMatchup,
   allGames,
   timeInterval,
-  newGameDuration
-}: { 
-  slot: TimeSlot; 
-  diamond: Diamond;
+  newGameDuration,
+  getSlotFromCoordinates,
+  setHoveredCell,
+  timeSlots,
+  selectedDiamonds,
+}: {
   activeMatchup: UnplacedMatchup | null;
   allGames: Game[];
   timeInterval: number;
   newGameDuration: number;
+  getSlotFromCoordinates: (x: number, y: number) => { timeSlot: TimeSlot; diamond: Diamond; timeIndex: number; diamondIndex: number } | null;
+  setHoveredCell: (cell: { timeIndex: number; diamondIndex: number } | null) => void;
+  timeSlots: TimeSlot[];
+  selectedDiamonds: Diamond[];
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `${slot.date}-${slot.time}-${diamond.id}`,
-    data: { date: slot.date, time: slot.time, diamondId: diamond.id },
+  const { setNodeRef } = useDroppable({
+    id: 'calendar-grid',
   });
 
-  // Check if time slot is within diamond's availability hours
-  const isAvailable = isTimeAvailable(slot.time, diamond);
+  const [dragPosition, setDragPosition] = React.useState<{ x: number; y: number } | null>(null);
 
-  // Check for conflicts when hovering
-  const conflictInfo = isOver && activeMatchup ? (() => {
-    // Block drops on unavailable time slots
-    if (!isAvailable) return { hasConflict: true, reason: 'unavailable' };
-    
-    // Check for games on the same date that might overlap
-    const gamesOnSameDate = allGames.filter(g => g.date === slot.date);
-    for (const existingGame of gamesOnSameDate) {
-      const existingDuration = existingGame.durationMinutes || 90;
-      
-      // Check if new game would overlap with existing game on same diamond
-      if (existingGame.diamondId === diamond.id && 
-          timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
-        console.log('Diamond conflict:', { 
-          diamond: diamond.name, 
-          existingTime: existingGame.time, 
-          newTime: slot.time,
-          existingDuration,
-          newDuration: newGameDuration
-        });
-        return { hasConflict: true, reason: 'diamond' };
-      }
-      
-      // Check if either team has an overlapping game (regardless of diamond)
-      const hasTeamOverlap = (
-        existingGame.homeTeamId === activeMatchup.homeTeamId || 
-        existingGame.awayTeamId === activeMatchup.homeTeamId ||
-        existingGame.homeTeamId === activeMatchup.awayTeamId || 
-        existingGame.awayTeamId === activeMatchup.awayTeamId
-      );
-      
-      if (hasTeamOverlap && timeRangesOverlap(slot.time, newGameDuration, existingGame.time, existingDuration)) {
-        console.log('Team conflict detected:', {
-          newMatchup: { home: activeMatchup.homeTeamId, away: activeMatchup.awayTeamId },
-          existingGame: { home: existingGame.homeTeamId, away: existingGame.awayTeamId },
-          newSlot: { date: slot.date, time: slot.time, diamond: diamond.name },
-          existingSlot: { date: existingGame.date, time: existingGame.time, diamond: existingGame.diamondId },
-          existingDuration,
-          newDuration: newGameDuration,
-          overlap: true
-        });
-        return { hasConflict: true, reason: 'team' };
-      }
+  React.useEffect(() => {
+    if (!activeMatchup) {
+      setHoveredCell(null);
+      setDragPosition(null);
+      return;
     }
-    return { hasConflict: false, reason: null };
-  })() : { hasConflict: false, reason: null };
 
-  const hasConflict = conflictInfo.hasConflict;
+    const handleMouseMove = (e: MouseEvent) => {
+      const cellInfo = getSlotFromCoordinates(e.clientX, e.clientY);
+      if (cellInfo) {
+        setHoveredCell({ timeIndex: cellInfo.timeIndex, diamondIndex: cellInfo.diamondIndex });
+      } else {
+        setHoveredCell(null);
+      }
+    };
 
-  const isValid = isOver && !hasConflict;
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, [activeMatchup, getSlotFromCoordinates, setHoveredCell]);
+
+  if (!activeMatchup) return null;
 
   return (
     <div
       ref={setNodeRef}
-      className={`absolute inset-0 flex items-center justify-center transition-all ${
-        activeMatchup ? 'pointer-events-auto z-20' : 'pointer-events-none z-0'
-      } ${
-        !isAvailable && activeMatchup
-          ? 'bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-400 dark:border-gray-500'
-          : hasConflict
-            ? 'bg-red-100 dark:bg-red-900/40 border-2 border-dashed border-[var(--clay-red)] animate-shake' 
-            : isValid 
-              ? 'bg-[var(--field-green)]/20 border-2 border-dashed border-[var(--field-green)] shadow-lg' 
-              : activeMatchup 
-                ? 'bg-blue-50/30 dark:bg-blue-900/10 border-2 border-dashed border-blue-300 dark:border-blue-700'
-                : ''
-      }`}
-      data-testid={`dropzone-${slot.date}-${slot.time}-${diamond.id}`}
-    >
-      {!isAvailable && activeMatchup ? (
-        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          Unavailable
-        </div>
-      ) : null}
-    </div>
+      className="absolute inset-0 pointer-events-auto"
+      style={{
+        gridRow: `1 / -1`,
+        gridColumn: `1 / -1`,
+        zIndex: 5,
+      }}
+    />
   );
 }
 
@@ -350,10 +309,12 @@ function timeRangesOverlap(
 
 export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBuilderProps) {
   const { toast } = useToast();
+  const gridRef = useRef<HTMLDivElement>(null);
   const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(null);
   const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(new Set());
   const [timeInterval, setTimeInterval] = useState<number>(60); // 15, 30, or 60 minutes
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // Selected date for day filter
+  const [hoveredCell, setHoveredCell] = useState<{ timeIndex: number; diamondIndex: number } | null>(null);
 
   // Fetch unplaced matchups
   const { data: matchups = [], isLoading: matchupsLoading, refetch: refetchMatchups } = useQuery<UnplacedMatchup[]>({
@@ -528,6 +489,43 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     },
   });
 
+  // Coordinate-based cell detection (accounts for scroll offsets)
+  const getSlotFromCoordinates = (x: number, y: number) => {
+    if (!gridRef.current) return null;
+    
+    const gridRect = gridRef.current.getBoundingClientRect();
+    
+    // Add scroll offsets to account for horizontal/vertical scrolling
+    const x_offset = x - gridRect.left + gridRef.current.scrollLeft;
+    const y_offset = y - gridRect.top + gridRef.current.scrollTop;
+    
+    const HEADER_ROW_HEIGHT = 40;
+    const TIME_SLOT_HEIGHT = 70;
+    
+    // Adjust for header row
+    const adjustedY = y_offset - HEADER_ROW_HEIGHT;
+    if (adjustedY < 0) return null; // Dropped on header
+    
+    const timeIndex = Math.floor(adjustedY / TIME_SLOT_HEIGHT);
+    const columnWidth = gridRect.width / selectedDiamonds.length;
+    const diamondIndex = Math.floor(x_offset / columnWidth);
+    
+    // Clamp indices to valid ranges
+    const clampedTimeIndex = Math.max(0, Math.min(timeIndex, timeSlots.length - 1));
+    const clampedDiamondIndex = Math.max(0, Math.min(diamondIndex, selectedDiamonds.length - 1));
+    
+    // Validate indices are within bounds
+    if (timeIndex < 0 || timeIndex >= timeSlots.length) return null;
+    if (diamondIndex < 0 || diamondIndex >= selectedDiamonds.length) return null;
+    
+    return {
+      timeSlot: timeSlots[clampedTimeIndex],
+      diamond: selectedDiamonds[clampedDiamondIndex],
+      timeIndex: clampedTimeIndex,
+      diamondIndex: clampedDiamondIndex
+    };
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const matchup = event.active.data.current as UnplacedMatchup;
     setActiveMatchup(matchup);
@@ -535,12 +533,36 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
 
   const handleDragEnd = (event: DragEndEvent) => {
     const matchup = event.active.data.current as UnplacedMatchup;
-    const dropData = event.over?.data.current as { date: string; time: string; diamondId: string } | undefined;
-
-    if (!matchup || !dropData) {
+    
+    if (!matchup) {
       setActiveMatchup(null);
       return;
     }
+
+    // Use coordinate math to determine drop location
+    const rect = event.active.rect.current.translated;
+    if (!rect) {
+      setActiveMatchup(null);
+      return;
+    }
+
+    // Get center point of dragged element
+    const dropX = rect.left + rect.width / 2;
+    const dropY = rect.top + rect.height / 2;
+    
+    const cellInfo = getSlotFromCoordinates(dropX, dropY);
+    
+    if (!cellInfo) {
+      setActiveMatchup(null);
+      return;
+    }
+
+    const { timeSlot, diamond } = cellInfo;
+    const dropData = {
+      date: timeSlot.date,
+      time: timeSlot.time,
+      diamondId: diamond.id
+    };
 
     // Debug logging to diagnose diamond mismatch
     console.log('DROP EVENT:', {
@@ -897,6 +919,7 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                     {/* Scrollable Diamond Grid */}
                     <div className="flex-1 relative">
                       <div 
+                        ref={gridRef}
                         className="grid gap-0 relative"
                         style={{
                           gridTemplateColumns: `repeat(${selectedDiamonds.length}, 1fr)`,
@@ -911,26 +934,40 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
                           </div>
                         ))}
 
-                        {/* Empty drop zones grid */}
-                        {timeSlots.map((slot) => (
+                        {/* Empty cells (just visual grid, no individual drop zones) */}
+                        {timeSlots.map((slot, timeIndex) => (
                           <React.Fragment key={`slot-${slot.date}-${slot.time}`}>
-                            {selectedDiamonds.map((diamond: Diamond) => (
-                              <div 
-                                key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
-                                className="border border-t-0 border-l-0 relative"
-                              >
-                                <DropZone 
-                                  slot={slot} 
-                                  diamond={diamond}
-                                  activeMatchup={activeMatchup}
-                                  allGames={existingGames}
-                                  timeInterval={timeInterval}
-                                  newGameDuration={gameDuration}
+                            {selectedDiamonds.map((diamond: Diamond, diamondIndex) => {
+                              const isAvailable = isTimeAvailable(slot.time, diamond);
+                              const isHovered = hoveredCell?.timeIndex === timeIndex && hoveredCell?.diamondIndex === diamondIndex;
+                              
+                              return (
+                                <div 
+                                  key={`empty-${diamond.id}-${slot.date}-${slot.time}`} 
+                                  className={`border border-t-0 border-l-0 relative transition-colors ${
+                                    !isAvailable 
+                                      ? 'bg-gray-100 dark:bg-gray-800/50' 
+                                      : isHovered 
+                                        ? 'bg-[var(--field-green)]/10' 
+                                        : ''
+                                  }`}
                                 />
-                              </div>
-                            ))}
+                              );
+                            })}
                           </React.Fragment>
                         ))}
+
+                        {/* Single droppable zone overlay for coordinate-based drops */}
+                        <GridDropZone 
+                          activeMatchup={activeMatchup}
+                          allGames={existingGames}
+                          timeInterval={timeInterval}
+                          newGameDuration={gameDuration}
+                          getSlotFromCoordinates={getSlotFromCoordinates}
+                          setHoveredCell={setHoveredCell}
+                          timeSlots={timeSlots}
+                          selectedDiamonds={selectedDiamonds}
+                        />
 
                         {/* Placed games as positioned overlays */}
                         {existingGames.map((game) => {
