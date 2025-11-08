@@ -191,7 +191,20 @@ export interface IStorage {
   validateDiamondRestriction(organizationId: string, division: string, diamondId: string): Promise<boolean>;
   
   // Coordinator methods
-  getOrganizationCoordinators(organizationId: string, role: 'select_coordinator' | 'diamond_coordinator'): Promise<User[]>;
+  getOrganizationCoordinators(organizationId: string, role?: string): Promise<OrganizationCoordinator[]>;
+  getCoordinatorByRole(organizationId: string, role: string): Promise<OrganizationCoordinator | undefined>;
+  createOrganizationCoordinator(coordinator: InsertOrganizationCoordinator): Promise<OrganizationCoordinator>;
+  updateOrganizationCoordinator(id: string, coordinator: Partial<InsertOrganizationCoordinator>, organizationId: string): Promise<OrganizationCoordinator>;
+  deleteOrganizationCoordinator(id: string, organizationId: string): Promise<void>;
+  upsertOrganizationCoordinator(organizationId: string, role: string, coordinator: Partial<InsertOrganizationCoordinator>): Promise<OrganizationCoordinator>;
+  
+  // Coach Invitation methods
+  getCoachInvitations(organizationId: string, status?: string): Promise<CoachInvitation[]>;
+  getCoachInvitationByToken(token: string): Promise<CoachInvitation | undefined>;
+  createCoachInvitation(invitation: InsertCoachInvitation): Promise<CoachInvitation>;
+  updateCoachInvitation(id: string, invitation: Partial<InsertCoachInvitation>, organizationId: string): Promise<CoachInvitation>;
+  acceptCoachInvitation(token: string, userId: string): Promise<CoachInvitation>;
+  revokeCoachInvitation(id: string, organizationId: string): Promise<CoachInvitation>;
   
   // Organization iCal Feed methods
   getOrganizationIcalFeeds(organizationId: string): Promise<OrganizationIcalFeed[]>;

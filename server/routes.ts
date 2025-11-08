@@ -9,7 +9,9 @@ import {
   insertTeamSchema, 
   insertGameSchema,
   gameUpdateSchema,
-  insertAdminRequestSchema
+  insertAdminRequestSchema,
+  insertOrganizationCoordinatorSchema,
+  insertCoachInvitationSchema
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
@@ -17,6 +19,7 @@ import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarant
 import { nanoid } from "nanoid";
 import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { notificationService } from "./lib/notificationService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -3788,6 +3791,188 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error fetching tournament games:", error);
       res.status(500).json({ error: "Failed to fetch tournament games" });
+    }
+  });
+
+  // Organization Coordinator Routes
+  app.get('/api/organizations/:orgId/coordinators', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { role } = req.query;
+      
+      const coordinators = await storage.getOrganizationCoordinators(orgId, role as string | undefined);
+      res.json(coordinators);
+    } catch (error) {
+      console.error("Error fetching coordinators:", error);
+      res.status(500).json({ error: "Failed to fetch coordinators" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/coordinators', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const validatedData = insertOrganizationCoordinatorSchema.parse(req.body);
+      
+      const coordinator = await storage.upsertOrganizationCoordinator(
+        orgId,
+        validatedData.role,
+        validatedData
+      );
+      
+      res.status(201).json(coordinator);
+    } catch (error) {
+      console.error("Error creating/updating coordinator:", error);
+      res.status(400).json({ error: "Failed to create/update coordinator" });
+    }
+  });
+
+  app.put('/api/organizations/:orgId/coordinators/:coordinatorId', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId, coordinatorId } = req.params;
+      const validatedData = insertOrganizationCoordinatorSchema.partial().parse(req.body);
+      
+      const coordinator = await storage.updateOrganizationCoordinator(coordinatorId, validatedData, orgId);
+      res.json(coordinator);
+    } catch (error) {
+      console.error("Error updating coordinator:", error);
+      res.status(400).json({ error: "Failed to update coordinator" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/coordinators/:coordinatorId', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId, coordinatorId } = req.params;
+      await storage.deleteOrganizationCoordinator(coordinatorId, orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting coordinator:", error);
+      res.status(500).json({ error: "Failed to delete coordinator" });
+    }
+  });
+
+  // Coach Invitation Routes
+  app.get('/api/organizations/:orgId/invitations', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { status } = req.query;
+      
+      const invitations = await storage.getCoachInvitations(orgId, status as string | undefined);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ error: "Failed to fetch invitations" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/invitations', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const token = nanoid(32);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      
+      const validatedData = insertCoachInvitationSchema.parse({
+        ...req.body,
+        organizationId: orgId,
+        token,
+        expiresAt,
+        invitedBy: userId,
+      });
+      
+      const invitation = await storage.createCoachInvitation(validatedData);
+      
+      const org = await storage.getOrganization(orgId);
+      if (org && invitation.email) {
+        try {
+          const inviteUrl = `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/invitations/${token}`;
+          
+          await notificationService.sendNotification({
+            organizationId: orgId,
+            type: 'approval_requested',
+            channel: 'email',
+            recipient: { email: invitation.email },
+            subject: `Invitation to ${org.name} Booking System`,
+            body: `You've been invited to access the ${org.name} booking system.\n\nClick here to accept: ${inviteUrl}\n\nThis invitation expires on ${expiresAt.toLocaleDateString()}.`,
+          });
+        } catch (emailError) {
+          console.error("Failed to send invitation email:", emailError);
+        }
+      }
+      
+      res.status(201).json(invitation);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(400).json({ error: "Failed to create invitation" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/invitations/:invitationId', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId, invitationId } = req.params;
+      await storage.revokeCoachInvitation(invitationId, orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error revoking invitation:", error);
+      res.status(400).json({ error: "Failed to revoke invitation" });
+    }
+  });
+
+  // Public invitation routes (no auth or isAuthenticated only)
+  app.get('/api/invitations/:token', async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const invitation = await storage.getCoachInvitationByToken(token);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation has been ${invitation.status}` });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      const org = await storage.getOrganization(invitation.organizationId);
+      res.json({
+        email: invitation.email,
+        organizationName: org?.name,
+        expiresAt: invitation.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error validating invitation:", error);
+      res.status(500).json({ error: "Failed to validate invitation" });
+    }
+  });
+
+  app.post('/api/invitations/:token/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const invitation = await storage.getCoachInvitationByToken(token);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation has already been ${invitation.status}` });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      const acceptedInvitation = await storage.acceptCoachInvitation(token, userId);
+      res.json(acceptedInvitation);
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(400).json({ error: "Failed to accept invitation" });
     }
   });
 
