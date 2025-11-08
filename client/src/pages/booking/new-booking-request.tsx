@@ -22,7 +22,10 @@ const bookingFormSchema = z.object({
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   diamondId: z.string().min(1, "Please select a diamond"),
-  purpose: z.string().optional(),
+  purpose: z.enum(["practice", "game"], {
+    required_error: "Please select a purpose",
+  }),
+  opponentName: z.string().optional(),
   requiresUmpire: z.boolean().default(false),
   notes: z.string().optional(),
 }).refine((data) => {
@@ -33,6 +36,14 @@ const bookingFormSchema = z.object({
 }, {
   message: "End time must be after start time",
   path: ["endTime"],
+}).refine((data) => {
+  if (data.purpose === "game" && !data.opponentName?.trim()) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Opponent name is required for games",
+  path: ["opponentName"],
 });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
@@ -81,7 +92,8 @@ export default function NewBookingRequest() {
       startTime: "",
       endTime: "",
       diamondId: "",
-      purpose: "",
+      purpose: "practice",
+      opponentName: "",
       requiresUmpire: false,
       notes: "",
     },
@@ -89,6 +101,7 @@ export default function NewBookingRequest() {
 
   const selectedTeamId = form.watch("houseLeagueTeamId");
   const selectedTeam = teams?.find(t => t.id === selectedTeamId);
+  const purpose = form.watch("purpose");
   
   const getRestrictionForDivision = (division: string | undefined) => {
     if (!division || !restrictions) return null;
@@ -132,12 +145,20 @@ export default function NewBookingRequest() {
     }
   }, [selectedTeamId, diamonds, restrictions]);
 
+  // Auto-check requiresUmpire when purpose is "game"
+  useEffect(() => {
+    if (purpose === "game") {
+      form.setValue("requiresUmpire", true);
+    }
+  }, [purpose, form]);
+
   const saveDraftMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
       return await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
         method: "POST",
         body: JSON.stringify({
           ...data,
+          bookingType: data.purpose,
           status: "draft",
         }),
       });
@@ -167,6 +188,7 @@ export default function NewBookingRequest() {
           method: "POST",
           body: JSON.stringify({
             ...data,
+            bookingType: data.purpose,
             status: "draft",
           }),
         });
@@ -368,14 +390,45 @@ export default function NewBookingRequest() {
                   name="purpose"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purpose</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Regular practice, Tournament game" {...field} data-testid="input-purpose" />
-                      </FormControl>
+                      <FormLabel>Purpose *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-purpose">
+                            <SelectValue placeholder="Select purpose" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="practice" data-testid="option-purpose-practice">
+                            Practice
+                          </SelectItem>
+                          <SelectItem value="game" data-testid="option-purpose-game">
+                            Game
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {purpose === "game" && (
+                  <FormField
+                    control={form.control}
+                    name="opponentName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Opponent *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter opponent team name" {...field} data-testid="input-opponent-name" />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the name of the team you'll be playing against
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <FormField
                   control={form.control}
@@ -392,7 +445,9 @@ export default function NewBookingRequest() {
                       <div className="space-y-1 leading-none">
                         <FormLabel>Requires Umpire</FormLabel>
                         <FormDescription>
-                          Check this if you need an umpire for this booking
+                          {purpose === "game" 
+                            ? "Umpires are required for games" 
+                            : "Check this if you need an umpire for this booking"}
                         </FormDescription>
                       </div>
                     </FormItem>
