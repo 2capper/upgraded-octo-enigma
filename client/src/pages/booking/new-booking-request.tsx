@@ -154,11 +154,16 @@ export default function NewBookingRequest() {
 
   const saveDraftMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
+      const startTime = new Date(`2000-01-01T${data.startTime}`);
+      const endTime = new Date(`2000-01-01T${data.endTime}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+      
       return await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
         method: "POST",
         body: JSON.stringify({
           ...data,
           bookingType: data.purpose,
+          durationMinutes,
           status: "draft",
         }),
       });
@@ -183,12 +188,17 @@ export default function NewBookingRequest() {
     mutationFn: async (data: BookingFormData) => {
       let draftRequestId: string | null = null;
       
+      const startTime = new Date(`2000-01-01T${data.startTime}`);
+      const endTime = new Date(`2000-01-01T${data.endTime}`);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+      
       try {
         const request = await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
           method: "POST",
           body: JSON.stringify({
             ...data,
             bookingType: data.purpose,
+            durationMinutes,
             status: "draft",
           }),
         });
