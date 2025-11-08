@@ -1,0 +1,68 @@
+Your current algorithm is accidentally creating an imbalanced set of 18 games. For example, it might be generating this for a pool:
+
+A vs. B
+
+A vs. C
+
+A vs. D
+
+B vs. C
+
+B vs. D
+
+A vs. B (a duplicate!)
+
+In this bad example, Team A and B play 4 games, Team D only plays 2, and Team C plays 3. This is the bug.
+
+3. The Fix: A Bulletproof Round Robin Algorithm
+To fix this, you must use a simple, "nested loop" round robin. This algorithm mathematically guarantees that every team plays every other team exactly once.
+
+When your "Generate Matchups" API endpoint runs, this is the logic it should use:
+
+TypeScript
+
+// On your SERVER, inside the "generate-matchups" endpoint:
+
+// 1. Get all the pools for this division (which you are already doing).
+const pools = await db.getPools(divisionId);
+
+// 2. Get all teams for this division (which you are also doing).
+const allTeams = await db.getTeams(tournamentId, divisionId);
+
+const allMatchups = [];
+
+// 3. Loop through EACH pool
+for (const pool of pools) {
+  
+  // 4. Find the teams that are IN this pool
+  const teamsInThisPool = allTeams.filter(t => t.poolId === pool.id);
+  
+  // --- THIS IS THE BULLETPROOF ALGORITHM ---
+  // 5. Use a nested loop to create unique pairs
+  for (let i = 0; i < teamsInThisPool.length; i++) {
+    for (let j = i + 1; j < teamsInThisPool.length; j++) {
+      
+      // This ensures you get A vs B, but never B vs A (a duplicate)
+      // or A vs A (self-play).
+      
+      const homeTeam = teamsInThisPool[i];
+      const awayTeam = teamsInThisPool[j];
+      
+      allMatchups.push({
+        id: nanoid(), // Create a new ID for the matchup
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        poolId: pool.id,
+        poolName: pool.name,
+        tournamentId: tournamentId,
+      });
+    }
+  }
+  // --- END OF ALGORITHM ---
+}
+
+// 6. Return allMatchups
+return { matchups: allMatchups };
+This logic will generate exactly 6 games per 4-team pool and will guarantee that every single team has exactly 3 games.
+
+Replace your current matchup generation logic with this, and your problem will be solved.
