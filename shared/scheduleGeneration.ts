@@ -96,36 +96,24 @@ interface GameInfo {
 /**
  * Generate round-robin matchups for a list of teams
  * Returns an array of [homeTeamIndex, awayTeamIndex] pairs
- * Uses the circle method algorithm for round-robin scheduling
+ * Uses simple nested loop to guarantee each team plays every other team exactly once
  */
 export function generateRoundRobinMatchups(teamCount: number): [number, number][] {
   const matchups: [number, number][] = [];
   
   if (teamCount < 2) return matchups;
   
-  // For odd number of teams, add a "bye" placeholder (will be filtered out)
-  const isOdd = teamCount % 2 === 1;
-  const totalSlots = isOdd ? teamCount + 1 : teamCount;
-  
-  // Create array of team indices (0 to teamCount-1, plus -1 for bye if odd)
-  const teams = Array.from({ length: totalSlots }, (_, i) => i < teamCount ? i : -1);
-  
-  // Round-robin: fix position 0, rotate others
-  for (let round = 0; round < totalSlots - 1; round++) {
-    // Pair teams for this round
-    for (let i = 0; i < totalSlots / 2; i++) {
-      const home = teams[i];
-      const away = teams[totalSlots - 1 - i];
-      
-      // Skip if either team is the bye (-1)
-      if (home === -1 || away === -1) continue;
-      
-      matchups.push([home, away]);
+  // Simple nested loop round-robin: guarantees balanced matchups
+  // For i=0 to n-1, for j=i+1 to n-1, create matchup [i, j]
+  // This ensures:
+  // - No duplicates (A vs B but never B vs A)
+  // - No self-play (A vs A)
+  // - Each team plays exactly (n-1) games
+  // - Total matchups = n * (n-1) / 2
+  for (let i = 0; i < teamCount; i++) {
+    for (let j = i + 1; j < teamCount; j++) {
+      matchups.push([i, j]);
     }
-    
-    // Rotate all positions except position 0
-    const last = teams.pop()!;
-    teams.splice(1, 0, last);
   }
   
   return matchups;
