@@ -94,10 +94,9 @@ interface GameInfo {
 }
 
 /**
- * Generate round-robin matchups for a list of teams
- * Returns an array of [homeTeamIndex, awayTeamIndex] pairs
- * Uses the circle method algorithm for balanced round-robin scheduling
- * This groups matchups into rounds where no team plays twice, ensuring proper rest
+ * Generate round-robin matchups for automated scheduling
+ * Returns matchups grouped by rounds to prevent consecutive games for same team
+ * Uses circle method for balanced round distribution
  */
 export function generateRoundRobinMatchups(teamCount: number): [number, number][] {
   const matchups: [number, number][] = [];
@@ -128,6 +127,27 @@ export function generateRoundRobinMatchups(teamCount: number): [number, number][
     // Rotate all positions except position 0
     const last = teams.pop()!;
     teams.splice(1, 0, last);
+  }
+  
+  return matchups;
+}
+
+/**
+ * Generate simple round-robin matchups for drag-and-drop scheduling
+ * Order doesn't matter since admin manually places games
+ * Returns all unique team pairings
+ */
+export function generateSimpleMatchups(teamCount: number): [number, number][] {
+  const matchups: [number, number][] = [];
+  
+  if (teamCount < 2) return matchups;
+  
+  // Create all unique pairings: for n teams, generates n*(n-1)/2 matchups
+  // Each team plays exactly (n-1) games
+  for (let i = 0; i < teamCount; i++) {
+    for (let j = i + 1; j < teamCount; j++) {
+      matchups.push([i, j]);
+    }
   }
   
   return matchups;
@@ -453,8 +473,8 @@ export function generateUnplacedMatchups(
       return;
     }
     
-    // Generate round-robin matchups
-    const roundRobinMatchups = generateRoundRobinMatchups(teamCount);
+    // Generate simple matchups for drag-and-drop (order doesn't matter)
+    const roundRobinMatchups = generateSimpleMatchups(teamCount);
     const naturalMinGames = calculateMinGamesPerTeam(teamCount);
     
     // Determine how many times to run round-robin to meet guarantee
@@ -486,23 +506,6 @@ export function generateUnplacedMatchups(
     }
     
     poolCounts[pool.id] = poolMatchupCount;
-    
-    // Debugging: Verify balanced matchups per team
-    const teamGameCounts: Record<string, number> = {};
-    teamIds.forEach(id => teamGameCounts[id] = 0);
-    
-    // Count games for each team in this pool's matchups
-    matchups
-      .filter(m => m.poolId === pool.id)
-      .forEach(m => {
-        teamGameCounts[m.homeTeamId] = (teamGameCounts[m.homeTeamId] || 0) + 1;
-        teamGameCounts[m.awayTeamId] = (teamGameCounts[m.awayTeamId] || 0) + 1;
-      });
-    
-    console.log(`Pool ${pool.name} (${teamCount} teams, ${poolMatchupCount} matchups):`);
-    console.log('  Team IDs:', teamIds);
-    console.log('  Games per team:', teamGameCounts);
-    console.log('  Expected games per team:', naturalMinGames * roundsNeeded);
   });
   
   return {
