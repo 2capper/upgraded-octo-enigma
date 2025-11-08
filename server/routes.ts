@@ -3594,6 +3594,115 @@ Waterdown 10U AA
     }
   });
 
+  // iCal Feed Management (Admin only)
+  app.get('/api/organizations/:orgId/ical-feeds', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const feeds = await storage.getOrganizationIcalFeeds(orgId);
+      res.json(feeds);
+    } catch (error) {
+      console.error("Error fetching iCal feeds:", error);
+      res.status(500).json({ error: "Failed to fetch iCal feeds" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/ical-feeds', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { name, url, diamondMapping } = req.body;
+      
+      if (!name || !url) {
+        return res.status(400).json({ error: "Name and URL are required" });
+      }
+      
+      const feed = await storage.createOrganizationIcalFeed({
+        id: nanoid(),
+        organizationId: orgId,
+        name,
+        url,
+        diamondMapping: diamondMapping || null,
+        lastSyncedAt: null,
+        lastSyncError: null,
+      });
+      
+      res.status(201).json(feed);
+    } catch (error) {
+      console.error("Error creating iCal feed:", error);
+      res.status(500).json({ error: "Failed to create iCal feed" });
+    }
+  });
+
+  app.put('/api/organizations/:orgId/ical-feeds/:feedId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, feedId } = req.params;
+      const { name, url, diamondMapping } = req.body;
+      
+      const feed = await storage.updateOrganizationIcalFeed(feedId, {
+        name,
+        url,
+        diamondMapping: diamondMapping || null,
+      }, orgId);
+      
+      res.json(feed);
+    } catch (error) {
+      console.error("Error updating iCal feed:", error);
+      res.status(500).json({ error: "Failed to update iCal feed" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/ical-feeds/:feedId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, feedId } = req.params;
+      
+      await storage.deleteExternalCalendarEventsByFeed(feedId);
+      await storage.deleteOrganizationIcalFeed(feedId, orgId);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting iCal feed:", error);
+      res.status(500).json({ error: "Failed to delete iCal feed" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/ical-feeds/:feedId/sync', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, feedId } = req.params;
+      
+      const org = await storage.getOrganization(orgId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      const { syncSingleFeed } = await import('./services/calendar-sync');
+      const result = await syncSingleFeed(feedId, orgId, org.timezone || 'America/Toronto');
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing iCal feed:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to sync iCal feed" });
+    }
+  });
+
+  // External Calendar Events (Read-only for now)
+  app.get('/api/organizations/:orgId/external-events', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { icalFeedId, startDate, endDate, diamondId } = req.query;
+      
+      const events = await storage.getExternalCalendarEvents(orgId, {
+        icalFeedId: icalFeedId as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+        diamondId: diamondId as string | undefined,
+      });
+      
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching external events:", error);
+      res.status(500).json({ error: "Failed to fetch external events" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
