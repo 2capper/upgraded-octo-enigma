@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, ClipboardList, Users, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { TeamManagement } from "@/components/booking/team-management";
+import { BookingRequestList } from "@/components/booking/booking-request-list";
+import { CoordinatorApprovalDashboard } from "@/components/booking/coordinator-approval-dashboard";
 
 export default function BookingDashboard() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -71,38 +73,29 @@ export default function BookingDashboard() {
           </TabsList>
 
           <TabsContent value="requests">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>My Booking Requests</CardTitle>
-                    <CardDescription>View and manage your diamond booking requests</CardDescription>
-                  </div>
-                  <Link href={`/booking/${orgId}/new-request`}>
-                    <Button data-testid="button-new-request">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      New Request
-                    </Button>
-                  </Link>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">My Booking Requests</h3>
+                  <p className="text-sm text-gray-500">View and manage your diamond booking requests</p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500 text-center py-8">Booking request list will appear here</p>
-              </CardContent>
-            </Card>
+                <Link href={`/booking/${orgId}/new-request`}>
+                  <Button data-testid="button-new-request">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    New Request
+                  </Button>
+                </Link>
+              </div>
+              <BookingRequestList organizationId={orgId!} />
+            </div>
           </TabsContent>
 
           {isCoordinator && (
             <TabsContent value="approvals">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pending Approvals</CardTitle>
-                  <CardDescription>Review and approve diamond booking requests</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500 text-center py-8">Pending approvals will appear here</p>
-                </CardContent>
-              </Card>
+              <CoordinatorApprovalDashboard
+                organizationId={orgId!}
+                userRole={userRole?.role || ""}
+              />
             </TabsContent>
           )}
 
