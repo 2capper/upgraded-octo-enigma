@@ -29,6 +29,13 @@
       "when": 1762537621354,
       "tag": "0003_redundant_justice",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762580687450,
+      "tag": "0004_lively_serpent_society",
+      "breakpoints": true
     }
   ]
 }

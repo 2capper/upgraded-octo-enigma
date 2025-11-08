@@ -461,6 +461,141 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// =============================================
+// FOREST GLADE BOOKING SYSTEM TABLES
+// =============================================
+
+// House league teams for Forest Glade organization
+export const houseLeagueTeams = pgTable("house_league_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Team details
+  name: text("name").notNull(),
+  division: text("division").notNull(), // "9U" | "11U" | "13U" | "15U" | "18U" | "Senior Mens" | "T-Ball"
+  
+  // Coach information
+  coachFirstName: text("coach_first_name"),
+  coachLastName: text("coach_last_name"),
+  coachEmail: text("coach_email"),
+  coachPhone: text("coach_phone"),
+  coachUserId: varchar("coach_user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // External data sync
+  externalTeamId: text("external_team_id"), // ID from Forest Glade website
+  lastSyncedAt: timestamp("last_synced_at"),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Booking requests for diamonds, practices, and batting cage
+export const bookingRequests = pgTable("booking_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  houseLeagueTeamId: varchar("house_league_team_id").notNull().references(() => houseLeagueTeams.id, { onDelete: "cascade" }),
+  
+  // Booking details
+  bookingType: text("booking_type").notNull(), // "game" | "practice" | "batting_cage"
+  date: text("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  
+  // Diamond/facility
+  diamondId: varchar("diamond_id").references(() => diamonds.id, { onDelete: "set null" }),
+  requestedDiamondName: text("requested_diamond_name"), // Fallback if diamond not in system
+  
+  // Opponent (for games)
+  opponentTeamId: varchar("opponent_team_id").references(() => houseLeagueTeams.id, { onDelete: "set null" }),
+  opponentName: text("opponent_name"), // External opponent
+  
+  // Game details
+  requiresUmpire: boolean("requires_umpire").notNull().default(false),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Workflow state
+  status: text("status").notNull().default("draft"), // "draft" | "submitted" | "select_coordinator_approved" | "diamond_coordinator_approved" | "confirmed" | "declined" | "cancelled"
+  
+  // Tracking
+  submittedBy: varchar("submitted_by").notNull().references(() => users.id),
+  submittedAt: timestamp("submitted_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Approval workflow audit trail
+export const bookingApprovals = pgTable("booking_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingRequestId: varchar("booking_request_id").notNull().references(() => bookingRequests.id, { onDelete: "cascade" }),
+  
+  // Approval details
+  approverRole: text("approver_role").notNull(), // "select_coordinator" | "diamond_coordinator"
+  approverId: varchar("approver_id").notNull().references(() => users.id),
+  decision: text("decision").notNull(), // "approved" | "declined"
+  
+  // Feedback
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Diamond access restrictions by division
+export const diamondRestrictions = pgTable("diamond_restrictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Restriction details
+  division: text("division").notNull(), // "15U" | "18U" | etc
+  allowedDiamonds: text("allowed_diamonds").array().notNull(), // ["TWF", "BAF"] for 15U/18U
+  
+  // Metadata
+  reason: text("reason"), // "Diamond size requirements"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("diamond_restriction_org_division_idx").on(table.organizationId, table.division),
+]);
+
+// Notification log for all email and SMS communications
+export const notificationLog = pgTable("notification_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  bookingRequestId: varchar("booking_request_id").references(() => bookingRequests.id, { onDelete: "cascade" }),
+  
+  // Notification details
+  notificationType: text("notification_type").notNull(), // "booking_submitted" | "approval_requested" | "approved" | "declined" | "uic_notification"
+  channel: text("channel").notNull(), // "email" | "sms"
+  
+  // Recipient
+  recipientUserId: varchar("recipient_user_id").references(() => users.id, { onDelete: "set null" }),
+  recipientEmail: text("recipient_email"),
+  recipientPhone: text("recipient_phone"),
+  
+  // Content
+  subject: text("subject"),
+  body: text("body").notNull(),
+  
+  // Delivery status
+  status: text("status").notNull().default("pending"), // "pending" | "sent" | "failed"
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  failureReason: text("failure_reason"),
+  
+  // Provider tracking
+  providerMessageId: text("provider_message_id"), // Twilio or SendGrid message ID
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   tournaments: many(tournaments),
@@ -664,6 +799,34 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   createdAt: true,
 });
 
+export const insertHouseLeagueTeamSchema = createInsertSchema(houseLeagueTeams).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBookingApprovalSchema = createInsertSchema(bookingApprovals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDiamondRestrictionSchema = createInsertSchema(diamondRestrictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNotificationLogSchema = createInsertSchema(notificationLog).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Game update validation schema with strict score validation
 export const gameUpdateSchema = insertGameSchema.partial().extend({
   homeScore: z.number().int().min(0).max(50).optional().nullable(),
@@ -769,3 +932,18 @@ export type InsertDraftPool = z.infer<typeof insertDraftPoolSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type HouseLeagueTeam = typeof houseLeagueTeams.$inferSelect;
+export type InsertHouseLeagueTeam = z.infer<typeof insertHouseLeagueTeamSchema>;
+
+export type BookingRequest = typeof bookingRequests.$inferSelect;
+export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
+
+export type BookingApproval = typeof bookingApprovals.$inferSelect;
+export type InsertBookingApproval = z.infer<typeof insertBookingApprovalSchema>;
+
+export type DiamondRestriction = typeof diamondRestrictions.$inferSelect;
+export type InsertDiamondRestriction = z.infer<typeof insertDiamondRestrictionSchema>;
+
+export type NotificationLog = typeof notificationLog.$inferSelect;
+export type InsertNotificationLog = z.infer<typeof insertNotificationLogSchema>;
