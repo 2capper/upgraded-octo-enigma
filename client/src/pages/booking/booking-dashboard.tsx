@@ -4,11 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ClipboardList, Users, Settings, PlusCircle } from "lucide-react";
+import { Calendar, ClipboardList, Users, Settings, PlusCircle, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
 import { TeamManagement } from "@/components/booking/team-management";
 import { BookingRequestList } from "@/components/booking/booking-request-list";
 import { CoordinatorApprovalDashboard } from "@/components/booking/coordinator-approval-dashboard";
+import { BookingReports } from "@/components/booking/booking-reports";
 
 export default function BookingDashboard() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -65,6 +66,12 @@ export default function BookingDashboard() {
               </TabsTrigger>
             )}
             {isAdmin && (
+              <TabsTrigger value="reports" data-testid="tab-reports">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Reports
+              </TabsTrigger>
+            )}
+            {isAdmin && (
               <TabsTrigger value="settings" data-testid="tab-settings">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
@@ -110,6 +117,12 @@ export default function BookingDashboard() {
           {isAdmin && (
             <TabsContent value="teams">
               <TeamManagement organizationId={orgId!} />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="reports">
+              <BookingReports organizationId={orgId!} />
             </TabsContent>
           )}
 

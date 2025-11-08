@@ -3210,6 +3210,185 @@ Waterdown 10U AA
     }
   });
 
+  // Booking Reports - Diamond Utilization
+  app.get('/api/organizations/:orgId/reports/diamond-utilization', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const bookings = await storage.getBookingRequests(orgId, {
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+      });
+      
+      const diamonds = await storage.getDiamonds(orgId);
+      
+      const utilizationMap = new Map();
+      
+      for (const diamond of diamonds) {
+        utilizationMap.set(diamond.id, {
+          diamondId: diamond.id,
+          diamondName: diamond.name,
+          totalBookings: 0,
+          totalHours: 0,
+          confirmedBookings: 0,
+          confirmedHours: 0,
+          peakHours: [],
+        });
+      }
+      
+      for (const booking of bookings) {
+        if (!booking.diamondId) continue;
+        
+        const util = utilizationMap.get(booking.diamondId);
+        if (!util) continue;
+        
+        const duration = booking.durationMinutes / 60;
+        util.totalBookings++;
+        util.totalHours += duration;
+        
+        if (booking.status === 'diamond_coordinator_approved' || booking.status === 'confirmed') {
+          util.confirmedBookings++;
+          util.confirmedHours += duration;
+        }
+      }
+      
+      res.json(Array.from(utilizationMap.values()));
+    } catch (error) {
+      console.error("Error fetching diamond utilization:", error);
+      res.status(500).json({ error: "Failed to fetch diamond utilization" });
+    }
+  });
+
+  // Booking Reports - Division Statistics
+  app.get('/api/organizations/:orgId/reports/division-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const bookings = await storage.getBookingRequests(orgId, {
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+      });
+      
+      const teams = await storage.getHouseLeagueTeams(orgId);
+      const teamMap = new Map(teams.map(t => [t.id, t]));
+      
+      const divisionMap = new Map();
+      
+      for (const booking of bookings) {
+        const team = teamMap.get(booking.houseLeagueTeamId);
+        if (!team) continue;
+        
+        const division = team.division;
+        if (!divisionMap.has(division)) {
+          divisionMap.set(division, {
+            division,
+            totalRequests: 0,
+            confirmedRequests: 0,
+            declinedRequests: 0,
+            pendingRequests: 0,
+            totalHours: 0,
+            averageBookingHours: 0,
+          });
+        }
+        
+        const stats = divisionMap.get(division);
+        stats.totalRequests++;
+        stats.totalHours += booking.durationMinutes / 60;
+        
+        if (booking.status === 'diamond_coordinator_approved' || booking.status === 'confirmed') {
+          stats.confirmedRequests++;
+        } else if (booking.status === 'declined') {
+          stats.declinedRequests++;
+        } else if (booking.status === 'submitted' || booking.status === 'select_coordinator_approved') {
+          stats.pendingRequests++;
+        }
+      }
+      
+      const result = Array.from(divisionMap.values()).map(stats => ({
+        ...stats,
+        averageBookingHours: stats.totalRequests > 0 ? stats.totalHours / stats.totalRequests : 0,
+      }));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching division stats:", error);
+      res.status(500).json({ error: "Failed to fetch division stats" });
+    }
+  });
+
+  // Booking Reports - Approval Metrics
+  app.get('/api/organizations/:orgId/reports/approval-metrics', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const bookings = await storage.getBookingRequests(orgId, {
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+      });
+      
+      let totalRequests = bookings.length;
+      let confirmedCount = 0;
+      let declinedCount = 0;
+      let pendingCount = 0;
+      let cancelledCount = 0;
+      let totalApprovalTimeMs = 0;
+      let approvedRequestsWithTime = 0;
+      let selectCoordinatorApprovals = 0;
+      let diamondCoordinatorApprovals = 0;
+      
+      for (const booking of bookings) {
+        if (booking.status === 'diamond_coordinator_approved' || booking.status === 'confirmed') {
+          confirmedCount++;
+          
+          if (booking.submittedAt && booking.confirmedAt) {
+            const submitted = new Date(booking.submittedAt).getTime();
+            const confirmed = new Date(booking.confirmedAt).getTime();
+            totalApprovalTimeMs += (confirmed - submitted);
+            approvedRequestsWithTime++;
+          }
+        } else if (booking.status === 'declined') {
+          declinedCount++;
+        } else if (booking.status === 'submitted' || booking.status === 'select_coordinator_approved') {
+          pendingCount++;
+          
+          if (booking.status === 'select_coordinator_approved') {
+            selectCoordinatorApprovals++;
+          }
+        } else if (booking.status === 'cancelled') {
+          cancelledCount++;
+        }
+        
+        if (booking.status === 'diamond_coordinator_approved' || booking.status === 'confirmed') {
+          diamondCoordinatorApprovals++;
+        }
+      }
+      
+      const averageApprovalTimeHours = approvedRequestsWithTime > 0
+        ? (totalApprovalTimeMs / approvedRequestsWithTime) / (1000 * 60 * 60)
+        : 0;
+      
+      const approvalRate = totalRequests > 0 ? confirmedCount / totalRequests : 0;
+      
+      res.json({
+        totalRequests,
+        confirmedCount,
+        declinedCount,
+        pendingCount,
+        cancelledCount,
+        averageApprovalTimeHours,
+        approvalRate,
+        selectCoordinatorApprovals,
+        diamondCoordinatorApprovals,
+      });
+    } catch (error) {
+      console.error("Error fetching approval metrics:", error);
+      res.status(500).json({ error: "Failed to fetch approval metrics" });
+    }
+  });
+
   // Diamond Restrictions
   app.get('/api/organizations/:orgId/diamond-restrictions', requireOrgAdmin, async (req: any, res) => {
     try {
