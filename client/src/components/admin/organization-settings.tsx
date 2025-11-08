@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb, ShieldAlert } from 'lucide-react';
+import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb, ShieldAlert, Calendar, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +17,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import type { Organization, Diamond, InsertDiamond } from '@shared/schema';
-import { insertDiamondSchema } from '@shared/schema';
+import type { Organization, Diamond, InsertDiamond, OrganizationIcalFeed, InsertOrganizationIcalFeed } from '@shared/schema';
+import { insertDiamondSchema, insertOrganizationIcalFeedSchema } from '@shared/schema';
 import { poolPlayFormats, type PlayoffFormatOption } from '@shared/playoffFormats';
 import { seedingPatternOptions, type SeedingPattern } from '@shared/seedingPatterns';
 
@@ -1064,6 +1065,500 @@ function DiamondRestrictionFormDialog({ organizationId, divisions, diamonds, res
   );
 }
 
+interface ICalFeedFormDialogProps {
+  organizationId: string;
+  feed?: OrganizationIcalFeed;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function ICalFeedFormDialog({ organizationId, feed, isOpen, onOpenChange }: ICalFeedFormDialogProps) {
+  const { toast } = useToast();
+  const isEdit = !!feed;
+
+  const [mappings, setMappings] = useState<Array<{ wordpressLocation: string; diamondId: string }>>(
+    feed?.diamondMapping 
+      ? Object.entries(feed.diamondMapping as Record<string, string>).map(([wordpressLocation, diamondId]) => ({ 
+          wordpressLocation, 
+          diamondId 
+        }))
+      : [{ wordpressLocation: '', diamondId: '' }]
+  );
+
+  const { data: diamonds } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', organizationId, 'diamonds'],
+  });
+
+  const form = useForm<InsertOrganizationIcalFeed>({
+    resolver: zodResolver(insertOrganizationIcalFeedSchema),
+    defaultValues: {
+      organizationId,
+      name: feed?.name || '',
+      feedUrl: feed?.feedUrl || '',
+      diamondMapping: feed?.diamondMapping || {},
+      isActive: feed?.isActive !== undefined ? feed.isActive : true,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertOrganizationIcalFeed) => {
+      return apiRequest('POST', `/api/organizations/${organizationId}/ical-feeds`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'ical-feeds'] });
+      toast({
+        title: "Feed Created",
+        description: "The iCal feed has been created successfully.",
+      });
+      onOpenChange(false);
+      form.reset();
+      setMappings([{ wordpressLocation: '', diamondId: '' }]);
+    },
+    onError: () => {
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create iCal feed. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: InsertOrganizationIcalFeed) => {
+      return apiRequest('PUT', `/api/ical-feeds/${feed?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'ical-feeds'] });
+      toast({
+        title: "Feed Updated",
+        description: "The iCal feed has been updated successfully.",
+      });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update iCal feed. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: InsertOrganizationIcalFeed) => {
+    const diamondMapping = mappings.reduce((acc, mapping) => {
+      if (mapping.wordpressLocation && mapping.diamondId) {
+        acc[mapping.wordpressLocation] = mapping.diamondId;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    const submitData = {
+      ...data,
+      diamondMapping,
+    };
+
+    if (isEdit) {
+      updateMutation.mutate(submitData);
+    } else {
+      createMutation.mutate(submitData);
+    }
+  };
+
+  const addMapping = () => {
+    setMappings([...mappings, { wordpressLocation: '', diamondId: '' }]);
+  };
+
+  const removeMapping = (index: number) => {
+    setMappings(mappings.filter((_, i) => i !== index));
+  };
+
+  const updateMapping = (index: number, field: 'wordpressLocation' | 'diamondId', value: string) => {
+    const updated = [...mappings];
+    updated[index][field] = value;
+    setMappings(updated);
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit iCal Feed' : 'Create iCal Feed'}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? 'Update the iCal feed information and diamond mappings.' : 'Add a WordPress Events Calendar iCal feed to import house league events.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Baseball House League, 13U Division, etc."
+                      data-testid="input-feed-name"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="feedUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>iCal Feed URL *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="url"
+                      placeholder="https://yoursite.com/?ical=1"
+                      data-testid="input-feed-url"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    WordPress Events Calendar iCal feed URL
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Diamond Mappings</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addMapping}
+                  data-testid="button-add-mapping"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Mapping
+                </Button>
+              </div>
+              <FormDescription>
+                Map WordPress location names to your system diamonds. Example locations: "Diamond 1", "Field A", "North Field"
+              </FormDescription>
+
+              {!diamonds || diamonds.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    No diamonds available. Create diamonds first to enable mapping.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
+                  {mappings.map((mapping, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="WordPress location (e.g., Diamond 1)"
+                          value={mapping.wordpressLocation}
+                          onChange={(e) => updateMapping(index, 'wordpressLocation', e.target.value)}
+                          data-testid={`input-wordpress-location-${index}`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Select
+                          value={mapping.diamondId}
+                          onValueChange={(value) => updateMapping(index, 'diamondId', value)}
+                        >
+                          <SelectTrigger data-testid={`select-diamond-mapping-${index}`}>
+                            <SelectValue placeholder="Select diamond" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {diamonds.map((diamond) => (
+                              <SelectItem key={diamond.id} value={diamond.id}>
+                                {diamond.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeMapping(index)}
+                        disabled={mappings.length === 1}
+                        data-testid={`button-remove-mapping-${index}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isPending}
+                data-testid="button-cancel-feed"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending}
+                data-testid="button-save-feed"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isEdit ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>{isEdit ? 'Update Feed' : 'Create Feed'}</>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface ICalFeedManagementProps {
+  organizationId: string;
+}
+
+function ICalFeedManagement({ organizationId }: ICalFeedManagementProps) {
+  const { toast } = useToast();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingFeed, setEditingFeed] = useState<OrganizationIcalFeed | null>(null);
+
+  const { data: feeds, isLoading } = useQuery<OrganizationIcalFeed[]>({
+    queryKey: ['/api/organizations', organizationId, 'ical-feeds'],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (feedId: string) => {
+      return apiRequest('DELETE', `/api/ical-feeds/${feedId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'ical-feeds'] });
+      toast({
+        title: "Feed Deleted",
+        description: "The iCal feed has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete iCal feed. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async (feedId: string) => {
+      return apiRequest('POST', `/api/ical-feeds/${feedId}/sync`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'ical-feeds'] });
+      toast({
+        title: "Sync Complete",
+        description: "The iCal feed has been synchronized successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync Failed",
+        description: error?.message || "Failed to sync iCal feed. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (feed: OrganizationIcalFeed) => {
+    if (confirm(`Are you sure you want to delete "${feed.name}"?`)) {
+      deleteMutation.mutate(feed.id);
+    }
+  };
+
+  const handleSync = (feedId: string) => {
+    syncMutation.mutate(feedId);
+  };
+
+  const getNextSyncTime = (lastSyncAt: string | null) => {
+    if (!lastSyncAt) return 'Not synced yet';
+    const lastSync = new Date(lastSyncAt);
+    const nextSync = new Date(lastSync.getTime() + 8 * 60 * 60 * 1000); // 8 hours
+    return formatDistanceToNow(nextSync, { addSuffix: true });
+  };
+
+  const truncateUrl = (url: string, maxLength: number = 50) => {
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5" />
+          <h3 className="text-lg font-semibold">WordPress Calendar Feeds</h3>
+        </div>
+        <Button
+          onClick={() => setIsCreateOpen(true)}
+          size="sm"
+          data-testid="button-create-ical-feed"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Feed
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Import house league events from WordPress Events Calendar
+      </p>
+
+      {!feeds || feeds.length === 0 ? (
+        <div className="text-center py-8 border rounded-lg bg-muted/30">
+          <Calendar className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">
+            No iCal feeds configured yet. Create one to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>URL</TableHead>
+                <TableHead>Last Synced</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Mappings</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {feeds.map((feed) => (
+                <TableRow key={feed.id} data-testid={`row-ical-feed-${feed.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-feed-name-${feed.id}`}>
+                    {feed.name}
+                  </TableCell>
+                  <TableCell data-testid={`text-feed-url-${feed.id}`}>
+                    <span title={feed.feedUrl} className="text-sm">
+                      {truncateUrl(feed.feedUrl)}
+                    </span>
+                  </TableCell>
+                  <TableCell data-testid={`text-feed-last-sync-${feed.id}`}>
+                    {feed.lastSyncAt ? (
+                      <div className="text-sm">
+                        <div>{formatDistanceToNow(new Date(feed.lastSyncAt), { addSuffix: true })}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Next: {getNextSyncTime(feed.lastSyncAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Never synced</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-feed-status-${feed.id}`}>
+                    {feed.lastSyncStatus === 'success' ? (
+                      <div className="flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm">Active</span>
+                      </div>
+                    ) : feed.lastSyncStatus === 'error' ? (
+                      <div 
+                        className="flex items-center gap-1 text-destructive cursor-help" 
+                        title={feed.lastSyncError || 'Sync failed'}
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">Error</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Pending</span>
+                    )}
+                  </TableCell>
+                  <TableCell data-testid={`text-feed-mappings-${feed.id}`}>
+                    <span className="text-sm">
+                      {feed.diamondMapping ? Object.keys(feed.diamondMapping as Record<string, string>).length : 0} mapping(s)
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSync(feed.id)}
+                        disabled={syncMutation.isPending}
+                        data-testid={`button-sync-ical-feed-${feed.id}`}
+                        title="Sync now"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingFeed(feed)}
+                        data-testid={`button-edit-ical-feed-${feed.id}`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(feed)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-ical-feed-${feed.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <ICalFeedFormDialog
+        organizationId={organizationId}
+        isOpen={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
+
+      {editingFeed && (
+        <ICalFeedFormDialog
+          organizationId={organizationId}
+          feed={editingFeed}
+          isOpen={!!editingFeed}
+          onOpenChange={(open) => !open && setEditingFeed(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function OrganizationSettings() {
   const { toast } = useToast();
 
@@ -1173,6 +1668,11 @@ export function OrganizationSettings() {
                 {/* Diamonds Management Section */}
                 <div className="pt-4 border-t">
                   <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
+                </div>
+
+                {/* iCal Feeds Management Section */}
+                <div className="pt-4 border-t">
+                  <ICalFeedManagement organizationId={org.id} />
                 </div>
 
                 {/* Diamond Restrictions Management Section */}
