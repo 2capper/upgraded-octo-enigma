@@ -16,6 +16,8 @@ import {
   bookingRequests,
   bookingApprovals,
   diamondRestrictions,
+  organizationIcalFeeds,
+  externalCalendarEvents,
   type User, 
   type InsertUser,
   type UpsertUser,
@@ -52,6 +54,10 @@ import {
   type InsertBookingApproval,
   type DiamondRestriction,
   type InsertDiamondRestriction,
+  type OrganizationIcalFeed,
+  type InsertOrganizationIcalFeed,
+  type ExternalCalendarEvent,
+  type InsertExternalCalendarEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -180,6 +186,22 @@ export interface IStorage {
   
   // Coordinator methods
   getOrganizationCoordinators(organizationId: string, role: 'select_coordinator' | 'diamond_coordinator'): Promise<User[]>;
+  
+  // Organization iCal Feed methods
+  getOrganizationIcalFeeds(organizationId: string): Promise<OrganizationIcalFeed[]>;
+  getOrganizationIcalFeed(id: string, organizationId?: string): Promise<OrganizationIcalFeed | undefined>;
+  createOrganizationIcalFeed(feed: InsertOrganizationIcalFeed): Promise<OrganizationIcalFeed>;
+  updateOrganizationIcalFeed(id: string, feed: Partial<InsertOrganizationIcalFeed>, organizationId: string): Promise<OrganizationIcalFeed>;
+  deleteOrganizationIcalFeed(id: string, organizationId: string): Promise<void>;
+  
+  // External Calendar Event methods
+  getExternalCalendarEvents(organizationId: string, filters?: { icalFeedId?: string, startDate?: string, endDate?: string, diamondId?: string }): Promise<ExternalCalendarEvent[]>;
+  getExternalCalendarEvent(id: string): Promise<ExternalCalendarEvent | undefined>;
+  createExternalCalendarEvent(event: InsertExternalCalendarEvent): Promise<ExternalCalendarEvent>;
+  updateExternalCalendarEvent(id: string, event: Partial<InsertExternalCalendarEvent>): Promise<ExternalCalendarEvent>;
+  deleteExternalCalendarEvent(id: string): Promise<void>;
+  upsertExternalCalendarEvent(event: InsertExternalCalendarEvent): Promise<ExternalCalendarEvent>;
+  deleteExternalCalendarEventsByFeed(icalFeedId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1562,6 +1584,115 @@ export class DatabaseStorage implements IStorage {
 
     const userIds = adminRecords.map(record => record.userId);
     return await db.select().from(users).where(inArray(users.id, userIds));
+  }
+
+  // Organization iCal Feed methods
+  async getOrganizationIcalFeeds(organizationId: string): Promise<OrganizationIcalFeed[]> {
+    return await db.select().from(organizationIcalFeeds).where(eq(organizationIcalFeeds.organizationId, organizationId));
+  }
+
+  async getOrganizationIcalFeed(id: string, organizationId?: string): Promise<OrganizationIcalFeed | undefined> {
+    const conditions = [eq(organizationIcalFeeds.id, id)];
+    if (organizationId) {
+      conditions.push(eq(organizationIcalFeeds.organizationId, organizationId));
+    }
+    const [feed] = await db.select().from(organizationIcalFeeds).where(and(...conditions));
+    return feed;
+  }
+
+  async createOrganizationIcalFeed(feed: InsertOrganizationIcalFeed): Promise<OrganizationIcalFeed> {
+    const [result] = await db.insert(organizationIcalFeeds).values(feed).returning();
+    return result;
+  }
+
+  async updateOrganizationIcalFeed(id: string, feed: Partial<InsertOrganizationIcalFeed>, organizationId: string): Promise<OrganizationIcalFeed> {
+    const [result] = await db.update(organizationIcalFeeds).set({
+      ...feed,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(organizationIcalFeeds.id, id),
+      eq(organizationIcalFeeds.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("iCal feed not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async deleteOrganizationIcalFeed(id: string, organizationId: string): Promise<void> {
+    await db.delete(organizationIcalFeeds).where(and(
+      eq(organizationIcalFeeds.id, id),
+      eq(organizationIcalFeeds.organizationId, organizationId)
+    ));
+  }
+
+  // External Calendar Event methods
+  async getExternalCalendarEvents(organizationId: string, filters?: { icalFeedId?: string, startDate?: string, endDate?: string, diamondId?: string }): Promise<ExternalCalendarEvent[]> {
+    const conditions = [eq(externalCalendarEvents.organizationId, organizationId)];
+    
+    if (filters?.icalFeedId) {
+      conditions.push(eq(externalCalendarEvents.icalFeedId, filters.icalFeedId));
+    }
+    if (filters?.diamondId) {
+      conditions.push(eq(externalCalendarEvents.diamondId, filters.diamondId));
+    }
+    if (filters?.startDate) {
+      conditions.push(sql`${externalCalendarEvents.startDate} >= ${filters.startDate}`);
+    }
+    if (filters?.endDate) {
+      conditions.push(sql`${externalCalendarEvents.endDate} <= ${filters.endDate}`);
+    }
+    
+    return await db.select().from(externalCalendarEvents).where(and(...conditions));
+  }
+
+  async getExternalCalendarEvent(id: string): Promise<ExternalCalendarEvent | undefined> {
+    const [event] = await db.select().from(externalCalendarEvents).where(eq(externalCalendarEvents.id, id));
+    return event;
+  }
+
+  async createExternalCalendarEvent(event: InsertExternalCalendarEvent): Promise<ExternalCalendarEvent> {
+    const [result] = await db.insert(externalCalendarEvents).values(event).returning();
+    return result;
+  }
+
+  async updateExternalCalendarEvent(id: string, event: Partial<InsertExternalCalendarEvent>): Promise<ExternalCalendarEvent> {
+    const [result] = await db.update(externalCalendarEvents).set({
+      ...event,
+      updatedAt: new Date(),
+    }).where(eq(externalCalendarEvents.id, id)).returning();
+    
+    if (!result) {
+      throw new Error("External calendar event not found");
+    }
+    
+    return result;
+  }
+
+  async deleteExternalCalendarEvent(id: string): Promise<void> {
+    await db.delete(externalCalendarEvents).where(eq(externalCalendarEvents.id, id));
+  }
+
+  async upsertExternalCalendarEvent(event: InsertExternalCalendarEvent): Promise<ExternalCalendarEvent> {
+    const [result] = await db
+      .insert(externalCalendarEvents)
+      .values(event)
+      .onConflictDoUpdate({
+        target: [externalCalendarEvents.icalFeedId, externalCalendarEvents.externalEventId],
+        set: {
+          ...event,
+          lastSyncedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteExternalCalendarEventsByFeed(icalFeedId: string): Promise<void> {
+    await db.delete(externalCalendarEvents).where(eq(externalCalendarEvents.icalFeedId, icalFeedId));
   }
 }
 
