@@ -16,6 +16,8 @@ import PublicDirectory from "@/pages/public-directory";
 import TournamentRegistrationComingSoon from "@/pages/coming-soon/tournament-registration";
 import TournamentCommsComingSoon from "@/pages/coming-soon/tournament-comms";
 import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
+import BookingDashboard from "@/pages/booking/booking-dashboard";
+import NewBookingRequest from "@/pages/booking/new-booking-request";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -79,6 +81,14 @@ function Router() {
       <Route path="/coming-soon/tournament-registration" component={TournamentRegistrationComingSoon} />
       <Route path="/coming-soon/tournament-comms" component={TournamentCommsComingSoon} />
       <Route path="/coming-soon/schedule-builder" component={ScheduleBuilderComingSoon} />
+      
+      {/* Booking module routes - protected */}
+      <Route path="/booking/:orgId">
+        {() => <RequireAuth component={BookingDashboard} />}
+      </Route>
+      <Route path="/booking/:orgId/new-request">
+        {() => <RequireAuth component={NewBookingRequest} />}
+      </Route>
       
       {/* Protected admin routes */}
       <Route path="/admin-portal/:tournamentId?">

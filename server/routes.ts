@@ -313,6 +313,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/organizations/:organizationId/user-role", isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const admins = await storage.getOrganizationAdmins(organizationId);
+      const userAdmin = admins.find(admin => admin.userId === userId);
+      
+      if (!userAdmin) {
+        return res.json({ isAdmin: false, role: null });
+      }
+      
+      res.json({
+        isAdmin: true,
+        role: userAdmin.role
+      });
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+      res.status(500).json({ error: "Failed to fetch user role" });
+    }
+  });
+
   app.get("/api/users/:userId/organizations", isAuthenticated, async (req: any, res) => {
     try {
       const requestingUserId = req.user.claims.sub;
