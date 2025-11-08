@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Users, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { nanoid } from 'nanoid';
 import type { Team, Pool } from '@shared/schema';
 
 interface PoolAssignmentProps {
@@ -254,6 +255,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       for (let i = 0; i < numberOfPools; i++) {
         promises.push(
           apiRequest('POST', `/api/tournaments/${tournamentId}/pools`, {
+            id: nanoid(),
             name: getPoolName(i),
             ageDivisionId: divisionId,
           })
