@@ -12,6 +12,10 @@ import {
   auditLogs,
   adminRequests,
   featureFlags,
+  houseLeagueTeams,
+  bookingRequests,
+  bookingApprovals,
+  diamondRestrictions,
   type User, 
   type InsertUser,
   type UpsertUser,
@@ -39,7 +43,15 @@ import {
   type AdminRequest,
   type InsertAdminRequest,
   type FeatureFlag,
-  type InsertFeatureFlag
+  type InsertFeatureFlag,
+  type HouseLeagueTeam,
+  type InsertHouseLeagueTeam,
+  type BookingRequest,
+  type InsertBookingRequest,
+  type BookingApproval,
+  type InsertBookingApproval,
+  type DiamondRestriction,
+  type InsertDiamondRestriction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -139,6 +151,32 @@ export interface IStorage {
   
   // Playoff bracket generation
   generatePlayoffBracket(tournamentId: string, divisionId: string): Promise<Game[]>;
+  
+  // House League Team methods
+  getHouseLeagueTeams(organizationId: string): Promise<HouseLeagueTeam[]>;
+  getHouseLeagueTeam(id: string, organizationId?: string): Promise<HouseLeagueTeam | undefined>;
+  createHouseLeagueTeam(team: InsertHouseLeagueTeam): Promise<HouseLeagueTeam>;
+  updateHouseLeagueTeam(id: string, team: Partial<InsertHouseLeagueTeam>, organizationId: string): Promise<HouseLeagueTeam>;
+  deleteHouseLeagueTeam(id: string, organizationId: string): Promise<void>;
+  
+  // Booking Request methods
+  getBookingRequests(organizationId: string, filters: { status?: string, teamId?: string, startDate?: string, endDate?: string }): Promise<BookingRequest[]>;
+  getBookingRequest(id: string, organizationId?: string): Promise<BookingRequest | undefined>;
+  createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest>;
+  updateBookingRequest(id: string, request: Partial<InsertBookingRequest>, organizationId: string): Promise<BookingRequest>;
+  submitBookingRequest(id: string, userId: string, organizationId: string): Promise<BookingRequest>;
+  cancelBookingRequest(id: string, organizationId: string): Promise<BookingRequest>;
+  processBookingApproval(requestId: string, approval: InsertBookingApproval, organizationId: string): Promise<{ request: BookingRequest, approval: BookingApproval }>;
+  
+  // Diamond Restriction methods
+  getDiamondRestrictions(organizationId: string): Promise<DiamondRestriction[]>;
+  createDiamondRestriction(restriction: InsertDiamondRestriction): Promise<DiamondRestriction>;
+  updateDiamondRestriction(id: string, restriction: Partial<InsertDiamondRestriction>): Promise<DiamondRestriction>;
+  deleteDiamondRestriction(id: string): Promise<void>;
+  validateDiamondRestriction(organizationId: string, division: string, diamondId: string): Promise<boolean>;
+  
+  // Coordinator methods
+  getOrganizationCoordinators(organizationId: string, role: 'select_coordinator' | 'diamond_coordinator'): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1257,6 +1295,244 @@ export class DatabaseStorage implements IStorage {
     const createdGames = await db.insert(games).values(playoffGamesToInsert).returning();
     
     return createdGames;
+  }
+
+  // House League Team methods
+  async getHouseLeagueTeams(organizationId: string): Promise<HouseLeagueTeam[]> {
+    return await db.select().from(houseLeagueTeams).where(eq(houseLeagueTeams.organizationId, organizationId));
+  }
+
+  async getHouseLeagueTeam(id: string, organizationId?: string): Promise<HouseLeagueTeam | undefined> {
+    const conditions = [eq(houseLeagueTeams.id, id)];
+    if (organizationId) {
+      conditions.push(eq(houseLeagueTeams.organizationId, organizationId));
+    }
+    const [team] = await db.select().from(houseLeagueTeams).where(and(...conditions));
+    return team;
+  }
+
+  async createHouseLeagueTeam(team: InsertHouseLeagueTeam): Promise<HouseLeagueTeam> {
+    const [result] = await db.insert(houseLeagueTeams).values(team).returning();
+    return result;
+  }
+
+  async updateHouseLeagueTeam(id: string, team: Partial<InsertHouseLeagueTeam>, organizationId: string): Promise<HouseLeagueTeam> {
+    const [result] = await db.update(houseLeagueTeams).set({
+      ...team,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(houseLeagueTeams.id, id),
+      eq(houseLeagueTeams.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Team not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async deleteHouseLeagueTeam(id: string, organizationId: string): Promise<void> {
+    const result = await db.delete(houseLeagueTeams).where(and(
+      eq(houseLeagueTeams.id, id),
+      eq(houseLeagueTeams.organizationId, organizationId)
+    )).returning();
+    
+    if (result.length === 0) {
+      throw new Error("Team not found or access denied");
+    }
+  }
+
+  // Booking Request methods
+  async getBookingRequests(
+    organizationId: string, 
+    filters: { status?: string, teamId?: string, startDate?: string, endDate?: string }
+  ): Promise<BookingRequest[]> {
+    const conditions = [eq(bookingRequests.organizationId, organizationId)];
+    
+    if (filters.status) {
+      conditions.push(eq(bookingRequests.status, filters.status));
+    }
+    if (filters.teamId) {
+      conditions.push(eq(bookingRequests.houseLeagueTeamId, filters.teamId));
+    }
+    if (filters.startDate) {
+      conditions.push(sql`${bookingRequests.date} >= ${filters.startDate}`);
+    }
+    if (filters.endDate) {
+      conditions.push(sql`${bookingRequests.date} <= ${filters.endDate}`);
+    }
+
+    return await db.select().from(bookingRequests).where(and(...conditions));
+  }
+
+  async getBookingRequest(id: string, organizationId?: string): Promise<BookingRequest | undefined> {
+    const conditions = [eq(bookingRequests.id, id)];
+    if (organizationId) {
+      conditions.push(eq(bookingRequests.organizationId, organizationId));
+    }
+    const [request] = await db.select().from(bookingRequests).where(and(...conditions));
+    return request;
+  }
+
+  async createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest> {
+    const [result] = await db.insert(bookingRequests).values(request).returning();
+    return result;
+  }
+
+  async updateBookingRequest(id: string, request: Partial<InsertBookingRequest>, organizationId: string): Promise<BookingRequest> {
+    const [result] = await db.update(bookingRequests).set({
+      ...request,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(bookingRequests.id, id),
+      eq(bookingRequests.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Booking request not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async submitBookingRequest(id: string, userId: string, organizationId: string): Promise<BookingRequest> {
+    const [result] = await db.update(bookingRequests).set({
+      status: 'submitted',
+      submittedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(bookingRequests.id, id),
+      eq(bookingRequests.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Booking request not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async cancelBookingRequest(id: string, organizationId: string): Promise<BookingRequest> {
+    const [result] = await db.update(bookingRequests).set({
+      status: 'cancelled',
+      updatedAt: new Date(),
+    }).where(and(
+      eq(bookingRequests.id, id),
+      eq(bookingRequests.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Booking request not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async processBookingApproval(
+    requestId: string, 
+    approval: InsertBookingApproval,
+    organizationId: string
+  ): Promise<{ request: BookingRequest, approval: BookingApproval }> {
+    return await db.transaction(async (tx) => {
+      const [currentRequest] = await tx.select().from(bookingRequests).where(and(
+        eq(bookingRequests.id, requestId),
+        eq(bookingRequests.organizationId, organizationId)
+      ));
+      
+      if (!currentRequest) {
+        throw new Error("Booking request not found or access denied");
+      }
+
+      let newStatus: string;
+      let confirmedAt: Date | undefined = undefined;
+
+      if (approval.decision === 'declined') {
+        newStatus = 'declined';
+      } else if (approval.approverRole === 'select_coordinator') {
+        newStatus = 'select_coordinator_approved';
+      } else if (approval.approverRole === 'diamond_coordinator') {
+        newStatus = 'diamond_coordinator_approved';
+        confirmedAt = new Date();
+      } else {
+        throw new Error(`Invalid approver role: ${approval.approverRole}`);
+      }
+
+      const [updatedRequest] = await tx.update(bookingRequests).set({
+        status: newStatus,
+        confirmedAt,
+        updatedAt: new Date(),
+      }).where(eq(bookingRequests.id, requestId)).returning();
+
+      const [createdApproval] = await tx.insert(bookingApprovals).values({
+        ...approval,
+        bookingRequestId: requestId,
+      }).returning();
+
+      return {
+        request: updatedRequest,
+        approval: createdApproval,
+      };
+    });
+  }
+
+  // Diamond Restriction methods
+  async getDiamondRestrictions(organizationId: string): Promise<DiamondRestriction[]> {
+    return await db.select().from(diamondRestrictions).where(eq(diamondRestrictions.organizationId, organizationId));
+  }
+
+  async createDiamondRestriction(restriction: InsertDiamondRestriction): Promise<DiamondRestriction> {
+    const [result] = await db.insert(diamondRestrictions).values(restriction).returning();
+    return result;
+  }
+
+  async updateDiamondRestriction(id: string, restriction: Partial<InsertDiamondRestriction>): Promise<DiamondRestriction> {
+    const [result] = await db.update(diamondRestrictions).set({
+      ...restriction,
+      updatedAt: new Date(),
+    }).where(eq(diamondRestrictions.id, id)).returning();
+    return result;
+  }
+
+  async deleteDiamondRestriction(id: string): Promise<void> {
+    await db.delete(diamondRestrictions).where(eq(diamondRestrictions.id, id));
+  }
+
+  async validateDiamondRestriction(organizationId: string, division: string, diamondId: string): Promise<boolean> {
+    const [restriction] = await db.select().from(diamondRestrictions).where(
+      and(
+        eq(diamondRestrictions.organizationId, organizationId),
+        eq(diamondRestrictions.division, division)
+      )
+    );
+
+    if (!restriction) {
+      return true;
+    }
+
+    const [diamond] = await db.select().from(diamonds).where(eq(diamonds.id, diamondId));
+    if (!diamond) {
+      return false;
+    }
+
+    return restriction.allowedDiamonds.includes(diamond.name);
+  }
+
+  // Coordinator methods
+  async getOrganizationCoordinators(organizationId: string, role: 'select_coordinator' | 'diamond_coordinator'): Promise<User[]> {
+    const adminRecords = await db.select().from(organizationAdmins).where(
+      and(
+        eq(organizationAdmins.organizationId, organizationId),
+        eq(organizationAdmins.role, role)
+      )
+    );
+
+    if (adminRecords.length === 0) {
+      return [];
+    }
+
+    const userIds = adminRecords.map(record => record.userId);
+    return await db.select().from(users).where(inArray(users.id, userIds));
   }
 }
 

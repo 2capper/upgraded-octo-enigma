@@ -2877,6 +2877,250 @@ Waterdown 10U AA
     }
   });
 
+  // =============================================
+  // FOREST GLADE BOOKING SYSTEM ROUTES
+  // =============================================
+
+  // House League Teams
+  app.get('/api/organizations/:orgId/house-league-teams', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const teams = await storage.getHouseLeagueTeams(orgId);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching house league teams:", error);
+      res.status(500).json({ error: "Failed to fetch teams" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/house-league-teams', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const team = await storage.createHouseLeagueTeam({
+        ...req.body,
+        organizationId: orgId,
+      });
+      res.status(201).json(team);
+    } catch (error) {
+      console.error("Error creating house league team:", error);
+      res.status(400).json({ error: "Failed to create team" });
+    }
+  });
+
+  app.patch('/api/organizations/:orgId/house-league-teams/:teamId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, teamId } = req.params;
+      const team = await storage.updateHouseLeagueTeam(teamId, req.body, orgId);
+      res.json(team);
+    } catch (error) {
+      console.error("Error updating house league team:", error);
+      res.status(400).json({ error: "Failed to update team" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/house-league-teams/:teamId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, teamId } = req.params;
+      await storage.deleteHouseLeagueTeam(teamId, orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting house league team:", error);
+      res.status(500).json({ error: "Failed to delete team" });
+    }
+  });
+
+  // Booking Requests
+  app.get('/api/organizations/:orgId/booking-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { status, teamId, startDate, endDate } = req.query;
+      
+      const requests = await storage.getBookingRequests(orgId, {
+        status: status as string | undefined,
+        teamId: teamId as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+      });
+      
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching booking requests:", error);
+      res.status(500).json({ error: "Failed to fetch booking requests" });
+    }
+  });
+
+  app.get('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId, requestId } = req.params;
+      const request = await storage.getBookingRequest(requestId, orgId);
+      
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching booking request:", error);
+      res.status(500).json({ error: "Failed to fetch booking request" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/booking-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Validate diamond restrictions
+      const team = await storage.getHouseLeagueTeam(req.body.houseLeagueTeamId);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      if (req.body.diamondId) {
+        const isValid = await storage.validateDiamondRestriction(
+          orgId,
+          team.division,
+          req.body.diamondId
+        );
+        
+        if (!isValid) {
+          return res.status(400).json({ 
+            error: `${team.division} teams are not permitted to use this diamond due to size restrictions` 
+          });
+        }
+      }
+      
+      const request = await storage.createBookingRequest({
+        ...req.body,
+        organizationId: orgId,
+        submittedBy: userId,
+        status: 'draft',
+      });
+      
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating booking request:", error);
+      res.status(400).json({ error: "Failed to create booking request" });
+    }
+  });
+
+  app.patch('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId, requestId } = req.params;
+      const request = await storage.updateBookingRequest(requestId, req.body, orgId);
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating booking request:", error);
+      res.status(400).json({ error: "Failed to update booking request" });
+    }
+  });
+
+  // Submit booking request (changes status from draft to submitted)
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId, requestId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const request = await storage.submitBookingRequest(requestId, userId, orgId);
+      
+      // Send notification to select coordinator
+      const coordinators = await storage.getOrganizationCoordinators(orgId, 'select_coordinator');
+      const team = await storage.getHouseLeagueTeam(request.houseLeagueTeamId);
+      const coach = await storage.getUser(userId);
+      
+      // TODO: Send notifications to coordinators
+      
+      res.json(request);
+    } catch (error) {
+      console.error("Error submitting booking request:", error);
+      res.status(400).json({ error: "Failed to submit booking request" });
+    }
+  });
+
+  // Approve/Decline booking request
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/approve', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, requestId } = req.params;
+      const userId = req.user.claims.sub;
+      const { approved, notes, role } = req.body;
+      
+      const result = await storage.processBookingApproval(requestId, {
+        approverId: userId,
+        approverRole: role,
+        decision: approved ? 'approved' : 'declined',
+        notes,
+      }, orgId);
+      
+      // TODO: Send notification to coach
+      // TODO: If final approval and requires umpire, notify UIC
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing booking approval:", error);
+      res.status(400).json({ error: "Failed to process approval" });
+    }
+  });
+
+  // Cancel booking request
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/cancel', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId, requestId } = req.params;
+      const request = await storage.cancelBookingRequest(requestId, orgId);
+      res.json(request);
+    } catch (error) {
+      console.error("Error cancelling booking request:", error);
+      res.status(400).json({ error: "Failed to cancel booking request" });
+    }
+  });
+
+  // Diamond Restrictions
+  app.get('/api/organizations/:orgId/diamond-restrictions', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const restrictions = await storage.getDiamondRestrictions(orgId);
+      res.json(restrictions);
+    } catch (error) {
+      console.error("Error fetching diamond restrictions:", error);
+      res.status(500).json({ error: "Failed to fetch restrictions" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/diamond-restrictions', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const restriction = await storage.createDiamondRestriction({
+        ...req.body,
+        organizationId: orgId,
+      });
+      res.status(201).json(restriction);
+    } catch (error) {
+      console.error("Error creating diamond restriction:", error);
+      res.status(400).json({ error: "Failed to create restriction" });
+    }
+  });
+
+  app.patch('/api/organizations/:orgId/diamond-restrictions/:restrictionId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { restrictionId } = req.params;
+      const restriction = await storage.updateDiamondRestriction(restrictionId, req.body);
+      res.json(restriction);
+    } catch (error) {
+      console.error("Error updating diamond restriction:", error);
+      res.status(400).json({ error: "Failed to update restriction" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/diamond-restrictions/:restrictionId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { restrictionId } = req.params;
+      await storage.deleteDiamondRestriction(restrictionId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting diamond restriction:", error);
+      res.status(500).json({ error: "Failed to delete restriction" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
