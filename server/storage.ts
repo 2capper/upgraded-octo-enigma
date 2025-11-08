@@ -18,6 +18,8 @@ import {
   diamondRestrictions,
   organizationIcalFeeds,
   externalCalendarEvents,
+  organizationCoordinators,
+  coachInvitations,
   type User, 
   type InsertUser,
   type UpsertUser,
@@ -58,9 +60,13 @@ import {
   type InsertOrganizationIcalFeed,
   type ExternalCalendarEvent,
   type InsertExternalCalendarEvent,
+  type OrganizationCoordinator,
+  type InsertOrganizationCoordinator,
+  type CoachInvitation,
+  type InsertCoachInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, desc } from "drizzle-orm";
 import { generateBracketGames, getPlayoffTeamsFromStandings, updateBracketProgression } from "@shared/bracketGeneration";
 import { calculateStandings } from "@shared/standingsCalculation";
 import { withRetry } from "./dbRetry";
@@ -1575,21 +1581,131 @@ export class DatabaseStorage implements IStorage {
     return restriction.allowedDiamonds.includes(diamond.name);
   }
 
-  // Coordinator methods
-  async getOrganizationCoordinators(organizationId: string, role: 'select_coordinator' | 'diamond_coordinator'): Promise<User[]> {
-    const adminRecords = await db.select().from(organizationAdmins).where(
+  // Organization Coordinator methods
+  async getOrganizationCoordinators(organizationId: string, role?: string): Promise<OrganizationCoordinator[]> {
+    const conditions = [eq(organizationCoordinators.organizationId, organizationId)];
+    if (role) {
+      conditions.push(eq(organizationCoordinators.role, role));
+    }
+    return await db.select().from(organizationCoordinators).where(and(...conditions));
+  }
+
+  async getCoordinatorByRole(organizationId: string, role: string): Promise<OrganizationCoordinator | undefined> {
+    const [coordinator] = await db.select().from(organizationCoordinators).where(
       and(
-        eq(organizationAdmins.organizationId, organizationId),
-        eq(organizationAdmins.role, role)
+        eq(organizationCoordinators.organizationId, organizationId),
+        eq(organizationCoordinators.role, role)
       )
     );
+    return coordinator;
+  }
 
-    if (adminRecords.length === 0) {
-      return [];
+  async createOrganizationCoordinator(coordinator: InsertOrganizationCoordinator): Promise<OrganizationCoordinator> {
+    const [result] = await db.insert(organizationCoordinators).values(coordinator).returning();
+    return result;
+  }
+
+  async updateOrganizationCoordinator(id: string, coordinator: Partial<InsertOrganizationCoordinator>, organizationId: string): Promise<OrganizationCoordinator> {
+    const [result] = await db.update(organizationCoordinators).set({
+      ...coordinator,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(organizationCoordinators.id, id),
+      eq(organizationCoordinators.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Coordinator not found or access denied");
     }
+    
+    return result;
+  }
 
-    const userIds = adminRecords.map(record => record.userId);
-    return await db.select().from(users).where(inArray(users.id, userIds));
+  async deleteOrganizationCoordinator(id: string, organizationId: string): Promise<void> {
+    await db.delete(organizationCoordinators).where(and(
+      eq(organizationCoordinators.id, id),
+      eq(organizationCoordinators.organizationId, organizationId)
+    ));
+  }
+
+  async upsertOrganizationCoordinator(organizationId: string, role: string, coordinator: Partial<InsertOrganizationCoordinator>): Promise<OrganizationCoordinator> {
+    const existing = await this.getCoordinatorByRole(organizationId, role);
+    
+    if (existing) {
+      return await this.updateOrganizationCoordinator(existing.id, coordinator, organizationId);
+    } else {
+      return await this.createOrganizationCoordinator({
+        ...coordinator as InsertOrganizationCoordinator,
+        organizationId,
+        role,
+      });
+    }
+  }
+
+  // Coach Invitation methods
+  async getCoachInvitations(organizationId: string, status?: string): Promise<CoachInvitation[]> {
+    const conditions = [eq(coachInvitations.organizationId, organizationId)];
+    if (status) {
+      conditions.push(eq(coachInvitations.status, status));
+    }
+    return await db.select().from(coachInvitations).where(and(...conditions)).orderBy(desc(coachInvitations.createdAt));
+  }
+
+  async getCoachInvitationByToken(token: string): Promise<CoachInvitation | undefined> {
+    const [invitation] = await db.select().from(coachInvitations).where(eq(coachInvitations.token, token));
+    return invitation;
+  }
+
+  async createCoachInvitation(invitation: InsertCoachInvitation): Promise<CoachInvitation> {
+    const [result] = await db.insert(coachInvitations).values(invitation).returning();
+    return result;
+  }
+
+  async updateCoachInvitation(id: string, invitation: Partial<InsertCoachInvitation>, organizationId: string): Promise<CoachInvitation> {
+    const [result] = await db.update(coachInvitations).set({
+      ...invitation,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(coachInvitations.id, id),
+      eq(coachInvitations.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Invitation not found or access denied");
+    }
+    
+    return result;
+  }
+
+  async acceptCoachInvitation(token: string, userId: string): Promise<CoachInvitation> {
+    const [result] = await db.update(coachInvitations).set({
+      status: 'accepted',
+      acceptedAt: new Date(),
+      acceptedByUserId: userId,
+      updatedAt: new Date(),
+    }).where(eq(coachInvitations.token, token)).returning();
+    
+    if (!result) {
+      throw new Error("Invitation not found");
+    }
+    
+    return result;
+  }
+
+  async revokeCoachInvitation(id: string, organizationId: string): Promise<CoachInvitation> {
+    const [result] = await db.update(coachInvitations).set({
+      status: 'revoked',
+      updatedAt: new Date(),
+    }).where(and(
+      eq(coachInvitations.id, id),
+      eq(coachInvitations.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Invitation not found or access denied");
+    }
+    
+    return result;
   }
 
   // Organization iCal Feed methods

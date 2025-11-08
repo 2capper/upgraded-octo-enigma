@@ -565,6 +565,52 @@ export const bookingApprovals = pgTable("booking_approvals", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Organization coordinators (Select, Diamond, UIC, Treasurer)
+export const organizationCoordinators = pgTable("organization_coordinators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Coordinator role and contact
+  role: text("role").notNull(), // "select_coordinator" | "diamond_coordinator" | "uic" | "treasurer"
+  email: text("email").notNull(),
+  phone: text("phone"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  
+  // Link to user account (optional - coordinator may not have an account yet)
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("org_coordinator_role_idx").on(table.organizationId, table.role),
+]);
+
+// Coach invitations for accessing booking system
+export const coachInvitations = pgTable("coach_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Invitation details
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("pending"), // "pending" | "accepted" | "revoked"
+  
+  // Team associations (coach can be associated with multiple teams)
+  teamIds: text("team_ids").array().notNull().default(sql`'{}'::text[]`),
+  
+  // Acceptance tracking
+  acceptedAt: timestamp("accepted_at"),
+  acceptedByUserId: varchar("accepted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Metadata
+  invitedBy: varchar("invited_by").notNull().references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Diamond access restrictions by division
 export const diamondRestrictions = pgTable("diamond_restrictions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -891,6 +937,18 @@ export const insertNotificationLogSchema = createInsertSchema(notificationLog).o
   createdAt: true,
 });
 
+export const insertOrganizationCoordinatorSchema = createInsertSchema(organizationCoordinators).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCoachInvitationSchema = createInsertSchema(coachInvitations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Game update validation schema with strict score validation
 export const gameUpdateSchema = insertGameSchema.partial().extend({
   homeScore: z.number().int().min(0).max(50).optional().nullable(),
@@ -1017,3 +1075,9 @@ export type InsertDiamondRestriction = z.infer<typeof insertDiamondRestrictionSc
 
 export type NotificationLog = typeof notificationLog.$inferSelect;
 export type InsertNotificationLog = z.infer<typeof insertNotificationLogSchema>;
+
+export type OrganizationCoordinator = typeof organizationCoordinators.$inferSelect;
+export type InsertOrganizationCoordinator = z.infer<typeof insertOrganizationCoordinatorSchema>;
+
+export type CoachInvitation = typeof coachInvitations.$inferSelect;
+export type InsertCoachInvitation = z.infer<typeof insertCoachInvitationSchema>;
