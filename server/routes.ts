@@ -3752,6 +3752,45 @@ Waterdown 10U AA
     }
   });
 
+  // Tournament games for organization's diamonds (for calendar view)
+  app.get('/api/tournaments/organization-settings/games', isAuthenticated, async (req: any, res) => {
+    try {
+      const { organizationId, startDate, endDate, diamondId } = req.query;
+      
+      if (!organizationId) {
+        return res.status(400).json({ error: "organizationId is required" });
+      }
+      
+      const organizationDiamonds = await storage.getDiamonds(organizationId as string);
+      const organizationDiamondIds = organizationDiamonds.map(d => d.id);
+      
+      if (organizationDiamondIds.length === 0) {
+        return res.json([]);
+      }
+      
+      const allGames = await storage.getAllGames();
+      
+      const filteredGames = allGames.filter(game => {
+        if (!game.diamondId) return false;
+        
+        const isOrgDiamond = organizationDiamondIds.includes(game.diamondId);
+        if (!isOrgDiamond) return false;
+        
+        if (diamondId && game.diamondId !== diamondId) return false;
+        
+        if (startDate && game.date < (startDate as string)) return false;
+        if (endDate && game.date > (endDate as string)) return false;
+        
+        return true;
+      });
+      
+      res.json(filteredGames);
+    } catch (error) {
+      console.error("Error fetching tournament games:", error);
+      res.status(500).json({ error: "Failed to fetch tournament games" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
