@@ -70,7 +70,6 @@ export function CoordinatorApprovalDashboard({ organizationId, userRole }: Coord
         body: JSON.stringify({
           approved,
           notes: approvalNotes,
-          role: userRole,
         }),
       });
     },

@@ -3064,11 +3064,24 @@ Waterdown 10U AA
     try {
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
-      const { approved, notes, role } = req.body;
+      const { approved, notes } = req.body;
+      
+      // Server-side validation: Get user's actual role from database
+      const admins = await storage.getOrganizationAdmins(orgId);
+      const userAdmin = admins.find(admin => admin.userId === userId);
+      
+      if (!userAdmin) {
+        return res.status(403).json({ error: "User is not an admin of this organization" });
+      }
+      
+      // Validate user has a coordinator role
+      if (userAdmin.role !== 'select_coordinator' && userAdmin.role !== 'diamond_coordinator') {
+        return res.status(403).json({ error: "User does not have coordinator permissions" });
+      }
       
       const result = await storage.processBookingApproval(requestId, {
         approverId: userId,
-        approverRole: role,
+        approverRole: userAdmin.role,
         decision: approved ? 'approved' : 'declined',
         notes,
       }, orgId);
