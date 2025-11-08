@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb } from 'lucide-react';
+import { Settings, Edit, Building2, Loader2, Palette, Clock, Trophy, Image, MapPin, Plus, Trash2, Lightbulb, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,18 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import type { Organization, Diamond, InsertDiamond } from '@shared/schema';
 import { insertDiamondSchema } from '@shared/schema';
 import { poolPlayFormats, type PlayoffFormatOption } from '@shared/playoffFormats';
 import { seedingPatternOptions, type SeedingPattern } from '@shared/seedingPatterns';
+
+interface DiamondRestriction {
+  id: string;
+  division: string;
+  allowedDiamonds: string[];
+  reason?: string;
+}
 
 interface EditOrganizationDialogProps {
   organization: Organization;
@@ -679,6 +687,383 @@ function DiamondManagement({ organizationId, organizationSlug }: DiamondManageme
   );
 }
 
+interface DiamondRestrictionManagementProps {
+  organizationId: string;
+  organizationSlug: string;
+}
+
+function DiamondRestrictionManagement({ organizationId, organizationSlug }: DiamondRestrictionManagementProps) {
+  const { toast } = useToast();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingRestriction, setEditingRestriction] = useState<DiamondRestriction | null>(null);
+
+  const { data: restrictions, isLoading } = useQuery<DiamondRestriction[]>({
+    queryKey: [`/api/organizations/${organizationId}/diamond-restrictions`],
+  });
+
+  const { data: diamonds } = useQuery<Diamond[]>({
+    queryKey: [`/api/organizations/${organizationId}/diamonds`],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (restrictionId: string) => {
+      return await apiRequest("DELETE", `/api/diamond-restrictions/${restrictionId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/diamond-restrictions`] });
+      toast({
+        title: "Restriction Deleted",
+        description: "The diamond restriction has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete diamond restriction. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (restriction: DiamondRestriction) => {
+    if (confirm(`Are you sure you want to delete the restriction for ${restriction.division}?`)) {
+      deleteMutation.mutate(restriction.id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const divisions = ['9U', '11U', '13U', '15U', '18U', 'Senior Mens', 'T-Ball'];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="w-5 h-5" />
+          <h3 className="text-lg font-semibold">Diamond Restrictions</h3>
+        </div>
+        <Button
+          onClick={() => setIsCreateOpen(true)}
+          size="sm"
+          data-testid={`button-create-restriction-${organizationSlug}`}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Restriction
+        </Button>
+      </div>
+
+      <Alert>
+        <ShieldAlert className="w-4 h-4" />
+        <AlertDescription>
+          Configure which diamonds each division is allowed to use. For example, restrict 15U/18U teams to larger diamonds only.
+        </AlertDescription>
+      </Alert>
+
+      {!restrictions || restrictions.length === 0 ? (
+        <div className="text-center py-8 border rounded-lg bg-muted/30">
+          <ShieldAlert className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">
+            No diamond restrictions configured. All divisions can use any diamond.
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Division</TableHead>
+                <TableHead>Allowed Diamonds</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {restrictions.map((restriction) => (
+                <TableRow key={restriction.id} data-testid={`row-restriction-${restriction.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-restriction-division-${restriction.id}`}>
+                    {restriction.division}
+                  </TableCell>
+                  <TableCell data-testid={`text-restriction-diamonds-${restriction.id}`}>
+                    <div className="flex flex-wrap gap-1">
+                      {restriction.allowedDiamonds.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell data-testid={`text-restriction-reason-${restriction.id}`}>
+                    {restriction.reason || (
+                      <span className="text-muted-foreground italic">No reason provided</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingRestriction(restriction)}
+                        data-testid={`button-edit-restriction-${restriction.id}`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(restriction)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-restriction-${restriction.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <DiamondRestrictionFormDialog
+        organizationId={organizationId}
+        divisions={divisions}
+        diamonds={diamonds || []}
+        isOpen={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
+
+      {editingRestriction && (
+        <DiamondRestrictionFormDialog
+          organizationId={organizationId}
+          divisions={divisions}
+          diamonds={diamonds || []}
+          restriction={editingRestriction}
+          isOpen={!!editingRestriction}
+          onOpenChange={(open) => !open && setEditingRestriction(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+interface DiamondRestrictionFormDialogProps {
+  organizationId: string;
+  divisions: string[];
+  diamonds: Diamond[];
+  restriction?: DiamondRestriction;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function DiamondRestrictionFormDialog({ organizationId, divisions, diamonds, restriction, isOpen, onOpenChange }: DiamondRestrictionFormDialogProps) {
+  const { toast } = useToast();
+  const [selectedDiamonds, setSelectedDiamonds] = useState<string[]>(restriction?.allowedDiamonds || []);
+  const [division, setDivision] = useState(restriction?.division || "");
+  const [reason, setReason] = useState(restriction?.reason || "");
+  const isEdit = !!restriction;
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { division: string; allowedDiamonds: string[]; reason?: string }) => {
+      return await apiRequest("POST", `/api/organizations/${organizationId}/diamond-restrictions`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/diamond-restrictions`] });
+      toast({
+        title: "Restriction Created",
+        description: "Diamond restriction has been created successfully.",
+      });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create diamond restriction. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { division: string; allowedDiamonds: string[]; reason?: string }) => {
+      return await apiRequest("PUT", `/api/diamond-restrictions/${restriction!.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/diamond-restrictions`] });
+      toast({
+        title: "Restriction Updated",
+        description: "Diamond restriction has been updated successfully.",
+      });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update diamond restriction. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setDivision("");
+    setSelectedDiamonds([]);
+    setReason("");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!division) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a division.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedDiamonds.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one allowed diamond.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data = {
+      division,
+      allowedDiamonds: selectedDiamonds,
+      reason: reason || undefined,
+    };
+
+    if (isEdit) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const toggleDiamond = (diamondName: string) => {
+    setSelectedDiamonds(prev =>
+      prev.includes(diamondName)
+        ? prev.filter(d => d !== diamondName)
+        : [...prev, diamondName]
+    );
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit Diamond Restriction' : 'Create Diamond Restriction'}</DialogTitle>
+          <DialogDescription>
+            Specify which diamonds this division is allowed to book.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="division">Division *</Label>
+            <Select value={division} onValueChange={setDivision} disabled={isEdit}>
+              <SelectTrigger id="division" data-testid="select-division">
+                <SelectValue placeholder="Select division" />
+              </SelectTrigger>
+              <SelectContent>
+                {divisions.map((div) => (
+                  <SelectItem key={div} value={div} data-testid={`option-division-${div}`}>
+                    {div}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Division cannot be changed after creation</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Allowed Diamonds *</Label>
+            <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+              {diamonds.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  No diamonds available. Create diamonds first.
+                </p>
+              ) : (
+                diamonds.map((diamond) => (
+                  <div key={diamond.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`diamond-${diamond.id}`}
+                      checked={selectedDiamonds.includes(diamond.name)}
+                      onCheckedChange={() => toggleDiamond(diamond.name)}
+                      data-testid={`checkbox-diamond-${diamond.id}`}
+                    />
+                    <label
+                      htmlFor={`diamond-${diamond.id}`}
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      {diamond.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {selectedDiamonds.length} diamond(s) selected
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason (Optional)</Label>
+            <Textarea
+              id="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g., Diamond size requirements"
+              rows={3}
+              data-testid="input-reason"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              data-testid="button-cancel-restriction"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={createMutation.isPending || updateMutation.isPending}
+              data-testid="button-save-restriction"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isEdit ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                <>{isEdit ? 'Update Restriction' : 'Create Restriction'}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function OrganizationSettings() {
   const { toast } = useToast();
 
@@ -788,6 +1173,11 @@ export function OrganizationSettings() {
                 {/* Diamonds Management Section */}
                 <div className="pt-4 border-t">
                   <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
+                </div>
+
+                {/* Diamond Restrictions Management Section */}
+                <div className="pt-4 border-t">
+                  <DiamondRestrictionManagement organizationId={org.id} organizationSlug={org.slug} />
                 </div>
               </div>
             </CardContent>
