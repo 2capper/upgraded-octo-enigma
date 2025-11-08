@@ -19,6 +19,8 @@ import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
 import BookingDashboard from "@/pages/booking/booking-dashboard";
 import NewBookingRequest from "@/pages/booking/new-booking-request";
 import BookingRequestDetail from "@/pages/booking/booking-request-detail";
+import { BookingCalendarPage } from "@/pages/booking/booking-calendar-page";
+import { AdminBookingCalendarPage } from "@/pages/booking/admin-booking-calendar-page";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -87,6 +89,9 @@ function Router() {
       <Route path="/booking/:orgId">
         {() => <RequireAuth component={BookingDashboard} />}
       </Route>
+      <Route path="/booking/:orgId/calendar">
+        {() => <RequireAuth component={BookingCalendarPage} />}
+      </Route>
       <Route path="/booking/:orgId/new-request">
         {() => <RequireAuth component={NewBookingRequest} />}
       </Route>
@@ -100,6 +105,9 @@ function Router() {
       </Route>
       <Route path="/admin/:tournamentId?">
         {() => <RequireAuth component={AdminPortal} />}
+      </Route>
+      <Route path="/admin/booking/calendar">
+        {() => <RequireAuth component={AdminBookingCalendarPage} />}
       </Route>
       <Route path="/admin/:tournamentId/validation-report">
         {() => <RequireAuth component={ValidationReport} />}

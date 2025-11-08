@@ -3019,6 +3019,39 @@ Waterdown 10U AA
     }
   });
 
+  // Calendar view endpoint with populated team and diamond data
+  app.get('/api/organizations/:orgId/booking-requests/calendar/:startDate/:endDate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orgId, startDate, endDate } = req.params;
+      
+      const requests = await storage.getBookingRequests(orgId, {
+        startDate,
+        endDate,
+      });
+      
+      // Populate team and diamond details for each request
+      const enrichedRequests = await Promise.all(
+        requests.map(async (request) => {
+          const [team, diamond] = await Promise.all([
+            storage.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
+            request.diamondId ? storage.getDiamond(request.diamondId) : null,
+          ]);
+          
+          return {
+            ...request,
+            team,
+            diamond,
+          };
+        })
+      );
+      
+      res.json(enrichedRequests);
+    } catch (error) {
+      console.error("Error fetching calendar bookings:", error);
+      res.status(500).json({ error: "Failed to fetch calendar bookings" });
+    }
+  });
+
   app.get('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
