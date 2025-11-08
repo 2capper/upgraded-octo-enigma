@@ -21,6 +21,7 @@ import NewBookingRequest from "@/pages/booking/new-booking-request";
 import BookingRequestDetail from "@/pages/booking/booking-request-detail";
 import { BookingCalendarPage } from "@/pages/booking/booking-calendar-page";
 import { AdminBookingCalendarPage } from "@/pages/booking/admin-booking-calendar-page";
+import InviteAcceptance from "@/pages/invite-acceptance";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -79,6 +80,9 @@ function Router() {
       <Route path="/dashboard/:tournamentId" component={Dashboard} />
       <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
       <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />
+      
+      {/* Invitation acceptance - public route */}
+      <Route path="/invite/:token" component={InviteAcceptance} />
       
       {/* Coming Soon pages */}
       <Route path="/coming-soon/tournament-registration" component={TournamentRegistrationComingSoon} />

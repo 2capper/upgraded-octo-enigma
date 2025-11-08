@@ -1,6 +1,6 @@
 import { getTwilioClient, getTwilioFromPhoneNumber } from './twilio';
 import { getUncachableGmailClient } from './gmail';
-import { db } from '@db';
+import { db } from '../db';
 import { notificationLog, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 

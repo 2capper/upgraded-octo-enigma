@@ -366,12 +366,28 @@ export default function NewBookingRequest() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Start Time *</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input type="time" className="pl-10" {...field} data-testid="input-start-time" />
-                          </div>
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-start-time">
+                              <SelectValue placeholder="Select start time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-[200px]">
+                            {Array.from({ length: 29 }, (_, i) => {
+                              const hour = Math.floor(i / 2) + 8;
+                              const minute = i % 2 === 0 ? '00' : '30';
+                              const time24 = `${hour.toString().padStart(2, '0')}:${minute}`;
+                              const hour12 = hour > 12 ? hour - 12 : hour;
+                              const ampm = hour >= 12 ? 'PM' : 'AM';
+                              const display = `${hour12}:${minute} ${ampm}`;
+                              return (
+                                <SelectItem key={time24} value={time24} data-testid={`option-start-time-${time24}`}>
+                                  {display}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -383,12 +399,28 @@ export default function NewBookingRequest() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>End Time *</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input type="time" className="pl-10" {...field} data-testid="input-end-time" />
-                          </div>
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-end-time">
+                              <SelectValue placeholder="Select end time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-[200px]">
+                            {Array.from({ length: 29 }, (_, i) => {
+                              const hour = Math.floor(i / 2) + 8;
+                              const minute = i % 2 === 0 ? '00' : '30';
+                              const time24 = `${hour.toString().padStart(2, '0')}:${minute}`;
+                              const hour12 = hour > 12 ? hour - 12 : hour;
+                              const ampm = hour >= 12 ? 'PM' : 'AM';
+                              const display = `${hour12}:${minute} ${ampm}`;
+                              return (
+                                <SelectItem key={time24} value={time24} data-testid={`option-end-time-${time24}`}>
+                                  {display}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
