@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, ClipboardList, Users, Settings } from "lucide-react";
 import { Link } from "wouter";
+import { TeamManagement } from "@/components/booking/team-management";
 
 export default function BookingDashboard() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -107,23 +108,7 @@ export default function BookingDashboard() {
 
           {isAdmin && (
             <TabsContent value="teams">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>House League Teams</CardTitle>
-                      <CardDescription>Manage teams for diamond booking</CardDescription>
-                    </div>
-                    <Button data-testid="button-add-team">
-                      <Users className="w-4 h-4 mr-2" />
-                      Add Team
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500 text-center py-8">Team list will appear here</p>
-                </CardContent>
-              </Card>
+              <TeamManagement organizationId={orgId!} />
             </TabsContent>
           )}
 

@@ -1,13 +1,183 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Calendar, Clock, MapPin } from "lucide-react";
+import { Link } from "wouter";
+
+const bookingFormSchema = z.object({
+  houseLeagueTeamId: z.string().min(1, "Please select a team"),
+  date: z.string().min(1, "Date is required"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
+  diamondId: z.string().min(1, "Please select a diamond"),
+  purpose: z.string().optional(),
+  requiresUmpire: z.boolean().default(false),
+  notes: z.string().optional(),
+}).refine((data) => {
+  if (data.startTime && data.endTime) {
+    return data.endTime > data.startTime;
+  }
+  return true;
+}, {
+  message: "End time must be after start time",
+  path: ["endTime"],
+});
+
+type BookingFormData = z.infer<typeof bookingFormSchema>;
+
+interface HouseLeagueTeam {
+  id: string;
+  name: string;
+  division: string;
+}
+
+interface Diamond {
+  id: string;
+  name: string;
+  location?: string;
+}
 
 export default function NewBookingRequest() {
   const { orgId } = useParams<{ orgId: string }>();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const { data: teams, isLoading: teamsLoading } = useQuery<HouseLeagueTeam[]>({
+    queryKey: [`/api/organizations/${orgId}/house-league-teams`],
+  });
+
+  const { data: diamonds, isLoading: diamondsLoading } = useQuery<Diamond[]>({
+    queryKey: [`/api/organizations/${orgId}/diamonds`],
+  });
+
+  const form = useForm<BookingFormData>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: {
+      houseLeagueTeamId: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      diamondId: "",
+      purpose: "",
+      requiresUmpire: false,
+      notes: "",
+    },
+  });
+
+  const saveDraftMutation = useMutation({
+    mutationFn: async (data: BookingFormData) => {
+      return await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          status: "draft",
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Draft saved",
+        description: "Your booking request has been saved as a draft.",
+      });
+      setLocation(`/booking/${orgId}`);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (data: BookingFormData) => {
+      let draftRequestId: string | null = null;
+      
+      try {
+        const request = await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...data,
+            status: "draft",
+          }),
+        });
+        
+        draftRequestId = request.id;
+        
+        return await apiRequest(`/api/organizations/${orgId}/booking-requests/${request.id}/submit`, {
+          method: "POST",
+        });
+      } catch (error) {
+        // Clean up draft if submission failed
+        if (draftRequestId) {
+          try {
+            await apiRequest(`/api/organizations/${orgId}/booking-requests/${draftRequestId}/cancel`, {
+              method: "POST",
+            });
+          } catch (cleanupError) {
+            console.error("Failed to clean up draft:", cleanupError);
+          }
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Request submitted",
+        description: "Your booking request has been submitted for approval.",
+      });
+      setLocation(`/booking/${orgId}`);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit request. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveDraft = (data: BookingFormData) => {
+    saveDraftMutation.mutate(data);
+  };
+
+  const handleSubmit = (data: BookingFormData) => {
+    submitMutation.mutate(data);
+  };
+
+  if (teamsLoading || diamondsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#2B3A4A] text-white py-6 shadow-lg">
         <div className="max-w-3xl mx-auto px-4">
+          <Link href={`/booking/${orgId}`}>
+            <Button variant="ghost" className="text-white hover:text-gray-200 mb-2" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
           <h1 className="text-2xl font-bold">New Diamond Booking Request</h1>
           <p className="text-gray-300 mt-1">Request a diamond for your team</p>
         </div>
@@ -19,7 +189,191 @@ export default function NewBookingRequest() {
             <CardTitle>Booking Details</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-500">Booking form will appear here</p>
+            <Form {...form}>
+              <form className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="houseLeagueTeamId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-team">
+                            <SelectValue placeholder="Select your team" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {teams?.map((team) => (
+                            <SelectItem key={team.id} value={team.id} data-testid={`option-team-${team.id}`}>
+                              {team.name} ({team.division})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input type="date" className="pl-10" {...field} data-testid="input-date" />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="diamondId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Diamond *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-diamond">
+                              <SelectValue placeholder="Select diamond" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {diamonds?.map((diamond) => (
+                              <SelectItem key={diamond.id} value={diamond.id} data-testid={`option-diamond-${diamond.id}`}>
+                                {diamond.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Time *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input type="time" className="pl-10" {...field} data-testid="input-start-time" />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input type="time" className="pl-10" {...field} data-testid="input-end-time" />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="purpose"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purpose</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Regular practice, Tournament game" {...field} data-testid="input-purpose" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="requiresUmpire"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-requires-umpire"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Requires Umpire</FormLabel>
+                        <FormDescription>
+                          Check this if you need an umpire for this booking
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Additional Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any additional information for coordinators"
+                          className="resize-none"
+                          rows={4}
+                          {...field}
+                          data-testid="textarea-notes"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={form.handleSubmit(handleSaveDraft)}
+                    disabled={saveDraftMutation.isPending || submitMutation.isPending}
+                    data-testid="button-save-draft"
+                  >
+                    {saveDraftMutation.isPending ? "Saving..." : "Save as Draft"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={form.handleSubmit(handleSubmit)}
+                    disabled={saveDraftMutation.isPending || submitMutation.isPending}
+                    className="flex-1"
+                    data-testid="button-submit-request"
+                  >
+                    {submitMutation.isPending ? "Submitting..." : "Submit Request"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
