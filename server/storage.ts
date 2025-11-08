@@ -1501,8 +1501,14 @@ export class DatabaseStorage implements IStorage {
       if (approval.decision === 'declined') {
         newStatus = 'declined';
       } else if (approval.approverRole === 'select_coordinator') {
+        if (currentRequest.status !== 'submitted') {
+          throw new Error("Can only approve submitted booking requests");
+        }
         newStatus = 'select_coordinator_approved';
       } else if (approval.approverRole === 'diamond_coordinator') {
+        if (currentRequest.status !== 'select_coordinator_approved') {
+          throw new Error("Booking request must be approved by select coordinator first");
+        }
         newStatus = 'diamond_coordinator_approved';
         confirmedAt = new Date();
       } else {
