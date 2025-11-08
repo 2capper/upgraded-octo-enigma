@@ -3149,12 +3149,26 @@ Waterdown 10U AA
       
       const request = await storage.submitBookingRequest(requestId, userId, orgId);
       
-      // Send notification to select coordinator
       const coordinators = await storage.getOrganizationCoordinators(orgId, 'select_coordinator');
       const team = await storage.getHouseLeagueTeam(request.houseLeagueTeamId);
       const coach = await storage.getUser(userId);
       
-      // TODO: Send notifications to coordinators
+      const { notificationService } = await import('./lib/notificationService');
+      
+      for (const coordinator of coordinators) {
+        await notificationService.sendBookingSubmittedNotification({
+          organizationId: orgId,
+          bookingRequestId: requestId,
+          coachName: coach?.email || 'Unknown',
+          teamName: team?.name || 'Unknown Team',
+          bookingType: request.bookingType,
+          date: request.date,
+          time: request.startTime,
+          diamondName: request.requestedDiamondName || undefined,
+          coordinatorEmail: coordinator.email || undefined,
+          coordinatorPhone: coordinator.phone || undefined,
+        }).catch(err => console.error('Error sending notification:', err));
+      }
       
       res.json(request);
     } catch (error) {
@@ -3190,8 +3204,43 @@ Waterdown 10U AA
         notes,
       }, orgId);
       
-      // TODO: Send notification to coach
-      // TODO: If final approval and requires umpire, notify UIC
+      const request = result.request;
+      const team = await storage.getHouseLeagueTeam(request.houseLeagueTeamId);
+      const coach = await storage.getUser(request.submittedBy);
+      const approver = await storage.getUser(userId);
+      
+      const { notificationService } = await import('./lib/notificationService');
+      
+      await notificationService.sendApprovalNotification({
+        organizationId: orgId,
+        bookingRequestId: requestId,
+        approved: approved,
+        recipientEmail: coach?.email || undefined,
+        recipientPhone: coach?.phone || undefined,
+        teamName: team?.name || 'Unknown Team',
+        date: request.date,
+        time: request.startTime,
+        approverName: approver?.email || 'Coordinator',
+        notes: notes || undefined,
+      }).catch(err => console.error('Error sending notification:', err));
+      
+      if (approved && userAdmin.role === 'diamond_coordinator' && request.requiresUmpire) {
+        const uicCoordinators = await storage.getOrganizationCoordinators(orgId, 'diamond_coordinator');
+        
+        for (const uic of uicCoordinators) {
+          await notificationService.sendUICNotification({
+            organizationId: orgId,
+            bookingRequestId: requestId,
+            uicEmail: uic.email || undefined,
+            uicPhone: uic.phone || undefined,
+            teamName: team?.name || 'Unknown Team',
+            opponentName: request.opponentName || 'Unknown Opponent',
+            date: request.date,
+            time: request.startTime,
+            diamondName: request.requestedDiamondName || undefined,
+          }).catch(err => console.error('Error sending UIC notification:', err));
+        }
+      }
       
       res.json(result);
     } catch (error) {
