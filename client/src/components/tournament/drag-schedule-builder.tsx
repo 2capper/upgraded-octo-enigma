@@ -406,6 +406,7 @@ export function DragScheduleBuilder({
   const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(
     null,
   );
+  const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(
     new Set(),
   );
@@ -644,6 +645,39 @@ export function DragScheduleBuilder({
     },
   });
 
+  // Move game mutation
+  const moveGameMutation = useMutation({
+    mutationFn: async (gameData: {
+      gameId: string;
+      date: string;
+      time: string;
+      diamondId: string;
+    }) => {
+      const { gameId, ...payload } = gameData;
+      const response = await apiRequest('PUT', `/api/games/${gameId}/move`, payload);
+      const data = await response.json();
+      return data.game;
+    },
+    onSuccess: (updatedGame) => {
+      // Invalidate the games query to force a refetch
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      
+      toast({
+        title: 'Game Moved',
+        description: 'Game successfully rescheduled',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Cannot Move Game',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Coordinate-based cell detection (accounts for scroll offsets)
   const getSlotFromCoordinates = (x: number, y: number) => {
     if (!gridRef.current) return null;
@@ -689,8 +723,19 @@ export function DragScheduleBuilder({
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const matchup = event.active.data.current as UnplacedMatchup;
-    setActiveMatchup(matchup);
+    // Reset both active states
+    setActiveMatchup(null);
+    setActiveGame(null);
+
+    const { data } = event.active;
+    
+    // Check if 'type' is 'game'
+    if (data.current?.type === 'game') {
+      setActiveGame(data.current.game as Game);
+    } else {
+      // Assume it's a matchup
+      setActiveMatchup(data.current as UnplacedMatchup);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -1267,15 +1312,35 @@ export function DragScheduleBuilder({
                           const gridRowStart = slotIndex + 2; // +2 for header row
                           const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
 
+                          // Apply useDraggable hook for this game
+                          const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+                            id: game.id,
+                            data: {
+                              type: 'game',
+                              game: game,
+                            },
+                          });
+
+                          const style = transform ? {
+                            gridRow: `${gridRowStart} / span ${rowSpan}`,
+                            gridColumn: gridColumnStart,
+                            zIndex: isDragging ? 12 : 10,
+                            transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+                            opacity: isDragging ? 0.5 : 1,
+                          } : {
+                            gridRow: `${gridRowStart} / span ${rowSpan}`,
+                            gridColumn: gridColumnStart,
+                            zIndex: 10,
+                          };
+
                           return (
                             <div
                               key={`game-${game.id}`}
-                              className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg"
-                              style={{
-                                gridRow: `${gridRowStart} / span ${rowSpan}`,
-                                gridColumn: gridColumnStart,
-                                zIndex: 10,
-                              }}
+                              ref={setNodeRef}
+                              className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
+                              style={style}
+                              {...listeners}
+                              {...attributes}
                             >
                               <GameCard
                                 game={game}
@@ -1314,6 +1379,20 @@ export function DragScheduleBuilder({
             teams={teams}
             pools={pools}
           />
+        )}
+        {activeGame && (
+          <div className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg opacity-75">
+            <GameCard 
+              game={activeGame}
+              teams={teams}
+              pools={pools}
+              allGames={existingGames}
+              timeInterval={timeInterval}
+              onRemove={() => {}}
+              onResize={() => {}}
+              showToast={toast}
+            />
+          </div>
         )}
       </DragOverlay>
     </DndContext>
