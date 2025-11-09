@@ -3943,7 +3943,11 @@ Waterdown 10U AA
       res.json({
         email: invitation.email,
         organizationName: org?.name,
+        organizationId: invitation.organizationId,
+        teamIds: invitation.teamIds,
+        logoUrl: org?.logoUrl,
         expiresAt: invitation.expiresAt,
+        status: invitation.status,
       });
     } catch (error) {
       console.error("Error validating invitation:", error);
