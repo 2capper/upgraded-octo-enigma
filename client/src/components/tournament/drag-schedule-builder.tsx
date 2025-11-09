@@ -491,14 +491,22 @@ export function DragScheduleBuilder({
     diamondIndex: number;
   } | null>(null);
 
-  // Fetch unplaced matchups
+  // Fetch unplaced matchups from database
   const {
-    data: matchups = [],
+    data: allMatchups = [],
     isLoading: matchupsLoading,
     refetch: refetchMatchups,
   } = useQuery<UnplacedMatchup[]>({
-    queryKey: ["/api/tournaments", tournamentId, "matchups", divisionId],
+    queryKey: ["/api/tournaments", tournamentId, "matchups"],
   });
+
+  // Filter matchups by division (client-side)
+  const matchups = useMemo(() => {
+    if (!divisionId) return allMatchups;
+    const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
+    const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
+    return allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
+  }, [allMatchups, pools, divisionId]);
 
   // Fetch teams
   const { data: teams = [] } = useQuery<Team[]>({
@@ -592,15 +600,10 @@ export function DragScheduleBuilder({
       return data.matchups;
     },
     onSuccess: (data) => {
-      // 1. Manually put the new matchups (data) in the cache.
-      //    This is necessary because matchups are not saved to the database.
-      queryClient.setQueryData(
-        ['/api/tournaments', tournamentId, 'matchups', divisionId],
-        data
-      );
-
-      // 2. Invalidate the 'games' query.
-      //    This clears the grid and triggers our useEffect to reset the counter.
+      // Invalidate both matchups and games queries to refetch from database
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
@@ -642,7 +645,7 @@ export function DragScheduleBuilder({
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
       });
 
       toast({
@@ -671,7 +674,7 @@ export function DragScheduleBuilder({
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
       });
 
       toast({
