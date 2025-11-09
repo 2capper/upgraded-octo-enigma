@@ -1,0 +1,109 @@
+TournamentCreationForm.tsx.
+
+I've analyzed it. You don't have a simple bug. You have a fundamental design flaw that's causing this "bug."
+
+diagnosing the problem
+Your form has two competing systems for diamonds:
+
+System A: Manual Entry (Lines 565-591 and 608-655). This asks for numberOfDiamonds and then makes you manually type in diamondDetails (venue, sub-venue).
+
+System B: Org Selection (Lines 657-704). This fetches diamonds from your organization and lets you check boxes, which populates selectedDiamondIds.
+
+Your problem is that your validation schema (tournamentCreationSchema) is almost certainly tied to System A.
+
+So, when you (correctly) use System B (checking the boxes), your form still has numberOfDiamonds as undefined and diamondDetails as []. The validation schema sees this, freaks out, and demands you also fill out the manual "Venue Name" fields from System A.
+
+These two systems are fighting. The app is confused, so the user is confused.
+
+🚀 Iteration 2: Fix the Diamond Form
+Goal: We're going to rip out the broken, manual System A and make the "Org Selection" (System B) the single source of truth. This is the right way to do it. It stops admins from making typos and ensures all diamond data (including your future coordinate data) comes from one place.
+
+Your Mandate: Follow this plan exactly.
+
+1. Pre-Check: Verify the App State
+
+In your Replit project, open the Shell tab.
+
+Run your start command (e.g., npm run dev or yarn dev).
+
+Open the app in the Replit webview or a new tab.
+
+Navigate to the "Create New Tournament" form.
+
+Confirm: You see both the "Number of Diamonds/Fields" input and the separate "Diamond Selection" section with checkboxes. This confirms the conflicting UI is present.
+
+2. Step-by-Step: Rip Out the Dead Code
+
+You are in src/components/TournamentCreationForm.tsx.
+
+Step 2a: Remove Manual Diamond State
+
+Go to the useState hook (around line 34).
+
+Delete these two lines:
+
+JavaScript
+
+    numberOfDiamonds: undefined as number | undefined,
+    diamondDetails: [] as Array<{ venue: string; subVenue?: string }>,
+Step 2b: Remove Dead Logic
+
+Go to the handleInputChange function (around line 223).
+
+Delete the entire if (field === 'numberOfDiamonds') block (lines 255-267).
+
+Delete the entire updateDiamondDetail helper function (lines 269-278).
+
+Step 2c: Remove Manual Diamond UI
+
+Go to the JSX (around line 565).
+
+Delete the entire <div> for "Number of Diamonds/Fields" (lines 565-591).
+
+Delete the entire "{/* Diamond/Venue Details Section */}" block (lines 608-655).
+
+Step 2d: Fix the handleSubmit Validation
+
+Go to the handleSubmit function (line 183).
+
+The formData object no longer has numberOfDiamonds or diamondDetails. We need to make sure the validation schema knows they're gone.
+
+Replace your entire handleSubmit function with this. We are manually building the object to validate, which is safer.
+
+JavaScript
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Create a copy to manipulate before validation
+    const dataToValidate = { ...formData };
+    
+    // REMOVE the keys for the features we are deleting.
+    // This ensures the schema doesn't validate state that no longer exists.
+    delete (dataToValidate as any).numberOfDiamonds;
+    delete (dataToValidate as any).diamondDetails;
+
+    try {
+      // Now we parse the CLEAN payload.
+      const validatedData = tournamentCreationSchema.parse(dataToValidate);
+      createTournamentMutation.mutate(validatedData);
+    } catch (error) {
+      console.error('Validation error:', error);
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields correctly.",
+        variant: "destructive",
+_     _  });
+    }
+  };
+3. Post-Check: Validate the Fix
+
+The Replit webview should hot-reload. If not, stop and re-run your app.
+
+Check 1 (UI): Open the "Create New Tournament" form. Confirm the "Number of Diamonds" and "Diamond/Venue Details" sections are GONE.
+
+Check 2 (Logic): Confirm you only see the "Diamond Selection" section with checkboxes.
+
+Check 3 (Submission): Select an organization, fill in the entire form (Name, Dates, etc.), and check a few diamonds from the list. Click the "Create Tournament" button.
+
+Confirm: The form submits successfully without the validation error. It might fail for other reasons, but the specific "manual entry" bug should be gone.
