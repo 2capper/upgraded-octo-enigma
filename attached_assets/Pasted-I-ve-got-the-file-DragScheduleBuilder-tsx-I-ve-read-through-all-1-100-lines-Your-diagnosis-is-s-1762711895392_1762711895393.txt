@@ -1,0 +1,81 @@
+I've got the file: DragScheduleBuilder.tsx.
+
+I've read through all 1,100+ lines. Your diagnosis is spot on, and I've found the root cause for both bugs.
+
+"Can't move a game, must delete/re-add." You're 100% right. This isn't a bug; it's a missing feature. Your code only makes DraggableMatchup (the unplaced ones) draggable. The GameCard component (the placed ones) has no useDraggable hook. The only actions it has are onRemove (the 'X' button) and onResize. To "move" a game, you'd need to make the GameCard draggable, add a new mutation (e.g., moveGameMutation), and add drop logic to handle a "move" vs. a "place." This is a heavy lift.
+
+"Edit schedule' makes you re-place all games." This is the real, critical bug. It's a data-loading failure, and it's making the component completely unusable for editing.
+
+Diagnosing the "Edit" Bug
+When your component loads, it correctly fetches existingGames (line 454) and renders them on the grid. It also fetches all matchups (line 357).
+
+The problem is your placedMatchupIds state (line 350). It starts as an empty set.
+
+Your "Unplaced Matchups" list (line 826) is calculated by filtering matchups against this empty set. The result? Every matchup is considered "unplaced," even though the existingGames are clearly on the grid.
+
+The fix is simple: When the component loads and existingGames are fetched, we must immediately populate the placedMatchupIds set from that data.
+
+🚀 Iteration 3: Fix the "Edit Mode" Data Bug
+Goal: When the scheduler loads, accurately reflect the state of the schedule by populating the placedMatchupIds set from the existingGames data.
+
+Your Mandate: Follow this plan exactly.
+
+1. Pre-Check: Reproduce the Bug
+
+In your Replit project, run the application (npm run dev or yarn dev).
+
+Open the app in the Replit webview or a new tab.
+
+Navigate to the Drag & Drop Schedule Builder for a tournament.
+
+Drag one or two matchups from the "Unplaced" list onto the calendar. Confirm they are placed.
+
+Force a full page reload (F5 or the browser refresh button).
+
+Confirm the Bug: When the scheduler reloads, you will see your placed games on the grid, BUT you will also see those same matchups listed in the "Unplaced Matchups" sidebar. The progress bar will be wrong. This is the bug we are fixing.
+
+2. Step-by-Step: Initialize the State
+
+You are in src/components/DragScheduleBuilder.tsx.
+
+Step 2a: Find the State and Data
+
+We need to modify the placedMatchupIds state (line 350).
+
+We will use data from the existingGames variable (line 459).
+
+Step 2b: Add the useEffect Hook
+
+Go to line 459 (right after the existingGames definition).
+
+Add this new useEffect hook. This hook will run one time when the existingGames data is first loaded.
+
+JavaScript
+
+  // Filter games to only those in the selected division's pools
+  const divisionPools = pools.filter(p => !divisionId || p.ageDivisionId === divisionId);
+  const divisionPoolIds = new Set(divisionPools.map(p => p.id));
+  const existingGames = allGames.filter(g => divisionPoolIds.has(g.poolId));
+
+  // -----------------------------------------------------------------
+  //  FIX: Initialize placedMatchupIds on load
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    // Only run this if we have games to check
+    if (existingGames && existingGames.length > 0) {
+      // Extract all unique 'matchupId' from the existing games
+      // The .filter(Boolean) as string[] ensures we only get valid strings
+      const ids = new Set(
+        existingGames
+          .map(game => game.matchupId)
+          .filter(Boolean) as string[]
+      );
+      
+      // Update the state to reflect the games that are already placed
+      setPlacedMatchupIds(ids);
+    }
+  }, [existingGames]); // Dependency: This runs when existingGames is fetched/updated
+  // -----------------------------------------------------------------
+
+  // Generate matchups mutation
+  const generateMutation = useMutation({
