@@ -500,14 +500,6 @@ export function DragScheduleBuilder({
     queryKey: ["/api/tournaments", tournamentId, "matchups"],
   });
 
-  // Filter matchups by division (client-side)
-  const matchups = useMemo(() => {
-    if (!divisionId) return allMatchups;
-    const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
-    const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
-    return allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
-  }, [allMatchups, pools, divisionId]);
-
   // Fetch teams
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/tournaments", tournamentId, "teams"],
@@ -575,6 +567,14 @@ export function DragScheduleBuilder({
     const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
     return allGames.filter((g) => divisionPoolIds.has(g.poolId));
   }, [allGames, pools, divisionId]);
+
+  // Filter matchups by division (client-side)
+  const matchups = useMemo(() => {
+    if (!divisionId) return allMatchups;
+    const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
+    const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
+    return allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
+  }, [allMatchups, pools, divisionId]);
 
   // Initialize placedMatchupIds from existing games (runs only when games actually change)
   useEffect(() => {
