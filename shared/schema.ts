@@ -977,11 +977,6 @@ export const tournamentCreationSchema = insertTournamentSchema.extend({
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#ffffff"),
   logoUrl: z.string().url().max(2000).optional().or(z.literal('')),
   minGameGuarantee: z.number().int().min(1).max(20).optional(),
-  numberOfDiamonds: z.number().int().min(1).max(20).optional(),
-  diamondDetails: z.array(z.object({
-    venue: z.string().min(1, "Venue name is required"),
-    subVenue: z.string().optional(),
-  })).optional(),
   selectedDiamondIds: z.array(z.string()).optional(),
   minRestMinutes: z.number().int().min(0).max(240).default(30),
   restBetween2nd3rdGame: z.number().int().min(0).max(240).default(60),

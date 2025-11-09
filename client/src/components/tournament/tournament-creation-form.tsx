@@ -38,8 +38,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
     logoUrl: '',
     visibility: 'private' as 'private' | 'public' | 'unlisted',
     minGameGuarantee: undefined as number | undefined,
-    numberOfDiamonds: undefined as number | undefined,
-    diamondDetails: [] as Array<{ venue: string; subVenue?: string }>,
     selectedDiamondIds: [] as string[],
     minRestMinutes: 30,
     restBetween2nd3rdGame: 60,
@@ -137,8 +135,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
         logoUrl: '',
         visibility: 'private' as 'private' | 'public' | 'unlisted',
         minGameGuarantee: undefined,
-        numberOfDiamonds: undefined,
-        diamondDetails: [],
         selectedDiamondIds: [],
         minRestMinutes: 30,
         restBetween2nd3rdGame: 60,
@@ -210,31 +206,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
       );
       setFormData(prev => ({ ...prev, seedingPattern: defaultSeeding }));
     }
-    
-    // Initialize diamond details array when numberOfDiamonds changes
-    if (field === 'numberOfDiamonds') {
-      const count = value as number;
-      if (count > 0) {
-        const newDiamondDetails = Array.from({ length: count }, (_, i) => {
-          const existing = formData.diamondDetails[i];
-          return existing || { venue: '', subVenue: '' };
-        });
-        setFormData(prev => ({ ...prev, diamondDetails: newDiamondDetails }));
-      } else {
-        setFormData(prev => ({ ...prev, diamondDetails: [] }));
-      }
-    }
-  };
-  
-  const updateDiamondDetail = (index: number, field: 'venue' | 'subVenue', value: string) => {
-    setFormData(prev => {
-      const newDiamondDetails = [...prev.diamondDetails];
-      newDiamondDetails[index] = {
-        ...newDiamondDetails[index],
-        [field]: value,
-      };
-      return { ...prev, diamondDetails: newDiamondDetails };
-    });
   };
   
   const toggleDiamondSelection = (diamondId: string) => {
@@ -460,31 +431,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
                   </p>
                 </div>
                 
-                <div>
-                  <Label htmlFor="numberOfDiamonds">Number of Diamonds/Fields</Label>
-                  <Input
-                    id="numberOfDiamonds"
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={formData.numberOfDiamonds || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        handleInputChange('numberOfDiamonds', undefined as any);
-                      } else {
-                        handleInputChange('numberOfDiamonds', parseInt(val) || undefined);
-                      }
-                    }}
-                    placeholder="e.g., 4"
-                    className="mt-1"
-                    data-testid="input-number-of-diamonds"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Number of available diamonds/fields for scheduling
-                  </p>
-                </div>
-                
                 <div className="flex items-center space-x-2">
                   <Switch 
                     id="showTiebreakers"
@@ -548,55 +494,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
               </div>
             )}
           </div>
-          
-          {/* Diamond/Venue Details Section */}
-          {formData.type === 'pool_play' && formData.numberOfDiamonds && formData.numberOfDiamonds > 0 && (
-            <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-gray-900 flex items-center">
-                <MapPin className="w-4 h-4 mr-2" />
-                Diamond/Venue Details ({formData.numberOfDiamonds} {formData.numberOfDiamonds === 1 ? 'Diamond' : 'Diamonds'})
-              </h3>
-              <p className="text-sm text-gray-600">
-                Define venue and sub-venue details for each diamond/field
-              </p>
-              
-              <div className="space-y-3">
-                {formData.diamondDetails.map((diamond, index) => (
-                  <div key={index} className="p-3 bg-white border border-gray-200 rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium">Diamond {index + 1}</Label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor={`venue-${index}`} className="text-xs">Venue Name *</Label>
-                        <Input
-                          id={`venue-${index}`}
-                          type="text"
-                          value={diamond.venue}
-                          onChange={(e) => updateDiamondDetail(index, 'venue', e.target.value)}
-                          placeholder="e.g., Memorial Park"
-                          className="mt-1"
-                          data-testid={`input-venue-${index}`}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`subvenue-${index}`} className="text-xs">Sub-Venue (Optional)</Label>
-                        <Input
-                          id={`subvenue-${index}`}
-                          type="text"
-                          value={diamond.subVenue || ''}
-                          onChange={(e) => updateDiamondDetail(index, 'subVenue', e.target.value)}
-                          placeholder="e.g., Field A"
-                          className="mt-1"
-                          data-testid={`input-subvenue-${index}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           
           {/* Diamond Selection Section */}
           {formData.organizationId && (
