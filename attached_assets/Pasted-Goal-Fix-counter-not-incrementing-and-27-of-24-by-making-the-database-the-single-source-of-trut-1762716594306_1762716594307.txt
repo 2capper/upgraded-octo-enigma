@@ -1,0 +1,69 @@
+Goal: Fix "counter not incrementing" and "27 of 24" by making the database the single source of truth.
+
+Your Mandate: You are in src/components/DragScheduleBuilder.tsx.
+
+Step 1: Fix placeMutation.onSuccess (line 507)
+
+Replace the entire onSuccess block. This forces a refetch of both queries from the database, which triggers our useEffect hook correctly.
+
+JavaScript
+
+    onSuccess: (newGame) => {
+      // Invalidate BOTH. This is the fix.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Game Placed",
+        description: "Game successfully scheduled",
+      });
+    },
+Step 2: Fix removeMutation.onSuccess (line 532)
+
+Replace this block too. This is your "rainout" fix. It forces a refetch that removes the game from the grid and puts the matchup back in the unplaced list.
+
+JavaScript
+
+    onSuccess: (gameId) => {
+      // Invalidate BOTH.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Game Removed",
+        description: "Matchup returned to the unplaced list.",
+      });
+    },
+Step 3: Fix generateMutation.onSuccess (line 481)
+
+Replace this block. This makes the "Generate" button a reliable "Reset" button.
+
+JavaScript
+
+    onSuccess: (data) => {
+      // Refetch both queries.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Schedule Reset",
+        description: `New matchups are ready.`,
+      });
+    },
+Step 4: Fix Your Backend API (Critical for "27 of 24")
+
+Your backend endpoint for POST /api/tournaments/:tournamentId/generate-matchups must be modified.
+
+Before generating new matchups, it must first delete all existing games for that tournamentId (and divisionId if provided). This makes it a true "Reset" button.
