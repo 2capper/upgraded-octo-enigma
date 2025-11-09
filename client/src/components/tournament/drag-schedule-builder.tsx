@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -369,10 +369,26 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
     queryKey: ['/api/tournaments', tournamentId, 'games'],
   });
   
-  // Filter games to only those in the selected division's pools
-  const divisionPools = pools.filter(p => !divisionId || p.ageDivisionId === divisionId);
-  const divisionPoolIds = new Set(divisionPools.map(p => p.id));
-  const existingGames = allGames.filter(g => divisionPoolIds.has(g.poolId));
+  // Filter games to only those in the selected division's pools (memoized to prevent re-renders)
+  const existingGames = useMemo(() => {
+    const divisionPools = pools.filter(p => !divisionId || p.ageDivisionId === divisionId);
+    const divisionPoolIds = new Set(divisionPools.map(p => p.id));
+    return allGames.filter(g => divisionPoolIds.has(g.poolId));
+  }, [allGames, pools, divisionId]);
+
+  // Initialize placedMatchupIds from existing games (runs only when games actually change)
+  useEffect(() => {
+    // Extract matchup IDs from existing games
+    const idsFromGames = new Set(
+      existingGames
+        .map(game => game.matchupId)
+        .filter(Boolean) as string[]
+    );
+    
+    // Update the state to reflect the games that are already placed
+    // Because existingGames is memoized, this only runs when game data actually changes
+    setPlacedMatchupIds(idsFromGames);
+  }, [existingGames]);
 
   // Generate matchups mutation
   const generateMutation = useMutation({
