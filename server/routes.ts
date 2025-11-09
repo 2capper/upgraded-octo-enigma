@@ -2337,6 +2337,7 @@ Waterdown 10U AA
         location,
         subVenue,
         diamondId: diamondId || null,
+        matchupId: matchupId || null,
         isPlayoff: false,
         forfeitStatus: 'none' as const,
         homeScore: null,

@@ -431,17 +431,15 @@ export function DragScheduleBuilder({ tournamentId, divisionId }: DragScheduleBu
       const data = await response.json();
       return data.game;
     },
-    onSuccess: (newGame, variables) => {
-      // Track the matchup ID that was placed (from variables, not state)
-      if (variables.matchupId) {
-        setPlacedMatchupIds(prev => new Set([...Array.from(prev), variables.matchupId]));
-      }
-      
+    onSuccess: (newGame) => {
       // Optimistically update games cache with new game
       queryClient.setQueryData<Game[]>(
         ['/api/tournaments', tournamentId, 'games'],
         (oldGames = []) => [...oldGames, newGame]
       );
+      
+      // Refresh matchups to remove placed game from unplaced list
+      refetchMatchups();
       
       toast({
         title: 'Game Placed',
