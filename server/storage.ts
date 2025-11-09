@@ -8,6 +8,7 @@ import {
   ageDivisions, 
   pools, 
   teams, 
+  matchups,
   games,
   auditLogs,
   adminRequests,
@@ -39,6 +40,8 @@ import {
   type InsertPool,
   type Team,
   type InsertTeam,
+  type Matchup,
+  type InsertMatchup,
   type Game,
   type InsertGame,
   type AuditLog,
@@ -117,6 +120,10 @@ export interface IStorage {
   getPoolById(id: string): Promise<Pool | undefined>;
   createPool(pool: InsertPool): Promise<Pool>;
   deletePool(id: string): Promise<void>;
+  
+  // Matchup methods
+  getMatchups(tournamentId: string, poolId?: string): Promise<Matchup[]>;
+  replaceMatchups(tournamentId: string, poolId: string, matchups: InsertMatchup[]): Promise<Matchup[]>;
   
   // Team methods
   getTeams(tournamentId: string): Promise<Team[]>;
@@ -426,6 +433,29 @@ export class DatabaseStorage implements IStorage {
 
   async deletePool(id: string): Promise<void> {
     await db.delete(pools).where(eq(pools.id, id));
+  }
+
+  // Matchup methods
+  async getMatchups(tournamentId: string, poolId?: string): Promise<Matchup[]> {
+    if (poolId) {
+      return await db.select().from(matchups)
+        .where(and(eq(matchups.tournamentId, tournamentId), eq(matchups.poolId, poolId)));
+    }
+    return await db.select().from(matchups).where(eq(matchups.tournamentId, tournamentId));
+  }
+
+  async replaceMatchups(tournamentId: string, poolId: string, newMatchups: InsertMatchup[]): Promise<Matchup[]> {
+    return await db.transaction(async (tx) => {
+      // Delete existing matchups for this tournament/pool
+      await tx.delete(matchups)
+        .where(and(eq(matchups.tournamentId, tournamentId), eq(matchups.poolId, poolId)));
+      
+      // Insert new matchups
+      if (newMatchups.length === 0) {
+        return [];
+      }
+      return await tx.insert(matchups).values(newMatchups).returning();
+    });
   }
 
   // Team methods
