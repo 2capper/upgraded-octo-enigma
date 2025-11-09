@@ -51,9 +51,9 @@ export default function InviteAcceptance() {
     onSuccess: () => {
       toast({
         title: "Invitation accepted!",
-        description: "You now have access to the booking calendar.",
+        description: "You now have access to the booking system.",
       });
-      setLocation(`/booking/${invitation?.organizationId}/calendar`);
+      setLocation(`/booking/${invitation?.organizationId}`);
     },
     onError: (error: any) => {
       toast({

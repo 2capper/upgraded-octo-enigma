@@ -21,6 +21,10 @@ import NewBookingRequest from "@/pages/booking/new-booking-request";
 import BookingRequestDetail from "@/pages/booking/booking-request-detail";
 import { BookingCalendarPage } from "@/pages/booking/booking-calendar-page";
 import { AdminBookingCalendarPage } from "@/pages/booking/admin-booking-calendar-page";
+import CoordinatorApprovals from "@/pages/booking/coordinator-approvals";
+import TeamManagementPage from "@/pages/booking/team-management-page";
+import BookingReportsPage from "@/pages/booking/booking-reports-page";
+import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
@@ -98,6 +102,18 @@ function Router() {
       </Route>
       <Route path="/booking/:orgId/request/:requestId">
         {() => <RequireAuth component={BookingRequestDetail} />}
+      </Route>
+      <Route path="/booking/:orgId/approvals">
+        {() => <RequireAuth component={CoordinatorApprovals} />}
+      </Route>
+      <Route path="/booking/:orgId/teams">
+        {() => <RequireAuth component={TeamManagementPage} />}
+      </Route>
+      <Route path="/booking/:orgId/reports">
+        {() => <RequireAuth component={BookingReportsPage} />}
+      </Route>
+      <Route path="/booking/:orgId/settings">
+        {() => <RequireAuth component={BookingSettingsPage} />}
       </Route>
       <Route path="/booking/:orgId">
         {() => <RequireAuth component={BookingDashboard} />}
