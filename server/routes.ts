@@ -3886,7 +3886,9 @@ Waterdown 10U AA
       const org = await storage.getOrganization(orgId);
       if (org && invitation.email) {
         try {
-          const inviteUrl = `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/invitations/${token}`;
+          const host = req.get('host') || 'localhost:5000';
+          const protocol = host.includes('localhost') ? 'http' : (req.protocol || 'https');
+          const inviteUrl = `${protocol}://${host}/invite/${token}`;
           
           await notificationService.sendNotification({
             organizationId: orgId,
