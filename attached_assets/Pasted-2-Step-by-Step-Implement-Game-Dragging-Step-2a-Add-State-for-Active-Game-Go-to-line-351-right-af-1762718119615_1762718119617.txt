@@ -1,0 +1,322 @@
+2. Step-by-Step: Implement Game Dragging
+Step 2a: Add State for Active Game Go to line 351, right after the activeMatchup state. Add a new state to hold the game that is currently being dragged.
+
+JavaScript
+
+  const [activeGame, setActiveGame] = useState<Game | null>(null);
+Step 2b: Add the moveGameMutation Go to line 567, right after the resizeMutation. Add this new mutation. This will call a new API endpoint that you must build.
+
+JavaScript
+
+  // Resize game mutation
+  const resizeMutation = useMutation({
+    // ... (existing code)
+  });
+
+  // -----------------------------------------------------------------
+  //  NEW: Move game mutation
+  // -----------------------------------------------------------------
+  const moveGameMutation = useMutation({
+    mutationFn: async (gameData: {
+      gameId: string;
+      date: string;
+      time: string;
+      diamondId: string;
+    }) => {
+      const { gameId, ...payload } = gameData;
+      const response = await apiRequest('PUT', `/api/games/${gameId}/move`, payload);
+      const data = await response.json();
+      return data.game; // Assuming the backend returns the updated game
+    },
+    onSuccess: (updatedGame) => {
+      // This is the robust fix. We invalidate the 'games' query
+      // to force a refetch, which triggers our useEffect to rebuild state.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      
+      toast({
+        title: 'Game Moved',
+        description: 'Game successfully rescheduled',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Cannot Move Game',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+Backend Mandate: You must go to your backend API code and create this new endpoint: PUT /api/games/:gameId/move. It must accept { date, time, diamondId } in the body and update that game's record in your database.
+
+Step 2c: Differentiate Drag Types in handleDragStart Go to line 597 (handleDragStart). This function currently only handles matchups. We need it to detect if we're dragging a matchup or a game. Replace your entire handleDragStart function with this:
+
+JavaScript
+
+  const handleDragStart = (event: DragStartEvent) => {
+    // Reset both active states
+    setActiveMatchup(null);
+    setActiveGame(null);
+
+    const { data } = event.active;
+    
+    // Check if 'type' is 'game' (which we will add in the next step)
+    if (data.current?.type === 'game') {
+      setActiveGame(data.current.game as Game);
+    } else {
+      // Assume it's a matchup
+      setActiveMatchup(data.current as UnplacedMatchup);
+    }
+  };
+Step 2d: Update DragOverlay to Show Either Item Go to line 1104 (<DragOverlay>). It only knows how to render an activeMatchup. We need it to render an activeGame as well. Replace your <DragOverlay> block (lines 1104-1108) with this:
+
+JavaScript
+
+      <DragOverlay>
+        {activeMatchup && (
+          <DraggableMatchup matchup={activeMatchup} teams={teams} pools={pools} />
+        )}
+        {activeGame && (
+          <div className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg opacity-75">
+            <GameCard 
+              game={activeGame}
+              teams={teams}
+              pools={pools}
+              allGames={existingGames}
+              timeInterval={timeInterval}
+              onRemove={() => {}} // No-op during drag
+              onResize={() => {}} // No-op during drag
+              showToast={toast}
+            />
+          </div>
+        )}
+      </DragOverlay>
+Step 2e: Make the Placed GameCard Draggable Go to line 1022 (existingGames.map((game) => {). We are inserting the useDraggable hook inside this loop and applying its properties to the div that wraps GameCard. Replace the entire existingGames.map block (lines 1022-1053) with this:
+
+JavaScript
+
+                        {/* Placed games as positioned overlays */}
+                        {existingGames.map((game) => {
+                          const slotIndex = timeSlots.findIndex(
+                            (s) => s.date === game.date && s.time === game.time,
+                          );
+                          const diamondIndex = selectedDiamonds.findIndex(
+                            (d) => d.id === game.diamondId,
+                          );
+
+                          if (slotIndex === -1 || diamondIndex === -1)
+                            return null;
+
+                          const rowSpan = Math.ceil(
+                            (game.durationMinutes || 90) / timeInterval,
+                          );
+                          const gridRowStart = slotIndex + 2; // +2 for header row
+                          const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
+
+                          // -----------------------------------------------------
+                          // NEW: Apply useDraggable hook FOR THIS GAME
+                          // -----------------------------------------------------
+                          const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+                            id: game.id, // Use game ID as the unique draggable ID
+                            data: {
+                              type: 'game', // CRITICAL: Identify this as a 'game'
+                              game: game,
+                            },
+                          });
+
+                          const style = transform ? {
+                            gridRow: `${gridRowStart} / span ${rowSpan}`,
+                            gridColumn: gridColumnStart,
+                            zIndex: isDragging ? 12 : 10,
+                            transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+                            opacity: isDragging ? 0.5 : 1,
+                          } : {
+                            gridRow: `${gridRowStart} / span ${rowSpan}`,
+                            gridColumn: gridColumnStart,
+                            zIndex: 10,
+          _               };
+                          // -----------------------------------------------------
+
+          _               return (
+             _               <div
+               _               key={`game-${game.id}`}
+                 _             ref={setNodeRef} // Apply the ref
+                   _           className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
+         _                     style={style} // Apply the dynamic style
+     _                         {...listeners} // Apply the listeners
+     _                         {...attributes} // Apply the attributes
+     _                     >
+     _                       <GameCard 
+ _                             game={game}
+ _                             teams={teams}
+ _                             pools={pools}
+ _                             allGames={existingGames}
+ _                             timeInterval={timeInterval}
+ _                             onRemove={(gameId) => removeMutation.mutate(gameId)}
+ _                             onResize={(gameId, newDuration) => resizeMutation.mutate({ gameId, durationMinutes: newDuration })}
+D                             showToast={toast}
+                              />
+                            </div>
+                          );
+                        })}
+Step 2f: Update handleDragEnd (The Final Logic) This is the most critical part. We are replacing your entire drag-end handler with one that knows how to handle both "place" and "move" operations. Go to line 609 (handleDragEnd). Replace your entire handleDragEnd function (lines 609-724) with this new, complete version:
+
+JavaScript
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active } = event;
+    const item = active.data.current;
+    const itemType = item?.type; // This will be 'game' or undefined (for matchup)
+
+    // --- 1. GET DROP LOCATION ---
+    const rect = event.active.rect.current.translated;
+    if (!rect) {
+      setActiveMatchup(null);
+      setActiveGame(null);
+      return;
+    }
+
+    // Get center point of dragged element
+    const dropX = rect.left + rect.width / 2;
+    const dropY = rect.top + rect.height / 2;
+    
+    const cellInfo = getSlotFromCoordinates(dropX, dropY);
+    
+    // Dropped outside the grid
+    if (!cellInfo) {
+      setActiveMatchup(null);
+      setActiveGame(null);
+      return;
+    }
+
+    const { timeSlot, diamond } = cellInfo;
+    const dropData = {
+      date: timeSlot.date,
+      time: timeSlot.time,
+      diamondId: diamond.id
+    };
+    const droppedTime = dropData.time;
+    const targetDiamond = diamonds.find(d => d.id === dropData.diamondId);
+
+    // --- 2. VALIDATION: Check Diamond Availability ---
+    if (targetDiamond && !isTimeAvailable(droppedTime, targetDiamond)) {
+      toast({
+        title: 'Cannot Place Game',
+        description: `${targetDiamond.name} is not available at ${droppedTime}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
+        variant: 'destructive',
+      });
+      setActiveMatchup(null);
+      setActiveGame(null);
+      return;
+    }
+
+    // --- 3. VALIDATION: Check for Overlaps (Shared Logic) ---
+    const draggedItemHomeId = itemType === 'game' ? item.game.homeTeamId : item.homeTeamId;
+    const draggedItemAwayId = itemType === 'game' ? item.game.awayTeamId : item.awayTeamId;
+    const draggedItemId = itemType === 'game' ? item.game.id : null;
+    const draggedItemDuration = itemType === 'game' ? (item.game.durationMinutes || gameDuration) : gameDuration;
+
+    const gamesOnSameDate = existingGames.filter(g => g.date === dropData.date);
+    
+    for (const existingGame of gamesOnSameDate) {
+      // If we are dragging an existing game, skip checking against itself
+      if (draggedItemId && existingGame.id === draggedItemId) {
+        continue;
+      }
+      
+      const existingDuration = existingGame.durationMinutes || 90;
+      
+      // A) Check for DIAMOND overlap
+      if (existingGame.diamondId === dropData.diamondId && 
+          timeRangesOverlap(droppedTime, draggedItemDuration, existingGame.time, existingDuration)) {
+        const endTime = getEndTime(droppedTime, draggedItemDuration);
+        const existingEndTime = getEndTime(existingGame.time, existingDuration);
+        toast({
+          title: 'Cannot Place Game',
+          description: `This ${draggedItemDuration}-minute game (${droppedTime}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
+          variant: 'destructive',
+        });
+        setActiveMatchup(null);
+        setActiveGame(null);
+        return;
+      }
+      
+      // B) Check for TEAM overlap
+      if ((existingGame.homeTeamId === draggedItemHomeId || 
+           existingGame.awayTeamId === draggedItemHomeId ||
+           existingGame.homeTeamId === draggedItemAwayId || 
+           existingGame.awayTeamId === draggedItemAwayId) &&
+          timeRangesOverlap(droppedTime, draggedItemDuration, existingGame.time, existingDuration)) {
+        
+        const conflictingTeamIds = new Set<string>();
+        if (existingGame.homeTeamId === draggedItemHomeId || existingGame.awayTeamId === draggedItemHomeId) {
+          conflictingTeamIds.add(draggedItemHomeId);
+        }
+        if (existingGame.homeTeamId === draggedItemAwayId || existingGame.awayTeamId === draggedItemAwayId) {
+s         conflictingTeamIds.add(draggedItemAwayId);
+        }
+        
+        const conflictingTeamNames = Array.from(conflictingTeamIds)
+          .map(id => teams.find(t => t.id === id)?.name)
+          .filter(Boolean)
+          .join(' and ');
+        
+        toast({
+          title: 'Cannot Place Game',
+          description: `${conflictingTeamNames || 'A team'} already has a game that overlaps with this time slot`,
+          variant: 'destructive',
+        });
+        setActiveMatchup(null);
+        setActiveGame(null);
+        return;
+  section   }
+    }
+
+    // --- 4. EXECUTE: Run the correct mutation ---
+    if (itemType === 'game') {
+      // This is a MOVE operation
+      const game = item.game as Game;
+      moveGameMutation.mutate({
+        gameId: game.id,
+        date: dropData.date,
+        time: droppedTime,
+        diamondId: dropData.diamondId,
+      });
+    } else {
+      // This is a PLACE operation
+      const matchup = item as UnplacedMatchup;
+      placeMutation.mutate({
+        tournamentId,
+        poolId: matchup.poolId,
+Two       homeTeamId: matchup.homeTeamId,
+        awayTeamId: matchup.awayTeamId,
+        date: dropData.date,
+        time: droppedTime,
+        diamondId: dropData.diamondId,
+(         matchupId: matchup.id,
+        durationMinutes: gameDuration,
+      });
+    }
+    
+    setActiveMatchup(null);
+    setActiveGame(null);
+s };
+3. Post-Check: Validate the Full "Move" Workflow
+Backend Check: Go to your Replit backend code and create the new API route: router.put('/games/:gameId/move', ...) to handle the moveGameMutation. The app will not work until you do this.
+
+Run Check: Stop and re-run your Replit app to ensure all changes (frontend and backend) are loaded.
+
+Drag Check: Go to the scheduler. Place a game. Now, click and drag that placed game.
+
+Confirm (Grab): Your cursor grabs the game, and the DragOverlay shows a semi-transparent copy of the GameCard.
+
+Drop Check: Drop the game into a new, valid, empty time slot.
+
+Confirm (Move): After a short delay (for the invalidateQueries refetch), the game visually moves to the new slot, and you see the "Game Moved" toast.
+
+Validation Check: Try to drag the game on top of another game or into an unavailable (grayed-out) time slot.
+
+Confirm (Fail): The drop fails, you see the "Cannot Place Game" toast, and the game snaps back to its original position.
+
+This completes the feature. Your scheduler is now solid
