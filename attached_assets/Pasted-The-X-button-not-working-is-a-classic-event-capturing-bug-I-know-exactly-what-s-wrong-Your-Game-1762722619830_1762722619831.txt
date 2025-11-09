@@ -1,0 +1,86 @@
+The "X" button not working is a classic event-capturing bug. I know exactly what's wrong.
+
+Your GameCard (the child component) has an onMouseDown handler on its root div (line 118) to check for resizing. That onMouseDown is firing every time you click anywhere in the card, including on the "X" button. It's "eating" the click before the onClick event on the button can finish.
+
+We are going to fix this by telling that onMouseDown handler to ignore clicks on the "X" button.
+
+🚀 Iteration 13: Fix the "X" (Remove) Button
+Goal: Make the "X" button work by modifying the GameCard's onMouseDown to ignore clicks on the remove button.
+
+Your Mandate: You are in src/components/DragScheduleBuilder.tsx.
+
+1. Pre-Check: Verify the Bug
+
+Run your app.
+
+Place a game on the grid.
+
+Click the "X" button on that placed game.
+
+Confirm: The game does not delete.
+
+2. Step-by-Step: Fix the GameCard Component
+
+Find your GameCard function definition (around line 95).
+
+Go to the onMouseDown handler on the root div (around line 118).
+
+Replace the first few lines of that handler.
+
+Change this code:
+
+JavaScript
+
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        const resizeHandle = target.closest('.resize-handle');
+        
+        if (resizeHandle) {
+          e.preventDefault();
+          e.stopPropagation();
+          // ... rest of resize logic ...
+...with this new, corrected code:
+
+JavaScript
+
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+
+        // --- THIS IS THE FIX ---
+        // Check if the click was on the remove button. If so, DO NOTHING.
+        // This lets the button's own onClick event fire.
+        if (target.closest('.remove-button')) { // We will add this class next
+          return;
+        }
+        // --- END FIX ---
+
+        const resizeHandle = target.closest('.resize-handle');
+        
+        if (resizeHandle) {
+          e.preventDefault();
+          e.stopPropagation();
+          // ... rest of resize logic ...
+Add the remove-button class:
+
+Now, go down to the "X" button itself (around line 211).
+
+Add remove-button to its className prop.
+
+Change this line:
+
+JavaScript
+
+      <button
+        onClick={() => onRemove(game.id)}
+        className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
+        data-testid={`remove-game-${game.id}`}
+      >
+...to this:
+
+JavaScript
+
+      <button
+        onClick={() => onRemove(game.id)} // No stopPropagation needed here
+        className="remove-button absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10" // <-- CLASS ADDED
+        data-testid={`remove-game-${game.id}`}
+      >
