@@ -1,0 +1,93 @@
+That's a regression. My apologies. My invalidateQueries plan for that button was correct technically but wrong for your app's (flawed) data flow.
+
+I know exactly why this is happening.
+
+The Diagnosis
+Your app has a data-flow problem:
+
+Your POST /api/.../generate-matchups endpoint does not save the matchups to the database. It just generates them and returns them once in the API response.
+
+Your GET /api/.../matchups endpoint (which the page loads) reads from the database, which is empty.
+
+My previous fix (using invalidateQueries for matchups) failed because it told React Query to "refetch" the matchups. React Query then correctly called the GET endpoint and correctly got an empty array, so the scheduler never appeared.
+
+The original code (using setQueryData) was a necessary hack. It manually took the response from the "generate" endpoint and shoved it into the cache for the "get" endpoint.
+
+We are going to combine my fix (which solves the "27 of 24" bug) with your old hack (which solves the "scheduler not appearing" bug).
+
+🚀 Iteration 7 (Revised): The Correct Data-Sync Fix
+Goal: Fix all bugs. The counter must increment, the "rainout" (remove) must work, and the "Generate" button must show the scheduler.
+
+Your Mandate: You are in src/components/DragScheduleBuilder.tsx.
+
+Step 1: Fix placeMutation.onSuccess (This is CORRECT - Keep It)
+
+Your placeMutation.onSuccess (line 507) must use invalidateQueries for both games and matchups, just like I said before. This is what fixes the "counter not incrementing" bug.
+
+JavaScript
+
+    onSuccess: (newGame) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Game Placed",
+        description: "Game successfully scheduled",
+      });
+    },
+Step 2: Fix removeMutation.onSuccess (This is CORRECT - Keep It)
+
+Your removeMutation.onSuccess (line 532) must also use invalidateQueries for both games and matchups. This is your "rainout" fix.
+
+JavaScript
+
+    onSuccess: (gameId) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Game Removed",
+        description: "Matchup returned to the unplaced list.",
+      });
+    },
+Step 3: Fix generateMutation.onSuccess (This is THE FIX)
+
+This is the one we got wrong. It needs a hybrid approach.
+
+Go to your generateMutation.onSuccess handler (line 481).
+
+Replace the entire onSuccess block with this:
+
+JavaScript
+
+    onSuccess: (data) => {
+      // 1. Manually put the new matchups (data) in the cache.
+      //    This is the HACK that makes the scheduler appear.
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups', divisionId],
+        data
+      );
+
+      // 2. Invalidate the 'games' query.
+      //    This is the REAL fix for the "27 of 24" bug.
+      //    It clears the grid and triggers our useEffect to reset the counter.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+
+      toast({
+        title: "Schedule Reset",
+        description: `New matchups are ready.`,
+      });
+    },
+Step 4: Fix Your Backend API (Still Required!)
+
+Your backend endpoint for POST /api/tournaments/:tournamentId/generate-matchups must delete all existing games for that tournamentId. This is the other half of the "27 of 24" fix.
