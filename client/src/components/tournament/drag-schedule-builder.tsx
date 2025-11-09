@@ -1413,54 +1413,28 @@ export function DragScheduleBuilder({
                           const gridRowStart = slotIndex + 2; // +2 for header row
                           const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
 
-                          // Apply useDraggable hook for this game
-                          const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                            id: game.id,
-                            data: {
-                              type: 'game',
-                              game: game,
-                            },
-                          });
-
-                          const style = transform ? {
-                            gridRow: `${gridRowStart} / span ${rowSpan}`,
-                            gridColumn: gridColumnStart,
-                            zIndex: isDragging ? 12 : 10,
-                            transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-                            opacity: isDragging ? 0.5 : 1,
-                          } : {
-                            gridRow: `${gridRowStart} / span ${rowSpan}`,
-                            gridColumn: gridColumnStart,
-                            zIndex: 10,
-                          };
-
                           return (
-                            <div
-                              key={`game-${game.id}`}
-                              ref={setNodeRef}
-                              className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
-                              style={style}
-                              {...listeners}
-                              {...attributes}
-                            >
-                              <GameCard
-                                game={game}
-                                teams={teams}
-                                pools={pools}
-                                allGames={existingGames}
-                                timeInterval={timeInterval}
-                                onRemove={(gameId) =>
-                                  removeMutation.mutate(gameId)
-                                }
-                                onResize={(gameId, newDuration) =>
-                                  resizeMutation.mutate({
-                                    gameId,
-                                    durationMinutes: newDuration,
-                                  })
-                                }
-                                showToast={toast}
-                              />
-                            </div>
+                            <DraggableGameCard
+                              key={game.id}
+                              game={game}
+                              gridRowStart={gridRowStart}
+                              gridColumnStart={gridColumnStart}
+                              rowSpan={rowSpan}
+                              teams={teams}
+                              pools={pools}
+                              allGames={existingGames}
+                              timeInterval={timeInterval}
+                              onRemove={(gameId) =>
+                                removeMutation.mutate(gameId)
+                              }
+                              onResize={(gameId, newDuration) =>
+                                resizeMutation.mutate({
+                                  gameId,
+                                  durationMinutes: newDuration,
+                                })
+                              }
+                              showToast={toast}
+                            />
                           );
                         })}
                       </div>
