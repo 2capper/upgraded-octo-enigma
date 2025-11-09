@@ -1,0 +1,144 @@
+Iteration 8 (Revised): Fixing the React Crash
+Goal: Fix the "Rendered more hooks" crash by creating a new DraggableGameCard component that encapsulates the useDraggable hook.
+
+Your Mandate: You are in src/components/DragScheduleBuilder.tsx.
+
+1. Step-by-Step: Create the New DraggableGameCard Component
+
+Step 1a: Go to the top of your DragScheduleBuilder.tsx file, right after the DraggableMatchup component definition (around line 93).
+
+Paste this entire new component code. This component will now be responsible for being "draggable."
+
+JavaScript
+
+// -----------------------------------------------------------------
+//  NEW: DraggableGameCard Component
+//  This component encapsulates the useDraggable hook to fix the
+//  "Rendered more hooks" crash.
+// -----------------------------------------------------------------
+function DraggableGameCard({
+  game,
+  gridRowStart,
+  gridColumnStart,
+  rowSpan,
+  teams,
+  pools,
+  allGames,
+  timeInterval,
+  onRemove,
+  onResize,
+  showToast,
+}: {
+  game: Game;
+  gridRowStart: number;
+  gridColumnStart: number;
+  rowSpan: number;
+  teams: Team[];
+  pools: Pool[];
+  allGames: Game[];
+  timeInterval: number;
+  onRemove: (gameId: string) => void;
+  onResize: (gameId: string, newDuration: number) => void;
+  showToast: (options: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
+}) {
+  // 1. THE FIX: useDraggable is now at the top level of THIS component.
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: game.id, // Use game ID as the unique draggable ID
+    data: {
+      type: 'game', // CRITICAL: Identify this as a 'game'
+      game: game,
+    },
+  });
+
+  // 2. Calculate style based on drag state
+  const style = transform ? {
+    gridRow: `${gridRowStart} / span ${rowSpan}`,
+    gridColumn: gridColumnStart,
+    zIndex: isDragging ? 12 : 10,
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : {
+    gridRow: `${gridRowStart} / span ${rowSpan}`,
+    gridColumn: gridColumnStart,
+    zIndex: 10,
+  };
+
+  // 3. Render the wrapper div + the GameCard
+  return (
+    <div
+      ref={setNodeRef} // Apply the ref
+      className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
+      style={style} // Apply the dynamic style
+      {...listeners} // Apply the listeners
+      {...attributes} // Apply the attributes
+    >
+      <GameCard
+        game={game}
+        teams={teams}
+        pools={pools}
+        allGames={allGames}
+        timeInterval={timeInterval}
+        onRemove={onRemove}
+        onResize={onResize}
+        showToast={showToast}
+      />
+    </div>
+  );
+}
+2. Step-by-Step: Refactor Your existingGames.map to Use It
+
+Step 2a: Now, go down to your existingGames.map loop (around line 1022).
+
+Replace the entire map block (from line 1022 to 1053) with this new, much simpler code. We are moving all that logic into the new component we just created.
+
+JavaScript
+
+                        {/* Placed games as positioned overlays */}
+                        {existingGames.map((game) => {
+                          const slotIndex = timeSlots.findIndex(
+                            (s) => s.date === game.date && s.time === game.time,
+                          );
+                          const diamondIndex = selectedDiamonds.findIndex(
+                            (d) => d.id === game.diamondId,
+                          );
+
+                          if (slotIndex === -1 || diamondIndex === -1)
+                            return null;
+
+                          const rowSpan = Math.ceil(
+                            (game.durationMinutes || 90) / timeInterval,
+                          );
+                          const gridRowStart = slotIndex + 2; // +2 for header row
+                          const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
+
+            _             // RENDER THE NEW COMPONENT
+            _             return (
+             _               <DraggableGameCard
+             _                 key={game.id}
+            _                 game={game}
+          _                 gridRowStart={gridRowStart}
+       _                 gridColumnStart={gridColumnStart}
+    _                   rowSpan={rowSpan}
+   _                     teams={teams}
+   _                     pools={pools}
+   _                     allGames={existingGames}
+   _                     timeInterval={timeInterval}
+   _                     onRemove={removeMutation.mutate}
+   _                     onResize={(gameId, newDuration) =>
+     _       _             resizeMutation.mutate({ gameId, durationMinutes: newDuration })
+   _           _         }
+           _                 showToast={toast}
+                 _         />
+               _         );
+             _         })}
+3. Step-by-Step: Check All Other Logic
+
+The rest of my plan for Iteration 8 (the parts you haven't done yet) is still correct.
+
+Check handleDragStart (line 597): Make sure it's the new version that detects item.data.current?.type === 'game'.
+
+Check handleDragEnd (line 609): Make sure it's the new, combined version that handles both "place" and "move" operations.
+
+Check DragOverlay (line 1104): Make sure it's the new version that can render both activeMatchup and activeGame.
+
+Check Backend: Make sure you've built the PUT /api/games/:gameId/move endpoint.
