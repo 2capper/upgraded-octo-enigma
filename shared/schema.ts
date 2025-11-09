@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, index, varchar, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, index, varchar, uniqueIndex, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -177,6 +177,17 @@ export const teams = pgTable("teams", {
   paymentStatus: text("payment_status"), // Payment status from registration CSV
   isPlaceholder: boolean("is_placeholder").notNull().default(false), // True for seed label teams that will be replaced after pool play
 });
+
+export const matchups = pgTable("matchups", {
+  id: text("id").primaryKey(),
+  tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  poolId: text("pool_id").notNull().references(() => pools.id, { onDelete: "cascade" }),
+  homeTeamId: text("home_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  awayTeamId: text("away_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+}, (table) => ({
+  // Unique constraint to prevent duplicate matchups
+  uniqueMatchup: unique().on(table.tournamentId, table.poolId, table.homeTeamId, table.awayTeamId),
+}));
 
 export const games = pgTable("games", {
   id: text("id").primaryKey(),
@@ -825,6 +836,7 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({
 export const insertAgeDivisionSchema = createInsertSchema(ageDivisions);
 export const insertPoolSchema = createInsertSchema(pools);
 export const insertTeamSchema = createInsertSchema(teams);
+export const insertMatchupSchema = createInsertSchema(matchups);
 export const insertGameSchema = createInsertSchema(games);
 export const insertObaTeamSchema = createInsertSchema(obaTeams).omit({
   id: true,
@@ -1006,6 +1018,9 @@ export type InsertPool = z.infer<typeof insertPoolSchema>;
 
 export type Team = typeof teams.$inferSelect;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
+
+export type Matchup = typeof matchups.$inferSelect;
+export type InsertMatchup = z.infer<typeof insertMatchupSchema>;
 
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
