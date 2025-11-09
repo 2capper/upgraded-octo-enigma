@@ -1838,6 +1838,20 @@ Waterdown 10U AA
         ? allPools.filter(p => p.ageDivisionId === divisionId)
         : allPools;
       
+      // DELETE EXISTING GAMES for this tournament/division before generating new matchups
+      // This makes "Generate Schedule" a true reset button
+      const allGames = await storage.getGames(tournamentId);
+      const poolIds = new Set(pools.map(p => p.id));
+      const gamesToDelete = divisionId 
+        ? allGames.filter(g => poolIds.has(g.poolId) && !g.isPlayoff)
+        : allGames.filter(g => !g.isPlayoff);
+      
+      for (const game of gamesToDelete) {
+        await storage.deleteGame(game.id);
+      }
+      
+      console.log(`Deleted ${gamesToDelete.length} existing pool play games before generating new matchups`);
+      
       // Organize teams by pool
       const poolsWithTeams = pools.map(pool => ({
         id: pool.id,

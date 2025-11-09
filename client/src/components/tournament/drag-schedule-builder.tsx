@@ -517,14 +517,17 @@ export function DragScheduleBuilder({
       return data.matchups;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["/api/tournaments", tournamentId, "matchups", divisionId],
-        data,
-      );
-      setPlacedMatchupIds(new Set()); // Reset placed matchup IDs when regenerating
+      // Invalidate BOTH queries to refetch from database
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
       toast({
-        title: "Matchups Generated",
-        description: `Created ${data.length} matchups ready to place`,
+        title: "Schedule Reset",
+        description: `New matchups are ready.`,
       });
     },
     onError: (error: Error) => {
@@ -554,16 +557,13 @@ export function DragScheduleBuilder({
       return data.game;
     },
     onSuccess: (newGame) => {
-      console.log("NEW GAME FROM API:", newGame);
-      
-      // Optimistically update games cache with new game
-      queryClient.setQueryData<Game[]>(
-        ["/api/tournaments", tournamentId, "games"],
-        (oldGames = []) => [...oldGames, newGame],
-      );
-
-      // Refresh matchups to remove placed game from unplaced list
-      refetchMatchups();
+      // Invalidate BOTH queries to refetch from database
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
 
       toast({
         title: "Game Placed",
@@ -586,16 +586,17 @@ export function DragScheduleBuilder({
       return gameId;
     },
     onSuccess: (gameId) => {
-      // Optimistically remove game from cache
-      queryClient.setQueryData<Game[]>(
-        ["/api/tournaments", tournamentId, "games"],
-        (oldGames = []) => oldGames.filter((g) => g.id !== gameId),
-      );
+      // Invalidate BOTH queries to refetch from database
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
 
-      refetchMatchups(); // Refresh matchups to show removed game as available again
       toast({
         title: "Game Removed",
-        description: "Game removed from schedule",
+        description: "Matchup returned to the unplaced list.",
       });
     },
   });
