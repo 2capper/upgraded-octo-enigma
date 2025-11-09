@@ -317,7 +317,8 @@ function GameCard({
       }}
     >
       <button
-        onClick={(e) => { e.stopPropagation(); onRemove(game.id); }}
+        onClick={() => onRemove(game.id)}
+        onMouseDown={(e) => e.stopPropagation()}
         className="remove-button absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
         data-testid={`remove-game-${game.id}`}
       >
