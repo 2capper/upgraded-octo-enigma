@@ -1,0 +1,77 @@
+You did exactly what I asked. You removed the manual state update from placeMutation.onSuccess.
+
+This means your frontend code is now correct. The "counter still not incrementing" bug is not a frontend problem anymore.
+
+Your backend API is broken.
+
+Diagnosing the Problem
+Here is the exact data flow that is failing:
+
+You drop a matchup. handleDragEnd (line 748) calls placeMutation.mutate, and it correctly sends the matchupId to the backend.
+
+Your POST /api/games/place endpoint receives this, creates a game, but it is not saving the matchupId to the database.
+
+Your API then returns the newGame object (line 503).
+
+onSuccess (line 507) optimistically adds this newGame to the allGames cache.
+
+This newGame object has matchupId: null (or undefined) because your API didn't save or return it.
+
+The useMemo(existingGames) hook (line 458) re-runs, and it includes this new game.
+
+The useEffect hook (line 465) re-runs. It maps over existingGames, sees your new game, looks at newGame.matchupId, finds null, and does not add it to the placedMatchupIds set.
+
+The placedCount (line 823) remains at its old value. The counter does not increment.
+
+The problem is the data coming back from your API.
+
+Your Mandate: Fix the Backend
+This is your only priority. Do not touch the frontend file again.
+
+1. Pre-Check: Prove the Bug
+
+In your Replit project, go to DragScheduleBuilder.tsx.
+
+Go to the placeMutation.onSuccess handler (line 507).
+
+Add this line:
+
+JavaScript
+
+    onSuccess: (newGame) => {
+      console.log("NEW GAME FROM API:", newGame); // <-- ADD THIS LINE
+      // Optimistically update games cache with new game
+      queryClient.setQueryData<Game[]>(
+Run the app. Open the browser console. Drag and drop a game.
+
+Confirm: You will see the log "NEW GAME FROM API:" and the game object will have matchupId: null or matchupId: undefined. This is your bug.
+
+2. Step-by-Step: Fix the API
+
+Go to your backend code (e.g., server/routes/games.js or wherever POST /api/games/place lives).
+
+Find the controller logic for that endpoint.
+
+It receives req.body, which contains tournamentId, poolId, homeTeamId, awayTeamId, date, time, diamondId, and matchupId.
+
+The Fix:
+
+When you create the new game document (e.g., const newGame = new Game(...)), you must save the matchupId from req.body to the document.
+
+Your response (e.g., res.json({ game: newGame })) must return the full game object that includes the matchupId you just saved.
+
+3. Post-Check: Validate the Fix
+
+Go back to your running app (with the console.log still in place).
+
+Hard-refresh the page.
+
+Drag and drop a new game.
+
+Confirm: This time, the console log will show a newGame object, and matchupId will have a string value.
+
+Confirm: The progress counter will immediately increment by 1.
+
+Confirm: The game you just placed will disappear from the "Unplaced Matchups" sidebar (because you correctly added refetchMatchups on line 513).
+
+The frontend logic is sound. It's just getting bad data from your API. Fix the API.
