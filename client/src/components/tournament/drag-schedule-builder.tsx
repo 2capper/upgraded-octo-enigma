@@ -517,12 +517,17 @@ export function DragScheduleBuilder({
       return data.matchups;
     },
     onSuccess: (data) => {
-      // Invalidate BOTH queries to refetch from database
+      // 1. Manually put the new matchups (data) in the cache.
+      //    This is necessary because matchups are not saved to the database.
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups', divisionId],
+        data
+      );
+
+      // 2. Invalidate the 'games' query.
+      //    This clears the grid and triggers our useEffect to reset the counter.
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
       });
 
       toast({
