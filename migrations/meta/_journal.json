@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1762384981097,
-      "tag": "0000_amused_metal_master",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1762472470229,
-      "tag": "0001_fine_warbird",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1762528331010,
-      "tag": "0002_lush_wendigo",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1762537621354,
-      "tag": "0003_redundant_justice",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1762580687450,
-      "tag": "0004_lively_serpent_society",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1762609252626,
-      "tag": "0005_cheerful_morlun",
+      "when": 1762714110569,
+      "tag": "0000_deep_ink",
       "breakpoints": true
     }
   ]

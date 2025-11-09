@@ -554,6 +554,8 @@ export function DragScheduleBuilder({
       return data.game;
     },
     onSuccess: (newGame) => {
+      console.log("NEW GAME FROM API:", newGame);
+      
       // Optimistically update games cache with new game
       queryClient.setQueryData<Game[]>(
         ["/api/tournaments", tournamentId, "games"],

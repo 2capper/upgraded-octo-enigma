@@ -196,6 +196,7 @@ export const games = pgTable("games", {
   location: text("location").notNull(),
   subVenue: text("sub_venue"),
   diamondId: varchar("diamond_id").references(() => diamonds.id, { onDelete: "set null" }), // Assigned diamond/field
+  matchupId: text("matchup_id"), // Links game to unplaced matchup for drag-and-drop schedule builder
   isPlayoff: boolean("is_playoff").notNull().default(false),
   // Playoff bracket fields
   playoffRound: integer("playoff_round"),
