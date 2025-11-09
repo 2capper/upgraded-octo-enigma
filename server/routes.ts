@@ -1593,6 +1593,20 @@ Waterdown 10U AA
     }
   });
 
+  // Matchup routes
+  app.get("/api/tournaments/:tournamentId/matchups", async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { poolId } = req.query;
+      
+      const matchups = await storage.getMatchups(tournamentId, poolId as string | undefined);
+      res.json(matchups);
+    } catch (error) {
+      console.error("Error fetching matchups:", error);
+      res.status(500).json({ error: "Failed to fetch matchups" });
+    }
+  });
+
   // Game routes
   app.get("/api/tournaments/:tournamentId/games", async (req, res) => {
     try {
@@ -1983,9 +1997,19 @@ Waterdown 10U AA
       
       console.log('Generated matchups:', matchupResult.metadata);
       
+      // Save matchups to database (replace existing matchups for each pool)
+      const savedMatchups: any[] = [];
+      for (const pool of pools) {
+        const poolMatchups = matchupResult.matchups.filter(m => m.poolId === pool.id);
+        const saved = await storage.replaceMatchups(tournamentId, pool.id, poolMatchups);
+        savedMatchups.push(...saved);
+      }
+      
+      console.log(`Saved ${savedMatchups.length} matchups to database`);
+      
       res.status(200).json({
         message: `Generated ${matchupResult.metadata.totalMatchups} unplaced matchups`,
-        matchups: matchupResult.matchups,
+        matchups: savedMatchups,
         metadata: matchupResult.metadata
       });
     } catch (error: any) {
