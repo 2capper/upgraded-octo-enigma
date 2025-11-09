@@ -1813,6 +1813,122 @@ Waterdown 10U AA
     }
   });
 
+  // Move game to new date/time/diamond via drag-and-drop
+  app.put("/api/games/:gameId/move", requireAdmin, async (req, res) => {
+    try {
+      const { gameId } = req.params;
+      const { date, time, diamondId } = req.body;
+
+      // Validate required fields
+      if (!date || !time || !diamondId) {
+        return res.status(400).json({ error: "Missing required fields: date, time, diamondId" });
+      }
+
+      // Get the game being moved
+      const game = await storage.getGame(gameId);
+      if (!game) {
+        return res.status(404).json({ error: "Game not found" });
+      }
+
+      // Get tournament to validate date range
+      const tournament = await storage.getTournament(game.tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Validate date is within tournament range
+      if (date < tournament.startDate || date > tournament.endDate) {
+        return res.status(400).json({ 
+          error: `Game date must be between ${tournament.startDate} and ${tournament.endDate}` 
+        });
+      }
+
+      // Verify diamond exists and belongs to tournament's organization
+      const diamonds = await storage.getDiamonds(tournament.organizationId);
+      const targetDiamond = diamonds.find(d => d.id === diamondId);
+      if (!targetDiamond) {
+        return res.status(400).json({ error: "Invalid diamond for this tournament" });
+      }
+
+      // Check diamond availability hours
+      const [hours, minutes] = time.split(':').map(Number);
+      const timeMinutes = hours * 60 + minutes;
+      const [startHours, startMinutes] = targetDiamond.availableStartTime.split(':').map(Number);
+      const startTimeMinutes = startHours * 60 + startMinutes;
+      const [endHours, endMinutes] = targetDiamond.availableEndTime.split(':').map(Number);
+      const endTimeMinutes = endHours * 60 + endMinutes;
+      const gameDuration = game.durationMinutes || 90;
+      const gameEndMinutes = timeMinutes + gameDuration;
+
+      if (timeMinutes < startTimeMinutes || gameEndMinutes > endTimeMinutes) {
+        return res.status(400).json({ 
+          error: `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}` 
+        });
+      }
+
+      // Get all games from the tournament to check for conflicts
+      const tournamentGames = await storage.getGames(game.tournamentId);
+      
+      // Filter games on the same date, excluding the game being moved
+      const gamesOnSameDate = tournamentGames.filter(g => 
+        g.id !== gameId && g.date === date
+      );
+
+      // Use timeMinutes and gameEndMinutes already calculated above for availability check
+      const gameStartMinutes = timeMinutes;
+
+      // Check for diamond conflicts
+      for (const otherGame of gamesOnSameDate) {
+        if (otherGame.diamondId === diamondId) {
+          const [otherHours, otherMinutes] = otherGame.time.split(':').map(Number);
+          const otherStartMinutes = otherHours * 60 + otherMinutes;
+          const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
+
+          // Check for overlap: gameEnd > otherStart AND gameStart < otherEnd
+          if (gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes) {
+            return res.status(409).json({ 
+              error: `Game would overlap with another game on ${targetDiamond.name}` 
+            });
+          }
+        }
+      }
+
+      // Check for team conflicts
+      for (const otherGame of gamesOnSameDate) {
+        const hasTeamConflict = 
+          otherGame.homeTeamId === game.homeTeamId ||
+          otherGame.awayTeamId === game.homeTeamId ||
+          otherGame.homeTeamId === game.awayTeamId ||
+          otherGame.awayTeamId === game.awayTeamId;
+
+        if (hasTeamConflict) {
+          const [otherHours, otherMinutes] = otherGame.time.split(':').map(Number);
+          const otherStartMinutes = otherHours * 60 + otherMinutes;
+          const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
+
+          // Check for overlap
+          if (gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes) {
+            return res.status(409).json({ 
+              error: "One or more teams already has a game that overlaps with this time slot" 
+            });
+          }
+        }
+      }
+
+      // All validations passed - update the game
+      const updatedGame = await storage.updateGame(gameId, {
+        date,
+        time,
+        diamondId
+      });
+
+      res.json(updatedGame);
+    } catch (error) {
+      console.error("Error moving game:", error);
+      res.status(500).json({ error: "Failed to move game" });
+    }
+  });
+
   // Generate unplaced matchups (team pairings only, no time/diamond assignments)
   app.post("/api/tournaments/:tournamentId/generate-matchups", requireAdmin, async (req, res) => {
     try {

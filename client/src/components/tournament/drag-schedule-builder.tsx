@@ -738,116 +738,60 @@ export function DragScheduleBuilder({
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const matchup = event.active.data.current as UnplacedMatchup;
+  // Shared validation helper: checks diamond availability and overlaps
+  // Returns error message if invalid, null if valid
+  const validatePlacement = (params: {
+    date: string;
+    time: string;
+    diamondId: string;
+    homeTeamId: string;
+    awayTeamId: string;
+    durationMinutes: number;
+    ignoreGameId?: string; // Skip checking this game (for moves)
+  }): string | null => {
+    const { date, time, diamondId, homeTeamId, awayTeamId, durationMinutes, ignoreGameId } = params;
 
-    if (!matchup) {
-      setActiveMatchup(null);
-      return;
-    }
-
-    // Use coordinate math to determine drop location
-    const rect = event.active.rect.current.translated;
-    if (!rect) {
-      setActiveMatchup(null);
-      return;
-    }
-
-    // Get center point of dragged element
-    const dropX = rect.left + rect.width / 2;
-    const dropY = rect.top + rect.height / 2;
-
-    const cellInfo = getSlotFromCoordinates(dropX, dropY);
-
-    if (!cellInfo) {
-      setActiveMatchup(null);
-      return;
-    }
-
-    const { timeSlot, diamond } = cellInfo;
-    const dropData = {
-      date: timeSlot.date,
-      time: timeSlot.time,
-      diamondId: diamond.id,
-    };
-
-    // Debug logging to diagnose diamond mismatch
-    console.log("DROP EVENT:", {
-      dropData,
-      dropOverId: event.over?.id,
-      allDiamonds: diamonds.map((d) => ({ id: d.id, name: d.name })),
-      targetDiamond: diamonds.find((d) => d.id === dropData.diamondId)?.name,
-    });
-
-    // Use exact time from drop slot (no snapping)
-    const droppedTime = dropData.time;
-
-    // Check if drop location is within diamond availability hours
-    const targetDiamond = diamonds.find((d) => d.id === dropData.diamondId);
-    if (targetDiamond && !isTimeAvailable(droppedTime, targetDiamond)) {
-      toast({
-        title: "Cannot Place Game",
-        description: `${targetDiamond.name} is not available at ${droppedTime}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
-        variant: "destructive",
-      });
-      setActiveMatchup(null);
-      return;
+    // Check diamond availability
+    const targetDiamond = diamonds.find((d) => d.id === diamondId);
+    if (targetDiamond && !isTimeAvailable(time, targetDiamond)) {
+      return `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`;
     }
 
     // Check for overlapping games
-    const gamesOnSameDate = existingGames.filter(
-      (g) => g.date === dropData.date,
-    );
+    const gamesOnSameDate = existingGames.filter((g) => g.date === date);
+    
     for (const existingGame of gamesOnSameDate) {
-      const existingDuration = existingGame.durationMinutes || 90;
-
-      // Check if new game would overlap with existing game on same diamond
-      if (
-        existingGame.diamondId === dropData.diamondId &&
-        timeRangesOverlap(
-          droppedTime,
-          gameDuration,
-          existingGame.time,
-          existingDuration,
-        )
-      ) {
-        const endTime = getEndTime(droppedTime, gameDuration);
-        const existingEndTime = getEndTime(existingGame.time, existingDuration);
-        toast({
-          title: "Cannot Place Game",
-          description: `This ${gameDuration}-minute game (${droppedTime}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
-          variant: "destructive",
-        });
-        setActiveMatchup(null);
-        return;
+      // Skip self-check when moving a game
+      if (ignoreGameId && existingGame.id === ignoreGameId) {
+        continue;
       }
 
-      // Check if either team has an overlapping game
+      const existingDuration = existingGame.durationMinutes || 90;
+
+      // Check diamond conflicts
       if (
-        (existingGame.homeTeamId === matchup.homeTeamId ||
-          existingGame.awayTeamId === matchup.homeTeamId ||
-          existingGame.homeTeamId === matchup.awayTeamId ||
-          existingGame.awayTeamId === matchup.awayTeamId) &&
-        timeRangesOverlap(
-          droppedTime,
-          gameDuration,
-          existingGame.time,
-          existingDuration,
-        )
+        existingGame.diamondId === diamondId &&
+        timeRangesOverlap(time, durationMinutes, existingGame.time, existingDuration)
       ) {
-        // Find which team(s) actually have the conflict
+        const endTime = getEndTime(time, durationMinutes);
+        const existingEndTime = getEndTime(existingGame.time, existingDuration);
+        return `This ${durationMinutes}-minute game (${time}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`;
+      }
+
+      // Check team conflicts
+      if (
+        (existingGame.homeTeamId === homeTeamId ||
+          existingGame.awayTeamId === homeTeamId ||
+          existingGame.homeTeamId === awayTeamId ||
+          existingGame.awayTeamId === awayTeamId) &&
+        timeRangesOverlap(time, durationMinutes, existingGame.time, existingDuration)
+      ) {
         const conflictingTeamIds = new Set<string>();
-        if (
-          existingGame.homeTeamId === matchup.homeTeamId ||
-          existingGame.awayTeamId === matchup.homeTeamId
-        ) {
-          conflictingTeamIds.add(matchup.homeTeamId);
+        if (existingGame.homeTeamId === homeTeamId || existingGame.awayTeamId === homeTeamId) {
+          conflictingTeamIds.add(homeTeamId);
         }
-        if (
-          existingGame.homeTeamId === matchup.awayTeamId ||
-          existingGame.awayTeamId === matchup.awayTeamId
-        ) {
-          conflictingTeamIds.add(matchup.awayTeamId);
+        if (existingGame.homeTeamId === awayTeamId || existingGame.awayTeamId === awayTeamId) {
+          conflictingTeamIds.add(awayTeamId);
         }
 
         const conflictingTeamNames = Array.from(conflictingTeamIds)
@@ -855,32 +799,115 @@ export function DragScheduleBuilder({
           .filter(Boolean)
           .join(" and ");
 
-        toast({
-          title: "Cannot Place Game",
-          description: `${conflictingTeamNames || "A team"} already has a game that overlaps with this time slot`,
-          variant: "destructive",
-        });
-        setActiveMatchup(null);
-        return;
+        return `${conflictingTeamNames || "A team"} already has a game that overlaps with this time slot`;
       }
     }
 
-    // Save matchup ID before clearing active matchup
-    const matchupId = matchup.id;
+    return null; // Valid
+  };
 
-    placeMutation.mutate({
-      tournamentId,
-      poolId: matchup.poolId,
-      homeTeamId: matchup.homeTeamId,
-      awayTeamId: matchup.awayTeamId,
-      date: dropData.date,
-      time: droppedTime, // Use exact time from drop slot
-      diamondId: dropData.diamondId,
-      matchupId: matchupId, // Pass matchup ID for tracking
-      durationMinutes: gameDuration, // Use division's default or overridden duration
-    });
+  const handleDragEnd = (event: DragEndEvent) => {
+    try {
+      // Determine what's being dragged
+      const dragData = event.active.data.current;
+      const dragType = dragData?.type;
+      const isMovingGame = dragType === 'game';
 
-    setActiveMatchup(null);
+      // Get drop location using coordinate math
+      const rect = event.active.rect.current.translated;
+      if (!rect) {
+        return;
+      }
+
+      const dropX = rect.left + rect.width / 2;
+      const dropY = rect.top + rect.height / 2;
+      const cellInfo = getSlotFromCoordinates(dropX, dropY);
+
+      if (!cellInfo) {
+        return;
+      }
+
+      const { timeSlot, diamond } = cellInfo;
+      const targetDate = timeSlot.date;
+      const targetTime = timeSlot.time;
+      const targetDiamondId = diamond.id;
+
+      if (isMovingGame && activeGame) {
+        // Moving an existing game
+        // Skip if dropping in same location
+        if (
+          activeGame.date === targetDate &&
+          activeGame.time === targetTime &&
+          activeGame.diamondId === targetDiamondId
+        ) {
+          return; // No change needed
+        }
+
+        // Validate placement using game's own duration
+        const validationError = validatePlacement({
+          date: targetDate,
+          time: targetTime,
+          diamondId: targetDiamondId,
+          homeTeamId: activeGame.homeTeamId,
+          awayTeamId: activeGame.awayTeamId,
+          durationMinutes: activeGame.durationMinutes || 90,
+          ignoreGameId: activeGame.id, // Skip self-collision
+        });
+
+        if (validationError) {
+          toast({
+            title: "Cannot Move Game",
+            description: validationError,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Execute move mutation
+        moveGameMutation.mutate({
+          gameId: activeGame.id,
+          date: targetDate,
+          time: targetTime,
+          diamondId: targetDiamondId,
+        });
+      } else if (activeMatchup) {
+        // Placing a new matchup
+        const validationError = validatePlacement({
+          date: targetDate,
+          time: targetTime,
+          diamondId: targetDiamondId,
+          homeTeamId: activeMatchup.homeTeamId,
+          awayTeamId: activeMatchup.awayTeamId,
+          durationMinutes: gameDuration,
+        });
+
+        if (validationError) {
+          toast({
+            title: "Cannot Place Game",
+            description: validationError,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Execute place mutation
+        placeMutation.mutate({
+          tournamentId,
+          poolId: activeMatchup.poolId,
+          homeTeamId: activeMatchup.homeTeamId,
+          awayTeamId: activeMatchup.awayTeamId,
+          date: targetDate,
+          time: targetTime,
+          diamondId: targetDiamondId,
+          matchupId: activeMatchup.id,
+          durationMinutes: gameDuration,
+        });
+      }
+    } finally {
+      // Always reset both states
+      setActiveMatchup(null);
+      setActiveGame(null);
+    }
   };
 
   // Generate time slots based on tournament dates, selected interval, and diamond availability
