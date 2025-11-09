@@ -1,0 +1,77 @@
+Iteration 10: Fix the "Non-Persistent Matchups" Bug
+Goal: Re-architect your "Generate Matchups" flow to be database-first. Matchups must be saved to the database, so they persist after an app restart.
+
+Your Mandate: This is a major backend and frontend change.
+
+1. Step-by-Step: Fix the Backend
+
+Step 1a (Database Schema):
+
+You need a new table in your database. Go to shared/schema.ts and create a matchups table.
+
+It must store the matchup data. It should look something like this:
+
+TypeScript
+
+export const matchups = pgTable('matchups', {
+  id: text('id').primaryKey(), // The unique matchup ID (e.g., from nanoid)
+  tournamentId: text('tournament_id').references(() => tournaments.id, { onDelete: 'cascade' }),
+  divisionId: text('division_id'),
+  poolId: text('pool_id'),
+  homeTeamId: text('home_team_id'),
+  awayTeamId: text('away_team_id'),
+});
+Step 1b (Run Migration):
+
+Open your Replit Shell.
+
+Run your database migration command (e.g., npm run db:push or npx drizzle-kit push:pg) to create this new table.
+
+Step 1c (Fix API Endpoint):
+
+Go to your backend API controller for POST /api/tournaments/:tournamentId/generate-matchups.
+
+Replace its logic. It must now:
+
+Delete all old games for this tournamentId (and divisionId).
+
+Delete all old matchups from your new matchups table for this tournamentId (and divisionId).
+
+Generate the list of new matchups.
+
+Save each new matchup to the new matchups table in the database.
+
+Return a simple success message, like res.json({ status: 'ok', count: newMatchups.length }). It must not return the matchup data itself anymore.
+
+2. Step-by-Step: Fix the Frontend
+
+Step 2a (Fix useQuery):
+
+Your useQuery for matchups (line 357) is now correct. It will call GET /api/tournaments/.../matchups. You must ensure that backend endpoint reads from your new matchups table.
+
+Step 2b (Fix generateMutation):
+
+Go to src/components/DragScheduleBuilder.tsx and find your generateMutation.onSuccess handler (line 481).
+
+The setQueryData "hack" is now the cause of our problems. We are ripping it out.
+
+Replace the entire onSuccess block with this:
+
+JavaScript
+
+    onSuccess: (data) => {
+      // THIS IS THE FIX.
+      // Your API has now saved the new matchups and deleted the old games.
+      // We just tell the client to refetch *everything* from the database.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Schedule Reset",
+        description: `New matchups are ready.`,
+      });
+    },
