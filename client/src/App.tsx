@@ -89,10 +89,7 @@ function Router() {
       <Route path="/coming-soon/tournament-comms" component={TournamentCommsComingSoon} />
       <Route path="/coming-soon/schedule-builder" component={ScheduleBuilderComingSoon} />
       
-      {/* Booking module routes - protected */}
-      <Route path="/booking/:orgId">
-        {() => <RequireAuth component={BookingDashboard} />}
-      </Route>
+      {/* Booking module routes - protected (specific routes first) */}
       <Route path="/booking/:orgId/calendar">
         {() => <RequireAuth component={BookingCalendarPage} />}
       </Route>
@@ -101,6 +98,9 @@ function Router() {
       </Route>
       <Route path="/booking/:orgId/request/:requestId">
         {() => <RequireAuth component={BookingRequestDetail} />}
+      </Route>
+      <Route path="/booking/:orgId">
+        {() => <RequireAuth component={BookingDashboard} />}
       </Route>
       
       {/* Protected admin routes */}
