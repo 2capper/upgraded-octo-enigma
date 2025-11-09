@@ -221,6 +221,13 @@ function GameCard({
       className="relative group h-full"
       onMouseDown={(e) => {
         const target = e.target as HTMLElement;
+
+        // Check if the click was on the remove button. If so, DO NOTHING.
+        // This lets the button's own onClick event fire.
+        if (target.closest('.remove-button')) {
+          return;
+        }
+
         const resizeHandle = target.closest(".resize-handle");
 
         if (resizeHandle) {
@@ -310,8 +317,8 @@ function GameCard({
       }}
     >
       <button
-        onClick={(e) => { e.stopPropagation(); onRemove(game.id); }}
-        className="absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
+        onClick={() => onRemove(game.id)}
+        className="remove-button absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
         data-testid={`remove-game-${game.id}`}
       >
         <X className="w-3 h-3" />
