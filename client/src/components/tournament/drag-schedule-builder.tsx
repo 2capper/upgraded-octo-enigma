@@ -114,6 +114,80 @@ function DraggableMatchup({
   );
 }
 
+// Draggable wrapper for placed games
+// This component encapsulates the useDraggable hook to comply with Rules of Hooks
+function DraggableGameCard({
+  game,
+  gridRowStart,
+  gridColumnStart,
+  rowSpan,
+  teams,
+  pools,
+  allGames,
+  timeInterval,
+  onRemove,
+  onResize,
+  showToast,
+}: {
+  game: Game;
+  gridRowStart: number;
+  gridColumnStart: number;
+  rowSpan: number;
+  teams: Team[];
+  pools: Pool[];
+  allGames: Game[];
+  timeInterval: number;
+  onRemove: (gameId: string) => void;
+  onResize: (gameId: string, newDuration: number) => void;
+  showToast: (options: {
+    title: string;
+    description: string;
+    variant?: "default" | "destructive";
+  }) => void;
+}) {
+  // useDraggable hook at component top level (not in loop)
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: game.id,
+    data: {
+      type: 'game',
+      game: game,
+    },
+  });
+
+  const style = transform ? {
+    gridRow: `${gridRowStart} / span ${rowSpan}`,
+    gridColumn: gridColumnStart,
+    zIndex: isDragging ? 12 : 10,
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : {
+    gridRow: `${gridRowStart} / span ${rowSpan}`,
+    gridColumn: gridColumnStart,
+    zIndex: 10,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
+      style={style}
+      {...listeners}
+      {...attributes}
+    >
+      <GameCard
+        game={game}
+        teams={teams}
+        pools={pools}
+        allGames={allGames}
+        timeInterval={timeInterval}
+        onRemove={onRemove}
+        onResize={onResize}
+        showToast={showToast}
+      />
+    </div>
+  );
+}
+
 // Game card component for displaying scheduled games
 function GameCard({
   game,
