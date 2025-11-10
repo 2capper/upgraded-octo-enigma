@@ -126,38 +126,11 @@ export async function setupAuth(app: Express) {
         }
 
         try {
-          // Get user from database to check admin status
-          const userId = user.claims?.sub;
-          if (!userId) {
-            return res.redirect("/");
-          }
-
-          const dbUser = await storage.getUser(userId);
-          
-          // If user is a super admin, redirect to default admin portal
-          if (dbUser?.isSuperAdmin) {
-            return res.redirect("/admin/fg-baseball-11u-13u-2025-08");
-          }
-          
-          // If user is an organization admin, redirect to their first organization's tournaments
-          const userOrgs = await storage.getUserOrganizations(userId);
-          if (userOrgs && userOrgs.length > 0) {
-            // Get the first tournament of the first organization
-            const org = userOrgs[0];
-            const tournaments = await storage.getTournaments(org.id);
-            
-            if (tournaments && tournaments.length > 0) {
-              return res.redirect(`/admin/${tournaments[0].id}`);
-            }
-            
-            // If no tournaments yet, still go to admin portal with default tournament
-            return res.redirect("/admin/fg-baseball-11u-13u-2025-08");
-          }
-          
-          // Not an admin, redirect to homepage
-          return res.redirect("/");
+          // Redirect all authenticated users to the organization selector
+          // The selector will handle routing based on their organizations
+          return res.redirect("/select-organization");
         } catch (error) {
-          console.error("Error checking admin status:", error);
+          console.error("Error during login redirect:", error);
           return res.redirect("/");
         }
       });

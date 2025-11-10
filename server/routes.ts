@@ -50,6 +50,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get organizations for the currently logged-in user
+  app.get("/api/users/me/organizations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      let organizations;
+      if (user.isSuperAdmin) {
+        // Super Admins can see EVERYTHING
+        organizations = await storage.getOrganizations();
+      } else {
+        // Regular Admins see only what they are linked to
+        organizations = await storage.getUserOrganizations(userId);
+      }
+      
+      res.json(organizations);
+    } catch (error) {
+      console.error("Error fetching user organizations:", error);
+      res.status(500).json({ error: "Failed to fetch user organizations" });
+    }
+  });
+
   // User list endpoint - super admin only
   app.get('/api/users', requireSuperAdmin, async (req, res) => {
     try {

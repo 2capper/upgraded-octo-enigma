@@ -26,6 +26,7 @@ import TeamManagementPage from "@/pages/booking/team-management-page";
 import BookingReportsPage from "@/pages/booking/booking-reports-page";
 import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import InviteAcceptance from "@/pages/invite-acceptance";
+import OrganizationSelector from "@/pages/organization-selector";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -87,6 +88,11 @@ function Router() {
       
       {/* Invitation acceptance - public route */}
       <Route path="/invite/:token" component={InviteAcceptance} />
+      
+      {/* Organization selector - protected */}
+      <Route path="/select-organization">
+        {() => <RequireAuth component={OrganizationSelector} />}
+      </Route>
       
       {/* Coming Soon pages */}
       <Route path="/coming-soon/tournament-registration" component={TournamentRegistrationComingSoon} />
