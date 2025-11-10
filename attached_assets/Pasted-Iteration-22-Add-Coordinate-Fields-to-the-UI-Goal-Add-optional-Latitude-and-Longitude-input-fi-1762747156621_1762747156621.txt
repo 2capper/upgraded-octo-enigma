@@ -1,0 +1,112 @@
+Iteration 22: Add Coordinate Fields to the UI
+Goal: Add optional "Latitude" and "Longitude" input fields to your DiamondFormDialog component.
+
+Your Mandate: You are in src/components/organization-settings.tsx.
+
+1. Pre-Check: Verify the Current Form
+
+Run your Replit app (npm run dev or yarn dev).
+
+Navigate to your "Organization Settings" page.
+
+Click the "Create Diamond" button.
+
+Confirm: You see fields for "Name" and "Location," but no fields for "Latitude" or "Longitude." This is the state we are about to change.
+
+2. Step-by-Step: Modify DiamondFormDialog
+
+Step 2a: Update the Form's Default Values
+
+Go to the DiamondFormDialog component (line 319).
+
+Find the useForm hook (line 324).
+
+Add latitude and longitude to the defaultValues object.
+
+Change this (lines 328-334):
+
+JavaScript
+
+    defaultValues: {
+      organizationId,
+      name: diamond?.name || '',
+      location: diamond?.location || '',
+      availableStartTime: diamond?.availableStartTime || '08:00',
+      availableEndTime: diamond?.availableEndTime || '20:00',
+      hasLights: diamond?.hasLights || false,
+    },
+...to this:
+
+JavaScript
+
+    defaultValues: {
+      organizationId,
+      name: diamond?.name || '',
+      location: diamond?.location || '',
+      // --- ADD THESE TWO LINES ---
+      latitude: diamond?.latitude || '',
+      longitude: diamond?.longitude || '',
+      // --- END ADD ---
+      availableStartTime: diamond?.availableStartTime || '08:00',
+      availableEndTime: diamond?.availableEndTime || '20:00',
+      hasLights: diamond?.hasLights || false,
+    },
+(Note: Your InsertDiamond type is imported from @shared/schema, so it will automatically include these new fields because you already updated that file in Iteration 21.)
+
+Step 2b: Add the New Input Fields to the Form
+
+Find the FormField for "location" (it ends around line 416).
+
+Paste this entire code block immediately after that field (after the closing )} />):
+
+JavaScript
+
+              )}
+            />
+
+            {/* --- PASTE THIS NEW BLOCK START --- */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Latitude (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="e.g., 42.12345"
+                        data-testid="input-diamond-latitude"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Longitude (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="e.g., -82.12345"
+                        data-testid="input-diamond-longitude"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormDescription className="!mt-2">
+á             Optional coordinates for precise walking directions. If left blank, directions will use the main location address.
+            </FormDescription>
+            {/* --- PASTE THIS NEW BLOCK END --- */}
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
