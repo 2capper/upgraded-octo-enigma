@@ -1,0 +1,133 @@
+Your Mandate (Part 2): The Frontend Dashboard
+
+This is the new "smart" landing page.
+
+Pre-Check:
+
+In your Replit "Files," look in src/pages/ (or src/components/pages/).
+
+Confirm: You do not have a file named Dashboard.tsx or OrgSelector.tsx.
+
+Step-by-Step: Create the New Page
+
+Step 2a (Create File): Create a new file: src/pages/Dashboard.tsx.
+
+Step 2b (Add Code): Paste this code into the new file. This component fetches the orgs and handles the redirect logic.
+
+TypeScript
+
+import { useQuery } from '@tanstack/react-query';
+import { useLocation, Link } from 'wouter';
+import type { Organization } from '@shared/schema';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Building2, ArrowRight } from 'lucide-react';
+
+// Helper function to fetch orgs
+async function fetchUserOrgs(): Promise<Organization[]> {
+  const response = await fetch('/api/users/me/organizations');
+  if (!response.ok) {
+    throw new Error('Failed to fetch organizations');
+  }
+  return response.json();
+}
+
+export function Dashboard() {
+  const [, setLocation] = useLocation();
+
+  const { data: organizations, isLoading, error } = useQuery<Organization[]>({
+    queryKey: ['/api/users/me/organizations'],
+    queryFn: fetchUserOrgs,
+    retry: false,
+  });
+
+  // --- THE SMART LOGIC ---
+  if (organizations) {
+    // Scenario A: User admins exactly ONE org. Redirect them.
+    if (organizations.length === 1) {
+      // We replace the location so "Back" doesn't bring them here
+      setLocation(`/admin/${organizations[0].slug}`, { replace: true });
+      return null; // Render nothing while redirecting
+    }
+    // Scenario B: User admins 0 or 2+ orgs. Show the selector.
+  }
+  // --- END LOGIC ---
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p>Loading your dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-red-600">Error: {error.message}</p>
+      </div>
+    );
+  }
+
+  // This is Scenario B: The Org Selector
+  return (
+    <div className="container mx-auto max-w-4xl py-12">
+      <h1 className="text-3xl font-bold mb-2">Select an Organization</h1>
+      <p className="text-gray-600 mb-6">
+        You have access to multiple organizations. Please choose one to manage.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {organizations && organizations.map(org => (
+          <Link key={org.id} href={`/admin/${org.slug}`}>
+            <Card className="hover:shadow-lg hover:border-[var(--forest-green)] transition-all cursor-pointer">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-6 h-6 text-[var(--forest-green)]" />
+                    <CardTitle>{org.name}</CardTitle>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">{org.description || 'No description provided.'}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+        {organizations && organizations.length === 0 && (
+          <p>You are not an admin for any organizations.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+Step 2c (Update App Routes):
+
+Go to your main App.tsx file (or wherever your wouter <Route> components are).
+
+You need to change your main admin route from /admin to /admin/:orgId.
+
+You need to add a new route for your dashboard.
+
+Change this:
+
+JavaScript
+
+// Old way
+<Route path="/admin" component={AdminPage} />
+<Route path="/admin/settings" component={OrganizationSettings} />
+// ... etc
+...to this:
+
+JavaScript
+
+// New way
+import { Dashboard } from './pages/Dashboard';
+
+<Route path="/admin" component={Dashboard} />
+<Route path="/admin/:orgId" component={YourMainAdminLayoutComponent} />
+<Route path="/admin/:orgId/settings" component={OrganizationSettings} />
+// ... etc
+This is the big refactor. Every single admin page component (like OrganizationSettings.tsx) now needs to be nested under the /admin/:orgId route. This means they will all need to use the useParams hook to get the orgId and pass it to their queries.
+
+This is a massive change. Focus on Part 1 (Backend) and Part 2 (Frontend) first. The rest of the work will be refactoring all your existing admin pages to live under this new dynamic route.
