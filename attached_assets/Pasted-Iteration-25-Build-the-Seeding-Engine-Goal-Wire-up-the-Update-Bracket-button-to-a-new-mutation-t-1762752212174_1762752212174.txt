@@ -1,0 +1,100 @@
+Iteration 25: Build the Seeding Engine
+Goal: Wire up the "Update Bracket" button to a new mutation that runs the standings logic and creates the playoff games in the database.
+
+Your Mandate (Part 1): The Frontend (PlayoffsTab.tsx)
+
+Step 2a (Add the Mutation):
+
+Go to PlayoffsTab.tsx.
+
+After your moveGameMutation (line 729), add this new mutation:
+
+JavaScript
+
+  // ... moveGameMutation ...
+
+  // -----------------------------------------------------------------
+  //  NEW: Generate Playoffs Mutation (Engine 2)
+  // -----------------------------------------------------------------
+  const generatePlayoffsMutation = useMutation({
+    mutationFn: async () => {
+      // This API endpoint does not exist yet. We will build it.
+      return apiRequest('POST', `/api/tournaments/${tournamentId}/generate-playoffs`, {});
+    },
+    onSuccess: () => {
+      // This is the fix. We invalidate the 'games' query.
+      // The component will refetch, find the new playoff games,
+      // and automatically render the bracket.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      toast({
+        title: "Playoffs Generated",
+        description: "The playoff bracket has been seeded and created.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate playoff bracket.",
+        variant: "destructive",
+      });
+    },
+  });
+Step 2b (Wire the Button):
+
+Find your "Update Bracket" button (line 432).
+
+Add the onClick handler and disabled state.
+
+Change this:
+
+JavaScript
+
+        <Button className="bg-[var(--falcons-gold)] text-white hover:bg-[var(--falcons-dark-gold)]">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Update Bracket
+          </Button>
+...to this:
+
+JavaScript
+
+        <Button 
+          onClick={() => generatePlayoffsMutation.mutate()}
+          disabled={generatePlayoffsMutation.isPending}
+          className="bg-[var(--falcons-gold)] text-white hover:bg-[var(--falcons-dark-gold)]"
+        >
+          {generatePlayoffsMutation.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 mr-2" />
+          )}
+          {generatePlayoffsMutation.isPending ? 'Generating...' : 'Generate/Update Bracket'}
+        </Button>
+Your Mandate (Part 2): The Backend API (This is the Real Engine)
+
+You must create the new API endpoint that the mutation calls: POST /api/tournaments/:tournamentId/generate-playoffs.
+
+This endpoint's logic must do the following:
+
+Import your shared logic: import { calculateStats, resolveTie } from '@/lib/standings';.
+
+Fetch all Pools, Teams, and pool play Games (isPlayoff: false) for the tournamentId.
+
+Run Engine 1: Use your shared resolveTie logic to produce the final, sorted overallStandings list (Rank 1 to X).
+
+Fetch the Tournament object to read tournament.playoffFormat (e.g., "top_6") and tournament.seedingPattern (e.g., "standard").
+
+Delete all old playoff games for this tournamentId (isPlayoff: true).
+
+Create Engine 2: Write a big switch statement (or a map) based on tournament.playoffFormat.
+
+Populate Bracket: Based on the format, create the new playoff Game objects in the database.
+
+Set isPlayoff: true.
+
+Set playoffRound: 1, playoffGameNumber: 1, etc.
+
+Set the homeTeamId and awayTeamId fields using the overallStandings list (e.g., for "Game 1" of a "top_6" bracket, homeTeamId would be overallStandings[2].id (Seed 3) and awayTeamId would be overallStandings[5].id (Seed 6)).
+
+For games where teams are TBD (e.g., "Winner of Game 1"), leave homeTeamId and awayTeamId as null and set the team1Source and team2Source JSON fields.
