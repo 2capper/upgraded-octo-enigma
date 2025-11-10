@@ -1,0 +1,101 @@
+Iteration 32: Refactor the Seeding Engine
+Goal: Rewrite your existing generate-bracket API (POST /api/tournaments/:tournamentId/divisions/:divisionId/generate-bracket) to be a safe, UPDATE-only function.
+
+Your Mandate: This is a backend-only fix.
+
+1. Pre-Check: Verify the Old Logic
+
+Open server/routes.ts.
+
+Find your generate-bracket API route (line 1421).
+
+Confirm: Your storage.generatePlayoffBracket function (which this route calls) is still deleting games (e.g., await storage.deleteGame(game.id)). This is the bug we are fixing.
+
+2. Step-by-Step: Rewrite the storage.generatePlayoffBracket Function
+
+You need to open your storage.ts (or wherever generatePlayoffBracket lives) and replace its logic.
+
+It must not DELETE games.
+
+It must not CREATE games.
+
+Here is the new, correct logic for your storage.generatePlayoffBracket function:
+
+TypeScript
+
+// Inside your storage.ts file...
+
+// This function (Iteration 28) should already be imported
+import { calculateStats, resolveTie } from '@shared/standings'; 
+// This function (Iteration 29) should also be imported
+import { getBracketStructure } from '@shared/bracketStructure'; 
+
+public async generatePlayoffBracket(tournamentId: string, divisionId: string) {
+    
+  // 1. FETCH ALL DATA
+  const tournament = await this.getTournament(tournamentId);
+  const pools = (await this.getPools(tournamentId)).filter(p => p.ageDivisionId === divisionId);
+  const teams = (await this.getTeams(tournamentId)).filter(t => pools.some(p => p.id === t.poolId));
+  const poolPlayGames = (await this.getGames(tournamentId)).filter(g => 
+    !g.isPlayoff && 
+    teams.some(t => t.id === g.homeTeamId || t.id === g.awayTeamId)
+  );
+
+  // 2. RUN ENGINE 1: Get the final, sorted standings
+  const teamsWithStats = teams.map(team => {
+    const stats = calculateStats(team.id, poolPlayGames);
+    return {
+      ...team,
+      ...stats,
+      points: (stats.wins * 2) + (stats.ties * 1),
+      runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : 0,
+      runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
+    };
+  });
+  
+  // This is your final, ranked list of teams
+  const overallStandings = resolveTie(teamsWithStats.sort((a, b) => b.points - a.points), poolPlayGames);
+
+  // 3. FETCH THE EXISTING SLOTS
+  // We find the slots created by your new "Slot Manager" UI
+  const allGames = await this.getGames(tournamentId);
+  const divisionPoolIds = new Set(pools.map(p => p.id));
+  const playoffSlots = allGames.filter(g => 
+    g.isPlayoff === true &&
+    g.poolId && // This assumes your Slot Manager correctly tags games with a poolId
+    divisionPoolIds.has(g.poolId)
+  );
+  
+  if (playoffSlots.length === 0) {
+    throw new Error("No playoff slots have been scheduled yet. Please schedule the slots in the 'Schedule Slots' tab first.");
+  }
+
+  // 4. RUN ENGINE 2: UPDATE the slots
+  const updatedGames = [];
+  for (const slot of playoffSlots) {
+    const { team1Source, team2Source } = slot;
+    let newHomeTeamId = null;
+    let newAwayTeamId = null;
+
+    // Resolve Home Team
+    if (team1Source?.type === 'seed') {
+      newHomeTeamId = overallStandings[team1Source.rank - 1]?.id || null;
+    }
+    // (Add logic here for 'winner'/'loser' if needed)
+
+    // Resolve Away Team
+    if (team2Source?.type === 'seed') {
+      newAwayTeamId = overallStandings[team2Source.rank - 1]?.id || null;
+    }
+    // (Add logic here for 'winner'/'loser' if needed)
+    
+    // Run the UPDATE
+    const updatedGame = await this.updateGame(slot.id, {
+      homeTeamId: newHomeTeamId,
+      awayTeamId: newAwayTeamId,
+    });
+    updatedGames.push(updatedGame);
+  }
+  
+  return updatedGames;
+}
