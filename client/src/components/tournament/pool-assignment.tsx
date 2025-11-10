@@ -177,13 +177,12 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       return await apiRequest('PUT', `/api/teams/${teamId}`, { poolId });
     },
     onSuccess: (_, variables) => {
-      // Optimistically update teams cache - preserve null for unassigned teams
-      queryClient.setQueryData<Team[]>(
-        [`/api/tournaments/${tournamentId}/teams`],
-        (oldTeams = []) => oldTeams.map(t => 
-          t.id === variables.teamId ? { ...t, poolId: variables.poolId as any } : t
-        )
-      );
+      // THIS IS THE FIX.
+      // We tell React Query the 'teams' data is stale and force
+      // a refetch from the database. This is the single source of truth.
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/teams`] 
+      });
 
       toast({
         title: 'Team Updated',
