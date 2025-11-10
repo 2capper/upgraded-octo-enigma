@@ -3,26 +3,17 @@ import { Calendar, Plus, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Team, Game, Pool, AgeDivision } from '@shared/schema';
+import type { Team, Game, Pool, AgeDivision, Diamond } from '@shared/schema';
 
 interface GamesTabProps {
   games: Game[];
   teams: Team[];
   pools: Pool[];
   ageDivisions: AgeDivision[];
+  diamonds: Diamond[];
 }
 
-// Diamond coordinates for precise navigation within the complex
-const DIAMOND_COORDINATES = {
-  // CSV format names - these match exactly what's in the database
-  'Bernie Amlin Field (BAF)': { lat: 42.30489770385658, lng: -82.91714755813497 },
-  'Tom Wilson Field (TWF)': { lat: 42.303269, lng: -82.917965 }, // Updated coordinates
-  'Optimist 1 (OPT1)': { lat: 42.30207094517333, lng: -82.91665552800195 },
-  'Optimist 2 (OPT2)': { lat: 42.301950363777614, lng: -82.91780156559003 },
-  'Donna Bombardier Diamond (DBD)': { lat: 42.30407568467449, lng: -82.91722085822438 },
-};
-
-export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) => {
+export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesTabProps) => {
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
 
@@ -171,17 +162,6 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
     }
   };
 
-  const getDirectionsUrl = (diamond: string) => {
-    const location = DIAMOND_COORDINATES[diamond as keyof typeof DIAMOND_COORDINATES];
-    if (!location) {
-      // Fallback to diamond name if coordinates not found
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond)}&travelmode=walking`;
-    }
-    
-    // Use coordinates for precise navigation within the park
-    return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}&travelmode=walking`;
-  };
-
   // Show all available divisions
   const targetDivisions = ageDivisions;
 
@@ -280,28 +260,59 @@ export const GamesTab = ({ games, teams, pools, ageDivisions }: GamesTabProps) =
                         </div>
                         
                         {/* Venue and Directions */}
-                        <div className="pt-2 border-t border-gray-100">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <MapPin className="w-4 h-4 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium">{game.subVenue || 'Diamond TBD'}</span>
-                                <span className="text-xs text-gray-500 block">3215 Forest Glade Dr</span>
+                        {(() => {
+                          // Find the diamond from the database list
+                          const diamond = diamonds.find(d => d.id === game.diamondId);
+                          const location = diamond?.location || game.location || "Location TBD";
+                          const diamondName = game.subVenue || diamond?.name || 'Diamond TBD';
+
+                          // Build the smart URL with fallback logic
+                          let directionsUrl = '';
+                          let travelMode = '';
+
+                          if (diamond && diamond.latitude && diamond.longitude) {
+                            // Best case: GPS coordinates from diamond record
+                            travelMode = 'walking';
+                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${diamond.latitude},${diamond.longitude}&travelmode=${travelMode}`;
+                          } else if (diamond && diamond.location) {
+                            // Diamond record exists but no GPS - use address with driving
+                            travelMode = 'driving';
+                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond.location)}&travelmode=${travelMode}`;
+                          } else if (game.subVenue) {
+                            // Fallback: No diamond record but game has subVenue field
+                            travelMode = 'walking';
+                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.subVenue)}&travelmode=${travelMode}`;
+                          } else if (game.location) {
+                            // Final fallback: Use game.location field
+                            travelMode = 'driving';
+                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.location)}&travelmode=${travelMode}`;
+                          }
+
+                          return (
+                            <div className="pt-2 border-t border-gray-100">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                                  <div>
+                                    <span className="font-medium">{diamondName}</span>
+                                    <span className="text-xs text-gray-500 block">{location}</span>
+                                  </div>
+                                </div>
+                                {directionsUrl && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs px-3"
+                                    onClick={() => window.open(directionsUrl, '_blank')}
+                                  >
+                                    <Navigation className="w-3 h-3 mr-1" />
+                                    {travelMode === 'walking' ? "Walking" : "Driving"} Directions
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            {game.subVenue && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs px-3"
-                                onClick={() => window.open(getDirectionsUrl(game.subVenue!), '_blank')}
-                              >
-                                <Navigation className="w-3 h-3 mr-1" />
-                                Directions
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   );

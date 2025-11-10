@@ -12,6 +12,7 @@ import { PlayoffsTab } from '@/components/tournament/playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
+import type { Diamond } from '@shared/schema';
 
 export default function TournamentDashboard() {
   const params = useParams();
@@ -34,7 +35,13 @@ export default function TournamentDashboard() {
     error
   } = useTournamentData(tournamentId);
 
-  if (tournamentLoading || isLoading || authLoading) {
+  // Fetch diamonds for the tournament's organization
+  const { data: diamonds = [], isLoading: diamondsLoading } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', currentTournament?.organizationId, 'diamonds'],
+    enabled: !!currentTournament?.organizationId,
+  });
+
+  if (tournamentLoading || isLoading || authLoading || diamondsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -228,6 +235,7 @@ export default function TournamentDashboard() {
               teams={teams}
               ageDivisions={ageDivisions}
               pools={pools}
+              diamonds={diamonds}
             />
           </TabsContent>
           
