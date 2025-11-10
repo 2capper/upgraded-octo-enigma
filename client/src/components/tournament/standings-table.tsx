@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { calculateStats, resolveTie } from '@/lib/standings';
+import { calculateStats, resolveTie } from '@shared/standings';
 
 interface StandingsTableProps {
   teams: Team[];

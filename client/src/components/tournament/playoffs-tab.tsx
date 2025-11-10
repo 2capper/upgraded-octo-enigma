@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle, Shield } from 'lucide-react';
+import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle, Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { getPlayoffTeamCount } from '@shared/playoffFormats';
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
 import { PlayoffBracketPreview } from './playoff-bracket-preview';
-import { calculateStats, resolveTie } from '@/lib/standings';
+import { calculateStats, resolveTie } from '@shared/standings';
 
 interface PlayoffsTabProps {
   teams: Team[];
@@ -220,6 +221,31 @@ const PlayoffScoreDialog = ({
 export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, tournament }: PlayoffsTabProps) => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Generate Playoffs Mutation
+  const generatePlayoffsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/tournaments/${tournamentId}/generate-playoffs`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      toast({
+        title: "Playoffs Generated",
+        description: "The playoff bracket has been seeded and created.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate playoff bracket.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Get playoff games and teams per division
   const divisionPlayoffData = useMemo(() => {
@@ -380,9 +406,17 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Playoff Bracket</h3>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button className="bg-[var(--falcons-gold)] text-white hover:bg-[var(--falcons-dark-gold)]">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Update Bracket
+          <Button 
+            onClick={() => generatePlayoffsMutation.mutate()}
+            disabled={generatePlayoffsMutation.isPending}
+            className="bg-[var(--falcons-gold)] text-white hover:bg-[var(--falcons-dark-gold)]"
+          >
+            {generatePlayoffsMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            {generatePlayoffsMutation.isPending ? 'Generating...' : 'Generate/Update Bracket'}
           </Button>
           <Button variant="outline">
             <Printer className="w-4 h-4 mr-2" />

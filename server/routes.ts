@@ -17,6 +17,7 @@ import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrg
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
+import { calculateStats, resolveTie } from "@shared/standings";
 import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { notificationService } from "./lib/notificationService";
@@ -1824,6 +1825,466 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error deleting game:", error);
       res.status(400).json({ error: "Failed to delete game" });
+    }
+  });
+
+  // Helper function to generate playoff games based on format
+  function generatePlayoffGames(
+    standings: any[],
+    playoffFormat: string,
+    seedingPattern: string,
+    tournamentId: string,
+    ageDivisionId: string
+  ) {
+    const games: any[] = [];
+    
+    switch (playoffFormat) {
+      case 'top_4': {
+        // Semifinals: 1v4, 2v3
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 1,
+          homeTeamId: standings[0]?.id || null,
+          awayTeamId: standings[3]?.id || null,
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 2,
+          homeTeamId: standings[1]?.id || null,
+          awayTeamId: standings[2]?.id || null,
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Finals: Winner of Game 1 vs Winner of Game 2
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
+          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        break;
+      }
+      
+      case 'top_6': {
+        // Quarterfinals: 3v6, 4v5
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 1,
+          homeTeamId: standings[2]?.id || null,
+          awayTeamId: standings[5]?.id || null,
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 2,
+          homeTeamId: standings[3]?.id || null,
+          awayTeamId: standings[4]?.id || null,
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Semifinals: 1 vs winner of Game 1, 2 vs winner of Game 2
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 1,
+          homeTeamId: standings[0]?.id || null,
+          awayTeamId: null,
+          team2Source: { type: 'winner', gameNumber: 1, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 2,
+          homeTeamId: standings[1]?.id || null,
+          awayTeamId: null,
+          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Finals: Winner of SF1 vs Winner of SF2
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 3,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
+          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        break;
+      }
+      
+      case 'top_8': {
+        // Quarterfinals: 1v8, 2v7, 3v6, 4v5
+        for (let i = 0; i < 4; i++) {
+          games.push({
+            id: nanoid(),
+            tournamentId,
+            ageDivisionId,
+            isPlayoff: true,
+            playoffRound: 1,
+            playoffGameNumber: i + 1,
+            homeTeamId: standings[i]?.id || null,
+            awayTeamId: standings[7 - i]?.id || null,
+            status: 'scheduled',
+            date: '',
+            time: '',
+            location: '',
+            subVenue: '',
+            poolId: null,
+          });
+        }
+        // Semifinals: Winner of Game 1 vs Winner of Game 4, Winner of Game 2 vs Winner of Game 3
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
+          team2Source: { type: 'winner', gameNumber: 4, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 2,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 2, round: 1 },
+          team2Source: { type: 'winner', gameNumber: 3, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Finals: Winner of SF1 vs Winner of SF2
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 3,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
+          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        break;
+      }
+      
+      case 'cross_pool_4': {
+        // Quarterfinals: A1vC2, A2vC1, B1vD2, B2vD1
+        // For cross_pool, standings are already ordered correctly by pool
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 1,
+          homeTeamId: standings[0]?.id || null,  // A1
+          awayTeamId: standings[5]?.id || null,  // C2
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 2,
+          homeTeamId: standings[1]?.id || null,  // A2
+          awayTeamId: standings[4]?.id || null,  // C1
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 3,
+          homeTeamId: standings[2]?.id || null,  // B1
+          awayTeamId: standings[7]?.id || null,  // D2
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 1,
+          playoffGameNumber: 4,
+          homeTeamId: standings[3]?.id || null,  // B2
+          awayTeamId: standings[6]?.id || null,  // D1
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Semifinals
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
+          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 2,
+          playoffGameNumber: 2,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 3, round: 1 },
+          team2Source: { type: 'winner', gameNumber: 4, round: 1 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        // Finals
+        games.push({
+          id: nanoid(),
+          tournamentId,
+          ageDivisionId,
+          isPlayoff: true,
+          playoffRound: 3,
+          playoffGameNumber: 1,
+          homeTeamId: null,
+          awayTeamId: null,
+          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
+          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
+          status: 'scheduled',
+          date: '',
+          time: '',
+          location: '',
+          subVenue: '',
+          poolId: null,
+        });
+        break;
+      }
+    }
+    
+    return games;
+  }
+
+  // Generate playoff bracket from pool play standings
+  app.post("/api/tournaments/:tournamentId/generate-playoffs", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      
+      // Fetch tournament to get playoff format and seeding pattern
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      const playoffFormat = tournament.playoffFormat || 'top_8';
+      const seedingPattern = tournament.seedingPattern || 'standard';
+      
+      // Fetch all pools, teams, and games for this tournament
+      const pools = await storage.getPools(tournamentId);
+      const teams = await storage.getTeams(tournamentId);
+      const allGames = await storage.getGames(tournamentId);
+      const divisions = await storage.getAgeDivisions(tournamentId);
+      
+      // Filter pool play games only (not playoff games)
+      const poolPlayGames = allGames.filter(g => !g.isPlayoff);
+      
+      // Delete all existing playoff games for this tournament
+      const playoffGames = allGames.filter(g => g.isPlayoff);
+      for (const game of playoffGames) {
+        await storage.deleteGame(game.id);
+      }
+      
+      // Generate playoff games for each division
+      const newPlayoffGames: any[] = [];
+      
+      for (const division of divisions) {
+        // Get pools for this division
+        const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
+        const divisionPoolIds = divisionPools.map(p => p.id);
+        
+        // Get teams in this division
+        const divisionTeams = teams.filter(t => divisionPoolIds.includes(t.poolId));
+        const divisionTeamIds = divisionTeams.map(t => t.id);
+        
+        // Get pool play games for this division
+        const divisionGames = poolPlayGames.filter(g => 
+          g.homeTeamId && g.awayTeamId &&
+          divisionTeamIds.includes(g.homeTeamId) && divisionTeamIds.includes(g.awayTeamId)
+        );
+        
+        // Calculate standings using shared logic
+        const teamsWithStats = divisionTeams.map(team => {
+          const stats = calculateStats(team.id, divisionGames);
+          return {
+            ...team,
+            ...stats,
+            points: (stats.wins * 2) + (stats.ties * 1),
+            runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : 0,
+            runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
+          };
+        });
+        
+        // Sort by points first, then use tie-breaking logic
+        const sortedByPoints = teamsWithStats.sort((a, b) => b.points - a.points);
+        const overallStandings = resolveTie(sortedByPoints, divisionGames);
+        
+        // Generate playoff games based on format
+        const divisionPlayoffGames = generatePlayoffGames(
+          overallStandings,
+          playoffFormat,
+          seedingPattern,
+          tournamentId,
+          division.id
+        );
+        
+        newPlayoffGames.push(...divisionPlayoffGames);
+      }
+      
+      // Insert new playoff games into database
+      for (const gameData of newPlayoffGames) {
+        await storage.createGame(gameData);
+      }
+      
+      res.json({ 
+        message: "Playoffs generated successfully", 
+        gamesCreated: newPlayoffGames.length 
+      });
+    } catch (error) {
+      console.error("Error generating playoffs:", error);
+      res.status(500).json({ 
+        error: "Failed to generate playoffs",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
