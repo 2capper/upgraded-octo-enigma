@@ -12,8 +12,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import type { Tournament, Diamond, AgeDivision, Game } from '@shared/schema';
 import { getBracketStructure } from '@shared/bracketStructure';
 import { useTournamentTimezone } from '@/hooks/useTournamentTimezone';
-import { zonedTimeToUtc } from 'date-fns-tz';
-import { toZonedTime, format as formatTz } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime, format as formatTz } from 'date-fns-tz';
 
 interface SlotScheduleData {
   date: string;
@@ -57,7 +56,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
           try {
             // Parse stored values as tournament timezone
             const tournamentDateTime = `${game.date}T${game.time}`;
-            const utcDate = zonedTimeToUtc(tournamentDateTime, timezone);
+            const utcDate = fromZonedTime(tournamentDateTime, timezone);
             
             // Format to browser local for input display
             const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
@@ -158,7 +157,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
         if (date && time) {
           // Parse input values as browser-local time
           const browserDateTime = `${date}T${time}`;
-          const utcFromBrowser = zonedTimeToUtc(browserDateTime, browserTz);
+          const utcFromBrowser = fromZonedTime(browserDateTime, browserTz);
           
           // Convert to tournament timezone for storage
           const tournamentDate = formatTz(utcFromBrowser, 'yyyy-MM-dd', { timeZone: timezone });
