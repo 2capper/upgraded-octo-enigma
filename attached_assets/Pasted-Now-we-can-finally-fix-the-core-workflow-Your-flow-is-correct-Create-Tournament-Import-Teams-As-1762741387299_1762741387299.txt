@@ -1,0 +1,100 @@
+Now we can finally fix the core workflow. Your flow is correct:
+
+Create Tournament
+
+Import Teams
+
+Assign Teams to Pools
+
+...Generate Matchups...
+
+Schedule Games
+
+That "Generate Matchups" step is in the wrong place. It shouldn't be on the "Schedule" tab at all. It's the final step of the "Pool Assignment" tab.
+
+We're going to fix this.
+
+🚀 Iteration 20: Fix the App Workflow
+Goal: Move the "Generate Matchups" (Reset) button from the DragScheduleBuilder to the PoolAssignment component. This makes "Pool Assignment" the single source of truth for creating matchups.
+
+Your Mandate (Part 1): Refactor PoolAssignment.tsx
+
+Pre-Check: Open src/components/PoolAssignment.tsx. Confirm it has no "Generate Matchups" button.
+
+Step 2a (Move the Mutation):
+
+Go to DragScheduleBuilder.tsx.
+
+Cut the entire generateMutation hook (lines 536-565).
+
+Paste it into PoolAssignment.tsx (around line 273, after the createPoolsMutation).
+
+Step 2b (Add the Button):
+
+In PoolAssignment.tsx, go to the main CardContent (around line 348).
+
+Find the else block (where the grid is shown).
+
+Inside the CardContent, after the grid </div>, add this new button:
+
+JavaScript
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {/* ... your grid code ... */}
+          </div>
+
+          {/* --- ADD THIS SECTION --- */}
+          <div className="mt-6 pt-6 border-t border-gray-200 flex justify-end">
+            <Button
+              onClick={() => generateMutation.mutate()}
+              disabled={unassignedTeams.length > 0 || generateMutation.isPending}
+              style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+            >
+              {generateMutation.isPending ? "Generating..." : "Lock Pools & Generate Matchups"}
+            </Button>
+          </div>
+          {unassignedTeams.length > 0 && (
+            <p className="text-right text-sm text-red-600 mt-2">
+              You must assign all teams to a pool before generating matchups.
+            </p>
+          )}
+          {/* --- END SECTION --- */}
+This button is disabled if any teams are unassigned. This is the logic you wanted.
+
+Your Mandate (Part 2): Refactor DragScheduleBuilder.tsx
+
+Pre-Check: Open src/components/DragScheduleBuilder.tsx.
+
+Step 2a (Rip out the Mutation):
+
+Delete the generateMutation (lines 536-565). It's gone.
+
+Step 2b (Fix the UI):
+
+Find the if (matchups.length === 0) block (around line 1032).
+
+This block currently shows the "Generate Matchups" button. This is now wrong.
+
+Replace that entire if block (lines 1032-1055) with this new, simple message:
+
+JavaScript
+
+  if (matchups.length === 0) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule Grid</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-12">
+              <p className="text-lg font-medium text-gray-700">No matchups found.</p>
+              <p className="text-gray-500 mt-2">
+                Please go to the "Pool Assignment" tab to lock pools and generate matchups.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
