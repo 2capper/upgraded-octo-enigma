@@ -13,7 +13,7 @@ import {
   insertOrganizationCoordinatorSchema,
   insertCoachInvitationSchema
 } from "@shared/schema";
-import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
@@ -457,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Diamond routes
-  app.get("/api/organizations/:organizationId/diamonds", isAuthenticated, async (req, res) => {
+  app.get("/api/organizations/:organizationId/diamonds", requireDiamondBooking, async (req, res) => {
     try {
       const { organizationId } = req.params;
       const diamonds = await storage.getDiamonds(organizationId);
@@ -468,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
+  app.post("/api/organizations/:organizationId/diamonds", requireDiamondBooking, requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
       const diamond = await storage.createDiamond({ ...req.body, organizationId });
@@ -3599,7 +3599,7 @@ Waterdown 10U AA
   // =============================================
 
   // House League Teams
-  app.get('/api/organizations/:orgId/house-league-teams', isAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/house-league-teams', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const teams = await storage.getHouseLeagueTeams(orgId);
@@ -3610,7 +3610,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/house-league-teams', requireOrgAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/house-league-teams', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const team = await storage.createHouseLeagueTeam({
@@ -3624,7 +3624,7 @@ Waterdown 10U AA
     }
   });
 
-  app.patch('/api/organizations/:orgId/house-league-teams/:teamId', requireOrgAdmin, async (req: any, res) => {
+  app.patch('/api/organizations/:orgId/house-league-teams/:teamId', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, teamId } = req.params;
       const team = await storage.updateHouseLeagueTeam(teamId, req.body, orgId);
@@ -3635,7 +3635,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete('/api/organizations/:orgId/house-league-teams/:teamId', requireOrgAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/house-league-teams/:teamId', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, teamId } = req.params;
       await storage.deleteHouseLeagueTeam(teamId, orgId);
@@ -3647,7 +3647,7 @@ Waterdown 10U AA
   });
 
   // Booking Requests
-  app.get('/api/organizations/:orgId/booking-requests', isAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/booking-requests', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const { status, teamId, startDate, endDate } = req.query;
@@ -3667,7 +3667,7 @@ Waterdown 10U AA
   });
 
   // Calendar view endpoint with populated team and diamond data
-  app.get('/api/organizations/:orgId/booking-requests/calendar/:startDate/:endDate', isAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/booking-requests/calendar/:startDate/:endDate', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, startDate, endDate } = req.params;
       
@@ -3699,7 +3699,7 @@ Waterdown 10U AA
     }
   });
 
-  app.get('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/booking-requests/:requestId', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
@@ -3736,7 +3736,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/booking-requests', isAuthenticated, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/booking-requests', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const userId = req.user.claims.sub;
@@ -3775,7 +3775,7 @@ Waterdown 10U AA
     }
   });
 
-  app.patch('/api/organizations/:orgId/booking-requests/:requestId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/organizations/:orgId/booking-requests/:requestId', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
       const request = await storage.updateBookingRequest(requestId, req.body, orgId);
@@ -3787,7 +3787,7 @@ Waterdown 10U AA
   });
 
   // Submit booking request (changes status from draft to submitted)
-  app.post('/api/organizations/:orgId/booking-requests/:requestId/submit', isAuthenticated, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/submit', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
@@ -3823,7 +3823,7 @@ Waterdown 10U AA
   });
 
   // Approve/Decline booking request
-  app.post('/api/organizations/:orgId/booking-requests/:requestId/approve', requireOrgAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/approve', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
@@ -3895,7 +3895,7 @@ Waterdown 10U AA
   });
 
   // Cancel booking request
-  app.post('/api/organizations/:orgId/booking-requests/:requestId/cancel', isAuthenticated, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/booking-requests/:requestId/cancel', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
       const request = await storage.cancelBookingRequest(requestId, orgId);
@@ -4260,7 +4260,7 @@ Waterdown 10U AA
   });
 
   // Token Generation Endpoints (Admin only)
-  app.post('/api/organizations/:orgId/house-league-teams/:teamId/generate-calendar-token', requireOrgAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/house-league-teams/:teamId/generate-calendar-token', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, teamId } = req.params;
       const token = nanoid(32);
@@ -4493,7 +4493,7 @@ Waterdown 10U AA
   });
 
   // Coach Invitation Routes
-  app.get('/api/organizations/:orgId/invitations', requireAdmin, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/invitations', requireDiamondBooking, requireAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const { status } = req.query;
@@ -4506,7 +4506,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/invitations', requireAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/invitations', requireDiamondBooking, requireAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const userId = req.user.claims.sub;
@@ -4552,7 +4552,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete('/api/organizations/:orgId/invitations/:invitationId', requireAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/invitations/:invitationId', requireDiamondBooking, requireAdmin, async (req: any, res) => {
     try {
       const { orgId, invitationId } = req.params;
       await storage.revokeCoachInvitation(invitationId, orgId);

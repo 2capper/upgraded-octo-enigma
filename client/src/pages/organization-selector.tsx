@@ -14,6 +14,7 @@ type Organization = {
   logoUrl: string | null;
   primaryColor: string;
   secondaryColor: string;
+  hasDiamondBooking: boolean;
 };
 
 export default function OrganizationSelector() {
@@ -31,7 +32,13 @@ export default function OrganizationSelector() {
     if (!isLoading && organizations) {
       // Auto-redirect if user has exactly one organization
       if (organizations.length === 1) {
-        setLocation(`/booking/${organizations[0].id}`);
+        const org = organizations[0];
+        // Route based on diamond booking capability
+        if (org.hasDiamondBooking) {
+          setLocation(`/booking/${org.id}`);
+        } else {
+          setLocation(`/admin-portal`);
+        }
       }
     }
   }, [organizations, isLoading, setLocation]);
@@ -107,50 +114,54 @@ export default function OrganizationSelector() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {organizations.map((org) => (
-            <Card 
-              key={org.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => setLocation(`/booking/${org.id}`)}
-              data-testid={`card-organization-${org.id}`}
-            >
-              <CardHeader>
-                <div className="flex items-start gap-4">
-                  {org.logoUrl ? (
-                    <img 
-                      src={org.logoUrl} 
-                      alt={`${org.name} logo`}
-                      className="h-12 w-12 object-contain rounded"
-                    />
-                  ) : (
-                    <div 
-                      className="h-12 w-12 rounded flex items-center justify-center text-white font-bold text-xl"
-                      style={{ backgroundColor: org.primaryColor }}
-                    >
-                      {org.name.charAt(0)}
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <CardTitle className="text-xl">{org.name}</CardTitle>
-                    {org.description && (
-                      <CardDescription className="mt-1">
-                        {org.description}
-                      </CardDescription>
+          {organizations.map((org) => {
+            const destinationUrl = org.hasDiamondBooking ? `/booking/${org.id}` : `/admin-portal`;
+            
+            return (
+              <Card 
+                key={org.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setLocation(destinationUrl)}
+                data-testid={`card-organization-${org.id}`}
+              >
+                <CardHeader>
+                  <div className="flex items-start gap-4">
+                    {org.logoUrl ? (
+                      <img 
+                        src={org.logoUrl} 
+                        alt={`${org.name} logo`}
+                        className="h-12 w-12 object-contain rounded"
+                      />
+                    ) : (
+                      <div 
+                        className="h-12 w-12 rounded flex items-center justify-center text-white font-bold text-xl"
+                        style={{ backgroundColor: org.primaryColor }}
+                      >
+                        {org.name.charAt(0)}
+                      </div>
                     )}
+                    <div className="flex-1">
+                      <CardTitle className="text-xl">{org.name}</CardTitle>
+                      {org.description && (
+                        <CardDescription className="mt-1">
+                          {org.description}
+                        </CardDescription>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  className="w-full" 
-                  style={{ backgroundColor: org.primaryColor }}
-                  data-testid={`button-select-${org.id}`}
-                >
-                  Open Dashboard
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    className="w-full" 
+                    style={{ backgroundColor: org.primaryColor }}
+                    data-testid={`button-select-${org.id}`}
+                  >
+                    Open Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {user?.isSuperAdmin && (

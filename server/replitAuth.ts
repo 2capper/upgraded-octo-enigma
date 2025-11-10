@@ -331,3 +331,58 @@ export const requireOrgAdmin: RequestHandler = async (req, res, next) => {
   }
 };
 
+// Middleware to check if organization has diamond booking enabled
+// Use this for all diamond booking-specific routes
+export const requireDiamondBooking: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  // First check if user is authenticated
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized - Please login first" });
+  }
+
+  // Refresh token if needed
+  const now = Math.floor(Date.now() / 1000);
+  if (now > user.expires_at) {
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Unauthorized - Session expired" });
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+    } catch (error) {
+      return res.status(401).json({ message: "Unauthorized - Session expired" });
+    }
+  }
+
+  // Check if organization has diamond booking enabled
+  try {
+    const { storage } = await import("./storage");
+    
+    // Extract organizationId from request params
+    const organizationId = req.params.organizationId || req.params.orgId;
+    
+    if (!organizationId) {
+      return res.status(400).json({ message: "Organization ID required" });
+    }
+
+    const organization = await storage.getOrganization(organizationId);
+    
+    if (!organization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
+    if (!organization.hasDiamondBooking) {
+      return res.status(403).json({ message: "Diamond booking is not enabled for this organization" });
+    }
+
+    return next();
+  } catch (error) {
+    console.error("Error checking diamond booking access:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
