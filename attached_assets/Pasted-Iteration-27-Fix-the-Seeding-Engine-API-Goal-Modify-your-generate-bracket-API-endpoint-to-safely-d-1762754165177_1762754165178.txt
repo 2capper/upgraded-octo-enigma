@@ -1,0 +1,62 @@
+Iteration 27: Fix the Seeding Engine API
+Goal: Modify your generate-bracket API endpoint to safely delete all old playoff games for that division before generating new ones.
+
+Your Mandate: You are in routes.ts.
+
+1. Pre-Check: Verify the Buggy Route
+
+Open routes.ts and go to line 1421.
+
+Confirm: You see the app.post(".../generate-bracket") route.
+
+Confirm: The try block only calls storage.generatePlayoffBracket() and does not delete any games.
+
+2. Step-by-Step: Replace the Route Logic
+
+Replace the entire try...catch block (lines 1422-1437) for that route with this new, safe logic:
+
+TypeScript
+
+    try {
+      const { tournamentId, divisionId } = req.params;
+
+      // --- THIS IS THE FIX ---
+      // 1. Fetch all games and pools for this tournament
+      const allGames = await storage.getGames(tournamentId);
+      const pools = await storage.getPools(tournamentId);
+
+      // 2. Find the *specific* pool IDs for the target division
+      const divisionPoolIds = new Set(pools.filter(p => p.ageDivisionId === divisionId).map(p => p.id));
+      
+      // 3. Find all existing playoff games FOR THIS DIVISION
+      //    We check `isPlayoff` AND `poolId` to ensure we only delete
+      //    games from the correct division's original pools.
+      const gamesToDelete = allGames.filter(g => 
+        g.isPlayoff === true && g.poolId && divisionPoolIds.has(g.poolId)
+      );
+      
+      // 4. Delete them.
+      for (const game of gamesToDelete) {
+        await storage.deleteGame(game.id);
+      }
+      // --- END FIX ---
+
+      // 5. Now, call your existing engine to create the new games.
+      //    This logic is hidden in your storage, but it's what runs the seeding.
+      const newGames = await storage.generatePlayoffBracket(tournamentId, divisionId);
+      
+      res.status(201).json({ 
+        message: `Bracket Generated: ${newGames.length} playoff games created (cleared ${gamesToDelete.length} old games).`, 
+        games: newGames
+      });
+    } catch (error) {
+      console.error("Error generating playoff bracket:", error);
+      res.status(400).json({ error: (error as any).message || "Failed to generate playoff bracket" });
+    }
+Note: My logic for finding gamesToDelete assumes your playoff games (e.g., "Game 1: Seed 3 vs Seed 6") still have a poolId that maps back to their original pool. If isPlayoff: true games have poolId: null, you must change that filter.
+
+3. Post-Check: Validate the Fix
+
+Step 3a (Frontend): Go to PlayoffBracketGenerator.tsx (line 191). Change the AlertDescription text to:
+
+"Playoff games already exist. Generating a new bracket will DELETE all existing playoff games for this division and create new ones."
