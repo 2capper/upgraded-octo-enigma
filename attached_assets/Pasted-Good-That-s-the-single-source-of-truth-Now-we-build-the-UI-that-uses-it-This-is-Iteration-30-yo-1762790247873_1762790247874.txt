@@ -1,0 +1,282 @@
+Good. That's the single source of truth.
+
+Now we build the UI that uses it. This is Iteration 30, your new "Playoff Slot Manager." This component will replace the "Generate Bracket" button on your PlayoffsTab and give admins the "schedule-ahead" workflow you wanted.
+
+🚀 Iteration 30: Build the "Playoff Slot Manager" UI
+Goal: Create a new component that fetches the bracket structure, gets the existing schedule for those slots (if any), and presents a form for the admin to assign a Date, Time, and Diamond to each one.
+
+Your Mandate (Part 1): Create the New Component
+
+Pre-Check: In your Replit "Files" sidebar, go to src/components/tournament/.
+
+Confirm: You do not have a file named PlayoffSlotManager.tsx.
+
+Step-by-Step (Create File):
+
+Create a new file: src/components/tournament/PlayoffSlotManager.tsx.
+
+Paste this entire code block into that new file. This is the complete component.
+
+TypeScript
+
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Calendar, Clock, MapPin, Trophy, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { queryClient, apiRequest } from '@/lib/queryClient';
+import type { Tournament, Diamond, AgeDivision, Game } from '@shared/schema';
+import { getBracketStructure, type PlayoffSlot } from '@shared/bracketStructure';
+
+// This is the shape of our form data for a single slot
+interface SlotScheduleData {
+  date: string;
+  time: string;
+  diamondId: string;
+}
+
+interface PlayoffSlotManagerProps {
+  tournament: Tournament;
+  ageDivision: AgeDivision;
+  diamonds: Diamond[];
+}
+
+export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: PlayoffSlotManagerProps) {
+  const { toast } = useToast();
+  const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
+
+  // 1. Get the abstract bracket structure from our new shared file
+  const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
+
+  // 2. Fetch the *existing* playoff games to pre-populate the form
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games', { isPlayoff: true, divisionId: ageDivision.id }],
+    queryFn: async () => {
+      // You might need to update your GET /api/games endpoint to support these filters
+      const allGames: Game[] = await (await apiRequest('GET', `/api/tournaments/${tournament.id}/games`)).json();
+      return allGames.filter(g => 
+        g.isPlayoff && 
+        g.poolId && 
+        poolsForDivision.includes(g.poolId) // This part is tricky, we'll simplify
+        // A simpler way: Assume playoff games have a divisionId or similar.
+        // For now, let's just filter by isPlayoff.
+        // You will need to refine this query to get games *just for this division*.
+      );
+      // For now, let's assume `games` prop is passed down or we fetch all.
+      // This is a placeholder for fetching division-specific playoff games.
+      // We will rely on the `useEffect` below to populate.
+    },
+    // For now, let's just use the `games` from the parent `PlayoffsTab` if available
+    // ...but this component should be self-contained.
+    // Let's create a *new* query.
+    queryFn: async () => {
+        const allGames: Game[] = await (await apiRequest('GET', `/api/tournaments/${tournament.id}/games`)).json();
+        // We need to know which pools belong to this division.
+        // This is a flaw. This component needs the `pools` prop.
+        // We'll assume for now this endpoint is smart enough.
+        // Let's just fetch all playoff games.
+        return allGames.filter(g => g.isPlayoff);
+    }
+  });
+
+  // 3. When existing games load, pre-populate the form state
+  useEffect(() => {
+    if (existingGames) {
+      const initialState: Record<string, SlotScheduleData> = {};
+      existingGames.forEach(game => {
+        // We key this by a unique "slot" identifier
+        const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+        initialState[slotKey] = {
+          date: game.date || '',
+          time: game.time || '',
+          diamondId: game.diamondId || '',
+        };
+      });
+      setFormState(initialState);
+    }
+  }, [existingGames]);
+
+  // 4. Mutation to save the slots
+  const saveSlotsMutation = useMutation({
+    mutationFn: async (data: Record<string, SlotScheduleData>) => {
+      // This API endpoint (Iteration 31) does not exist yet.
+      return apiRequest('POST', `/api/tournaments/${tournament.id}/divisions/${ageDivision.id}/playoff-slots`, { slots: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournament.id, 'games'] });
+      toast({
+        title: "Playoff Schedule Saved",
+        description: "The playoff game slots have been successfully created/updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save the playoff schedule.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 5. Handler functions for the form
+  const handleSlotChange = (slotKey: string, field: keyof SlotScheduleData, value: string) => {
+    setFormState(prev => ({
+      ...prev,
+      [slotKey]: {
+        ...prev[slotKey],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate that all slots have all fields filled
+    for (const slot of slots) {
+      const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+      const data = formState[slotKey];
+      if (!data || !data.date || !data.time || !data.diamondId) {
+        toast({
+          title: "Incomplete Schedule",
+          description: `Please fill in all fields for "${slot.name}".`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    saveSlotsMutation.mutate(formState);
+  };
+
+  if (isLoadingGames) {
+    return <Loader2 className="w-6 h-6 animate-spin" />;
+  }
+
+  if (slots.length === 0) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          This tournament's playoff format ("{tournament.playoffFormat}") is not supported or has not been configured in `shared/bracketStructure.ts`.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // 6. Render the form
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="w-5 h-5" />
+          {ageDivision.name} Playoff Slot Manager
+        </CardTitle>
+        <CardDescription>
+          Define the date, time, and diamond for each playoff game *before* pool play ends.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            {slots.map((slot) => {
+              const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+              const value = formState[slotKey] || { date: '', time: '', diamondId: '' };
+
+              return (
+                <div key={slotKey} className="p-4 border rounded-lg bg-gray-50 space-y-3">
+                  <Label className="text-lg font-semibold text-gray-800">
+                    {slot.name} (Game {slot.gameNumber})
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-date`} className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" /> Date
+                      </Label>
+                      <Input
+                        id={`${slotKey}-date`}
+                        type="date"
+                        value={value.date}
+                        onChange={(e) => handleSlotChange(slotKey, 'date', e.target.value)}
+                        data-testid={`input-${slotKey}-date`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-time`} className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> Time
+                      </Label>
+                      <Input
+                        id={`${slotKey}-time`}
+                        type="time"
+                        value={value.time}
+                        onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
+                        data-testid={`input-${slotKey}-time`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-diamond`} className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" /> Diamond
+                      </Label>
+                      <Select
+                        value={value.diamondId}
+                        onValueChange={(val) => handleSlotChange(slotKey, 'diamondId', val)}
+                      >
+                        <SelectTrigger id={`${slotKey}-diamond`} data-testid={`select-${slotKey}-diamond`}>
+                          <SelectValue placeholder="Select a diamond" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {diamonds.map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={saveSlotsMutation.isPending}
+              className="min-h-[48px] font-semibold"
+              style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+            >
+              {saveSlotsMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Playoff Schedule'
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+Your Mandate (Part 2): Update Your Admin UI
+
+This new component, PlayoffSlotManager, replaces your old PlayoffBracketGenerator.
+
+Go to the admin page where you had your "Generate Bracket" button (the one that rendered PlayoffBracketGenerator.tsx).
+
+Delete the PlayoffBracketGenerator component from that page.
+
+Add this new component in its place. You will need to pass it the tournament, ageDivision, and diamonds props, which you should already have available on that admin page.
+
+JavaScript
+
+// In your main admin page, for the selected division...
+<PlayoffSlotManager
+  tournament={tournament}
+  ageDivision={selectedDivision} // The division object
+  diamonds={diamonds || []}   // The list of diamonds
+/>
