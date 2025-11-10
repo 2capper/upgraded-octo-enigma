@@ -556,8 +556,9 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
           // Check if using cross-pool seeding
           const isCrossPool = tournament.seedingPattern === 'cross_pool_4';
           
-          return (
-            <TabsContent key={division.id} value={division.id} className="mt-6 space-y-6">
+          // Bracket content component
+          const bracketContent = (
+            <>
               {isCrossPool ? (
                 /* Cross-Pool Bracket View */
                 <CrossPoolBracketView
@@ -742,6 +743,33 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
                 </div>
               )}
                 </>
+              )}
+            </>
+          );
+
+          return (
+            <TabsContent key={division.id} value={division.id} className="mt-6 space-y-6">
+              {isAuthenticated ? (
+                <Tabs defaultValue="bracket" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="bracket">Bracket</TabsTrigger>
+                    <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="bracket">
+                    {bracketContent}
+                  </TabsContent>
+                  
+                  <TabsContent value="schedule">
+                    <PlayoffSlotManager
+                      tournament={tournament}
+                      ageDivision={division}
+                      diamonds={diamonds}
+                    />
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                bracketContent
               )}
             </TabsContent>
           );
