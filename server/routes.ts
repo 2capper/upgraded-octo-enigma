@@ -18,6 +18,7 @@ import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
 import { calculateStats, resolveTie } from "@shared/standings";
+import { getBracketStructure } from "@shared/bracketStructure";
 import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { notificationService } from "./lib/notificationService";
@@ -1862,361 +1863,50 @@ Waterdown 10U AA
     tournamentId: string,
     ageDivisionId: string
   ) {
-    const games: any[] = [];
+    const bracketStructure = getBracketStructure(playoffFormat);
     
-    switch (playoffFormat) {
-      case 'top_4': {
-        // Semifinals: 1v4, 2v3
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 1,
-          homeTeamId: standings[0]?.id || null,
-          awayTeamId: standings[3]?.id || null,
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 2,
-          homeTeamId: standings[1]?.id || null,
-          awayTeamId: standings[2]?.id || null,
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Finals: Winner of Game 1 vs Winner of Game 2
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
-          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        break;
+    const games = bracketStructure.map(slot => {
+      const game: any = {
+        id: nanoid(),
+        tournamentId,
+        ageDivisionId,
+        isPlayoff: true,
+        playoffRound: slot.round,
+        playoffGameNumber: slot.gameNumber,
+        status: 'scheduled',
+        date: '',
+        time: '',
+        location: '',
+        subVenue: '',
+        poolId: null,
+      };
+      
+      // Handle home team source
+      if (slot.homeSource.type === 'seed') {
+        game.homeTeamId = standings[slot.homeSource.rank - 1]?.id || null;
+      } else {
+        game.homeTeamId = null;
+        game.team1Source = {
+          type: 'winner',
+          gameNumber: slot.homeSource.gameNumber,
+          round: slot.homeSource.round
+        };
       }
       
-      case 'top_6': {
-        // Quarterfinals: 3v6, 4v5
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 1,
-          homeTeamId: standings[2]?.id || null,
-          awayTeamId: standings[5]?.id || null,
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 2,
-          homeTeamId: standings[3]?.id || null,
-          awayTeamId: standings[4]?.id || null,
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Semifinals: 1 vs winner of Game 1, 2 vs winner of Game 2
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 1,
-          homeTeamId: standings[0]?.id || null,
-          awayTeamId: null,
-          team2Source: { type: 'winner', gameNumber: 1, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 2,
-          homeTeamId: standings[1]?.id || null,
-          awayTeamId: null,
-          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Finals: Winner of SF1 vs Winner of SF2
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 3,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
-          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        break;
+      // Handle away team source
+      if (slot.awaySource.type === 'seed') {
+        game.awayTeamId = standings[slot.awaySource.rank - 1]?.id || null;
+      } else {
+        game.awayTeamId = null;
+        game.team2Source = {
+          type: 'winner',
+          gameNumber: slot.awaySource.gameNumber,
+          round: slot.awaySource.round
+        };
       }
       
-      case 'top_8': {
-        // Quarterfinals: 1v8, 2v7, 3v6, 4v5
-        for (let i = 0; i < 4; i++) {
-          games.push({
-            id: nanoid(),
-            tournamentId,
-            ageDivisionId,
-            isPlayoff: true,
-            playoffRound: 1,
-            playoffGameNumber: i + 1,
-            homeTeamId: standings[i]?.id || null,
-            awayTeamId: standings[7 - i]?.id || null,
-            status: 'scheduled',
-            date: '',
-            time: '',
-            location: '',
-            subVenue: '',
-            poolId: null,
-          });
-        }
-        // Semifinals: Winner of Game 1 vs Winner of Game 4, Winner of Game 2 vs Winner of Game 3
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
-          team2Source: { type: 'winner', gameNumber: 4, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 2,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 2, round: 1 },
-          team2Source: { type: 'winner', gameNumber: 3, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Finals: Winner of SF1 vs Winner of SF2
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 3,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
-          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        break;
-      }
-      
-      case 'cross_pool_4': {
-        // Quarterfinals: A1vC2, A2vC1, B1vD2, B2vD1
-        // For cross_pool, standings are already ordered correctly by pool
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 1,
-          homeTeamId: standings[0]?.id || null,  // A1
-          awayTeamId: standings[5]?.id || null,  // C2
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 2,
-          homeTeamId: standings[1]?.id || null,  // A2
-          awayTeamId: standings[4]?.id || null,  // C1
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 3,
-          homeTeamId: standings[2]?.id || null,  // B1
-          awayTeamId: standings[7]?.id || null,  // D2
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 1,
-          playoffGameNumber: 4,
-          homeTeamId: standings[3]?.id || null,  // B2
-          awayTeamId: standings[6]?.id || null,  // D1
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Semifinals
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 1 },
-          team2Source: { type: 'winner', gameNumber: 2, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 2,
-          playoffGameNumber: 2,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 3, round: 1 },
-          team2Source: { type: 'winner', gameNumber: 4, round: 1 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        // Finals
-        games.push({
-          id: nanoid(),
-          tournamentId,
-          ageDivisionId,
-          isPlayoff: true,
-          playoffRound: 3,
-          playoffGameNumber: 1,
-          homeTeamId: null,
-          awayTeamId: null,
-          team1Source: { type: 'winner', gameNumber: 1, round: 2 },
-          team2Source: { type: 'winner', gameNumber: 2, round: 2 },
-          status: 'scheduled',
-          date: '',
-          time: '',
-          location: '',
-          subVenue: '',
-          poolId: null,
-        });
-        break;
-      }
-    }
+      return game;
+    });
     
     return games;
   }
