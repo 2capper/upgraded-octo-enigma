@@ -1,0 +1,59 @@
+Iteration 29: Refactor Bracket Logic (The "DRY" Fix)
+Goal: Create a new, shared file that defines the structure of all your playoff formats.
+
+Your Mandate:
+
+Create New File: In your Replit "Files" sidebar, create a new file: shared/bracketStructure.ts.
+
+Move the Logic:
+
+Go to server/routes.ts and find your generatePlayoffGames function (line 1113).
+
+Copy the entire switch (playoffFormat) block (lines 1118-1262).
+
+Paste it into your new shared/bracketStructure.ts file.
+
+Refactor the Function:
+
+You must rewrite this switch statement. It needs to be a new function, getBracketStructure.
+
+This function must not create Game objects. It must only return an array of "slots" (the structure).
+
+Your new shared/bracketStructure.ts should look like this:
+
+TypeScript
+
+// In shared/bracketStructure.ts
+// This is a new type we're defining.
+export interface PlayoffSlot {
+  round: number;
+  gameNumber: number;
+  name: string; // e.g., "Quarter-final 1" or "Final"
+  homeSource: { type: 'seed', rank: number } | { type: 'winner', game: number, round: number };
+  awaySource: { type: 'seed', rank: number } | { type: 'winner', game: number, round: number };
+}
+
+export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
+  switch (playoffFormat) {
+    case 'top_4':
+      return [
+        { round: 1, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 4 } },
+        { round: 1, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 3 } },
+        { round: 2, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', game: 1, round: 1 }, awaySource: { type: 'winner', game: 2, round: 1 } }
+      ];
+
+    case 'top_6':
+      return [
+        { round: 1, gameNumber: 1, name: 'Quarter-Final 1', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 6 } },
+        { round: 1, gameNumber: 2, name: 'Quarter-Final 2', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 5 } },
+        { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'winner', game: 2, round: 1 } }, // 1 vs. Winner QF2
+        { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'winner', game: 1, round: 1 } }, // 2 vs. Winner QF1
+        { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', game: 1, round: 2 }, awaySource: { type: 'winner', game: 2, round: 2 } }
+      ];
+
+    // ... add cases for 'top_8' and 'cross_pool_4'
+
+    default:
+      return [];
+  }
+}
