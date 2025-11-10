@@ -69,7 +69,7 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
   };
 
   // Check if playoff games already exist
-  const playoffGames = games.filter((g: Game) => g.poolId?.toLowerCase().includes('playoff'));
+  const playoffGames = games.filter((g: Game) => g.isPlayoff === true);
   const hasPlayoffGames = playoffGames.length > 0;
 
   if (!tournament) {
@@ -157,7 +157,7 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
           <Alert>
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">
-              {playoffGames.length} playoff games already exist for this tournament. Generating a new bracket will add additional playoff games.
+              {playoffGames.length} playoff games already exist for this tournament. Generating a new bracket will **delete all existing** playoff games and create a new bracket.
             </AlertDescription>
           </Alert>
         )}
