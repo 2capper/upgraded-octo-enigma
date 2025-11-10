@@ -8,14 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
-import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
+import { Team, Game, Pool, AgeDivision, Tournament, Diamond } from '@shared/schema';
 import { getPlayoffTeamCount } from '@shared/playoffFormats';
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
 import { PlayoffBracketPreview } from './playoff-bracket-preview';
+import { PlayoffSlotManager } from './PlayoffSlotManager';
 import { calculateStats, resolveTie } from '@shared/standings';
 
 interface PlayoffsTabProps {
@@ -224,6 +225,12 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Fetch diamonds for playoff slot scheduling (admin only)
+  const { data: diamonds = [] } = useQuery<Diamond[]>({
+    queryKey: ['/api/organizations', tournament.organizationId, 'diamonds'],
+    enabled: isAuthenticated && !!tournament.organizationId,
+  });
+  
   // Generate Playoffs Mutation
   const generatePlayoffsMutation = useMutation({
     mutationFn: async () => {
@@ -361,7 +368,9 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
   if (!hasAnyPlayoffGames) {
     return (
       <div className="p-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">Playoff Bracket Preview</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">
+          {isAuthenticated ? 'Playoff Management' : 'Playoff Bracket Preview'}
+        </h3>
         
         {ageDivisions.length > 1 ? (
           <Tabs defaultValue={ageDivisions[0]?.id} className="w-full">
@@ -376,26 +385,86 @@ export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, t
             {ageDivisions.map((division) => {
               const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
               return (
-                <TabsContent key={division.id} value={division.id}>
-                  <PlayoffBracketPreview
-                    playoffFormat={tournament.playoffFormat || 'top_8'}
-                    seedingPattern={tournament.seedingPattern || 'standard'}
-                    pools={divisionPools}
-                    primaryColor={tournament.primaryColor || undefined}
-                    secondaryColor={tournament.secondaryColor || undefined}
-                  />
+                <TabsContent key={division.id} value={division.id} className="space-y-6">
+                  {isAuthenticated ? (
+                    <>
+                      <Tabs defaultValue="preview" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-6">
+                          <TabsTrigger value="preview">Bracket Preview</TabsTrigger>
+                          <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="preview">
+                          <PlayoffBracketPreview
+                            playoffFormat={tournament.playoffFormat || 'top_8'}
+                            seedingPattern={tournament.seedingPattern || 'standard'}
+                            pools={divisionPools}
+                            primaryColor={tournament.primaryColor || undefined}
+                            secondaryColor={tournament.secondaryColor || undefined}
+                          />
+                        </TabsContent>
+                        
+                        <TabsContent value="schedule">
+                          <PlayoffSlotManager
+                            tournament={tournament}
+                            ageDivision={division}
+                            diamonds={diamonds}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </>
+                  ) : (
+                    <PlayoffBracketPreview
+                      playoffFormat={tournament.playoffFormat || 'top_8'}
+                      seedingPattern={tournament.seedingPattern || 'standard'}
+                      pools={divisionPools}
+                      primaryColor={tournament.primaryColor || undefined}
+                      secondaryColor={tournament.secondaryColor || undefined}
+                    />
+                  )}
                 </TabsContent>
               );
             })}
           </Tabs>
         ) : (
-          <PlayoffBracketPreview
-            playoffFormat={tournament.playoffFormat || 'top_8'}
-            seedingPattern={tournament.seedingPattern || 'standard'}
-            pools={pools}
-            primaryColor={tournament.primaryColor || undefined}
-            secondaryColor={tournament.secondaryColor || undefined}
-          />
+          <>
+            {isAuthenticated ? (
+              <Tabs defaultValue="preview" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="preview">Bracket Preview</TabsTrigger>
+                  <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="preview">
+                  <PlayoffBracketPreview
+                    playoffFormat={tournament.playoffFormat || 'top_8'}
+                    seedingPattern={tournament.seedingPattern || 'standard'}
+                    pools={pools}
+                    primaryColor={tournament.primaryColor || undefined}
+                    secondaryColor={tournament.secondaryColor || undefined}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="schedule">
+                  {ageDivisions[0] && (
+                    <PlayoffSlotManager
+                      tournament={tournament}
+                      ageDivision={ageDivisions[0]}
+                      diamonds={diamonds}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <PlayoffBracketPreview
+                playoffFormat={tournament.playoffFormat || 'top_8'}
+                seedingPattern={tournament.seedingPattern || 'standard'}
+                pools={pools}
+                primaryColor={tournament.primaryColor || undefined}
+                secondaryColor={tournament.secondaryColor || undefined}
+              />
+            )}
+          </>
         )}
       </div>
     );
