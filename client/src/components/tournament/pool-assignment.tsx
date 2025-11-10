@@ -281,6 +281,40 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     },
   });
 
+  // Generate matchups mutation
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        "POST",
+        `/api/tournaments/${tournamentId}/generate-matchups`,
+        { divisionId },
+      );
+      const data = await response.json();
+      return data.matchups;
+    },
+    onSuccess: (data) => {
+      // Invalidate both matchups and games queries to refetch from database
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+
+      toast({
+        title: "Matchups Generated",
+        description: `Successfully created matchups for all pools.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <Card>
@@ -316,24 +350,42 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              {/* Unassigned teams sidebar */}
-              <div className="lg:col-span-1">
-                <UnassignedDropZone teams={unassignedTeams} activeTeam={activeTeam} />
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                {/* Unassigned teams sidebar */}
+                <div className="lg:col-span-1">
+                  <UnassignedDropZone teams={unassignedTeams} activeTeam={activeTeam} />
+                </div>
+
+                {/* Pool columns */}
+                <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {teamsByPool.map(({ pool, teams: poolTeams }) => (
+                    <PoolDropZone 
+                      key={pool.id} 
+                      pool={pool} 
+                      teams={poolTeams}
+                      activeTeam={activeTeam}
+                    />
+                  ))}
+                </div>
               </div>
 
-              {/* Pool columns */}
-              <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {teamsByPool.map(({ pool, teams: poolTeams }) => (
-                  <PoolDropZone 
-                    key={pool.id} 
-                    pool={pool} 
-                    teams={poolTeams}
-                    activeTeam={activeTeam}
-                  />
-                ))}
+              <div className="mt-6 pt-6 border-t border-gray-200 flex justify-end">
+                <Button
+                  onClick={() => generateMutation.mutate()}
+                  disabled={unassignedTeams.length > 0 || generateMutation.isPending}
+                  style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+                  data-testid="button-generate-matchups"
+                >
+                  {generateMutation.isPending ? "Generating..." : "Lock Pools & Generate Matchups"}
+                </Button>
               </div>
-            </div>
+              {unassignedTeams.length > 0 && (
+                <p className="text-right text-sm text-red-600 mt-2">
+                  You must assign all teams to a pool before generating matchups.
+                </p>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

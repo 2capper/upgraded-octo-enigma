@@ -596,40 +596,6 @@ export function DragScheduleBuilder({
     setPlacedMatchupIds(idsFromGames);
   }, [existingGames]);
 
-  // Generate matchups mutation
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        "POST",
-        `/api/tournaments/${tournamentId}/generate-matchups`,
-        { divisionId },
-      );
-      const data = await response.json();
-      return data.matchups;
-    },
-    onSuccess: (data) => {
-      // Invalidate both matchups and games queries to refetch from database
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
-      });
-
-      toast({
-        title: "Schedule Reset",
-        description: `New matchups are ready.`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Place game mutation
   const placeMutation = useMutation({
     mutationFn: async (gameData: {
@@ -1098,23 +1064,15 @@ export function DragScheduleBuilder({
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Drag & Drop Schedule Builder</CardTitle>
+            <CardTitle>Schedule Grid</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Generate matchups, then drag and drop them onto the calendar grid
-              to build your schedule.
-            </p>
-            <Button
-              onClick={() => generateMutation.mutate()}
-              disabled={generateMutation.isPending}
-              data-testid="button-generate-matchups"
-            >
-              {generateMutation.isPending && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-              Generate Matchups
-            </Button>
+            <div className="text-center py-12">
+              <p className="text-lg font-medium text-gray-700">No matchups found.</p>
+              <p className="text-gray-500 mt-2">
+                Please go to the "Pool Assignment" tab to lock pools and generate matchups.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
