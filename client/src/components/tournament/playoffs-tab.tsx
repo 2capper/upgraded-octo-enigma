@@ -15,6 +15,7 @@ import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { getPlayoffTeamCount } from '@shared/playoffFormats';
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
 import { PlayoffBracketPreview } from './playoff-bracket-preview';
+import { calculateStats, resolveTie } from '@/lib/standings';
 
 interface PlayoffsTabProps {
   teams: Team[];
@@ -24,76 +25,6 @@ interface PlayoffsTabProps {
   tournamentId: string;
   tournament: Tournament;
 }
-
-// Reuse the same calculation logic from the original code
-const calculateStats = (teamId: string, games: Game[], teamIdFilter?: string[]) => {
-  const relevantGames = games.filter(g => {
-    const isInGame = g.homeTeamId === teamId || g.awayTeamId === teamId;
-    if (!isInGame || g.status !== 'completed') return false;
-    if (teamIdFilter) {
-      const otherTeamId = g.homeTeamId === teamId ? g.awayTeamId : g.homeTeamId;
-      return otherTeamId && teamIdFilter.includes(otherTeamId);
-    }
-    return true;
-  });
-
-  let stats = { wins: 0, losses: 0, ties: 0, runsFor: 0, runsAgainst: 0, offensiveInnings: 0, defensiveInnings: 0, forfeitLosses: 0 };
-  
-  relevantGames.forEach(g => {
-    const isHome = g.homeTeamId === teamId;
-    stats.runsFor += isHome ? (Number(g.homeScore) || 0) : (Number(g.awayScore) || 0);
-    stats.runsAgainst += isHome ? (Number(g.awayScore) || 0) : (Number(g.homeScore) || 0);
-    stats.offensiveInnings += isHome ? (Number(g.homeInningsBatted) || 0) : (Number(g.awayInningsBatted) || 0);
-    stats.defensiveInnings += isHome ? (Number(g.awayInningsBatted) || 0) : (Number(g.homeInningsBatted) || 0);
-
-    const forfeited = (isHome && g.forfeitStatus === 'home') || (!isHome && g.forfeitStatus === 'away');
-    if (forfeited) { stats.losses++; stats.forfeitLosses++; return; }
-
-    const homeScore = Number(g.homeScore) || 0;
-    const awayScore = Number(g.awayScore) || 0;
-    
-    if (homeScore > awayScore) isHome ? stats.wins++ : stats.losses++;
-    else if (awayScore > homeScore) isHome ? stats.losses++ : stats.wins++;
-    else stats.ties++;
-  });
-  
-  return stats;
-};
-
-const resolveTie = (tiedTeams: any[], allGames: Game[]): any[] => {
-  if (tiedTeams.length <= 1) return tiedTeams;
-  let sortedTeams = [...tiedTeams];
-  const teamIds = sortedTeams.map(t => t.id);
-
-  const regroupAndResolve = (getMetric: (team: any) => number, descending = false) => {
-    sortedTeams.sort((a, b) => descending ? getMetric(b) - getMetric(a) : getMetric(a) - getMetric(b));
-    if (getMetric(sortedTeams[0]) !== getMetric(sortedTeams[sortedTeams.length - 1])) {
-      const groups: any[][] = [];
-      let currentGroup = [sortedTeams[0]];
-      for(let i = 1; i < sortedTeams.length; i++) {
-        if (getMetric(sortedTeams[i]) === getMetric(currentGroup[0])) currentGroup.push(sortedTeams[i]);
-        else { groups.push(currentGroup); currentGroup = [sortedTeams[i]]; }
-      }
-      groups.push(currentGroup);
-      return groups.flatMap(group => resolveTie(group, allGames));
-    }
-    return null;
-  };
-
-  let result = regroupAndResolve(team => team.forfeitLosses); if (result) return result;
-  if (sortedTeams.length === 2) {
-    const stats = calculateStats(sortedTeams[0].id, allGames, [sortedTeams[1].id]);
-    if (stats.wins > stats.losses) return [sortedTeams[0], sortedTeams[1]];
-    if (stats.losses > stats.wins) return [sortedTeams[1], sortedTeams[0]];
-  }
-  const raRatioAmongTied = (t: any) => { const s = calculateStats(t.id, allGames, teamIds); return s.defensiveInnings > 0 ? s.runsAgainst / s.defensiveInnings : Infinity; };
-  result = regroupAndResolve(raRatioAmongTied); if (result) return result;
-  result = regroupAndResolve(t => t.runsAgainstPerInning); if (result) return result;
-  const rfRatioAmongTied = (t: any) => { const s = calculateStats(t.id, allGames, teamIds); return s.offensiveInnings > 0 ? s.runsFor / s.offensiveInnings : 0; };
-  result = regroupAndResolve(rfRatioAmongTied, true); if (result) return result;
-  result = regroupAndResolve(t => t.runsForPerInning, true); if (result) return result;
-  return sortedTeams.sort((a, b) => a.name.localeCompare(b.name));
-};
 
 // Playoff Score Dialog Component
 const PlayoffScoreDialog = ({ 
