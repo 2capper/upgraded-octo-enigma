@@ -1276,19 +1276,7 @@ export class DatabaseStorage implements IStorage {
 
     // Get all pools in this division
     const divisionPools = await db.select().from(pools).where(eq(pools.ageDivisionId, divisionId));
-    const divisionPoolIds = divisionPools.map(p => p.id);
     const regularPoolIds = divisionPools.filter(p => !p.name.toLowerCase().includes('playoff')).map(p => p.id);
-
-    // Step 3: Delete all existing playoff games for this division to allow bracket regeneration
-    // Delete games where poolId is in this division AND isPlayoff is true
-    if (divisionPoolIds.length > 0) {
-      await db.delete(games).where(
-        and(
-          eq(games.isPlayoff, true),
-          sql`${games.poolId} IN (${sql.join(divisionPoolIds.map(id => sql`${id}`), sql`, `)})`
-        )
-      );
-    }
 
     // Get all teams in the division (across all regular pools, excluding playoff pool)
     const divisionTeams = await db.select().from(teams)
@@ -1306,7 +1294,7 @@ export class DatabaseStorage implements IStorage {
         teamIds.length > 0 ? sql`(${games.homeTeamId} IN (${sql.join(teamIds.map(id => sql`${id}`), sql`, `)}) OR ${games.awayTeamId} IN (${sql.join(teamIds.map(id => sql`${id}`), sql`, `)}))` : sql`false`
       ));
 
-    // Step 2: Calculate standings using shared SP11.2 tie-breaking logic
+    // Calculate standings using shared SP11.2 tie-breaking logic
     let standingsForSeeding: Array<{ teamId: string; rank: number; poolId: string }>;
     
     if (tournament.playoffFormat === 'top_8_four_pools') {
@@ -1351,71 +1339,68 @@ export class DatabaseStorage implements IStorage {
       throw new Error('No playoff teams determined from standings');
     }
 
-    // Validate that we have enough teams for the bracket template
-    const expectedTeamCount = seededTeams.length;
-    if (divisionTeams.length < expectedTeamCount) {
-      throw new Error(`Insufficient teams: format requires ${expectedTeamCount} teams but only ${divisionTeams.length} available`);
-    }
-
-    // Enrich seeded teams with team names only (preserve pool data from getPlayoffTeamsFromStandings)
-    const enrichedSeededTeams = seededTeams.map(st => {
-      const team = divisionTeams.find(t => t.id === st.teamId);
-      
-      return {
-        ...st, // Preserve all existing fields including poolName and poolRank
-        teamName: st.teamName || team?.name, // Only add teamName if not already set
-      };
+    // Create a lookup map: seed number → team ID
+    const seedToTeamMap = new Map<number, string>();
+    seededTeams.forEach(st => {
+      seedToTeamMap.set(st.seed, st.teamId);
     });
 
-    // Generate bracket games with seeding pattern support
-    const bracketGames = generateBracketGames({
-      tournamentId,
-      divisionId,
-      playoffFormat: tournament.playoffFormat,
-      teamCount: seededTeams.length,
-      seededTeams: enrichedSeededTeams,
-      seedingPattern: tournament.seedingPattern as any || undefined,
-    });
-
-    if (bracketGames.length === 0) {
-      throw new Error(`No bracket template found for format: ${tournament.playoffFormat}`);
-    }
-
-    // Find or create a playoff pool for this division
-    let playoffPool = divisionPools.find(p => p.name.toLowerCase().includes('playoff'));
+    // Fetch existing playoff slot games (created by savePlayoffSlots)
+    const playoffPool = divisionPools.find(p => p.name.toLowerCase().includes('playoff'));
     if (!playoffPool) {
-      [playoffPool] = await db.insert(pools).values({
-        id: `${tournamentId}_pool_${divisionId}-Playoff`,
-        name: 'Playoff',
-        tournamentId,
-        ageDivisionId: divisionId,
-      }).returning();
+      throw new Error('No playoff slots have been scheduled yet. Please schedule the slots in the "Schedule Slots" tab first.');
     }
 
-    // Convert to InsertGame format and create games
-    const playoffGamesToInsert: InsertGame[] = bracketGames.map((bg) => ({
-      id: `${tournamentId}_playoff_${divisionId}_g${bg.gameNumber}`,
-      tournamentId,
-      poolId: playoffPool!.id,
-      homeTeamId: bg.team1Id || null,
-      awayTeamId: bg.team2Id || null,
-      isPlayoff: true,
-      playoffRound: bg.round,
-      playoffGameNumber: bg.gameNumber,
-      playoffBracket: bg.bracket,
-      team1Source: bg.team1Source as any,
-      team2Source: bg.team2Source as any,
-      status: 'scheduled',
-      date: tournament.startDate,
-      time: '12:00 PM',
-      location: 'TBD',
-      forfeitStatus: 'none',
-    }));
+    const playoffSlots = await db.select().from(games)
+      .where(and(
+        eq(games.poolId, playoffPool.id),
+        eq(games.isPlayoff, true)
+      ));
 
-    // Insert playoff games into database
-    const createdGames = await db.insert(games).values(playoffGamesToInsert).returning();
+    if (playoffSlots.length === 0) {
+      throw new Error('No playoff slots have been scheduled yet. Please schedule the slots in the "Schedule Slots" tab first.');
+    }
+
+    // Update each slot with team assignments based on seeded teams
+    const updatedGames: Game[] = [];
     
-    return createdGames;
+    for (const slot of playoffSlots) {
+      let newHomeTeamId: string | null = null;
+      let newAwayTeamId: string | null = null;
+
+      // Resolve home team from team1Source
+      if (slot.team1Source) {
+        const source = slot.team1Source as any;
+        if (source.type === 'seed' && source.rank) {
+          // Assign team based on seed number from seeding engine
+          newHomeTeamId = seedToTeamMap.get(source.rank) || null;
+        }
+        // Note: type === 'winner' will be resolved as games complete (not handled here)
+      }
+
+      // Resolve away team from team2Source
+      if (slot.team2Source) {
+        const source = slot.team2Source as any;
+        if (source.type === 'seed' && source.rank) {
+          // Assign team based on seed number from seeding engine
+          newAwayTeamId = seedToTeamMap.get(source.rank) || null;
+        }
+        // Note: type === 'winner' will be resolved as games complete (not handled here)
+      }
+
+      // Update the game with team assignments (preserve all other metadata)
+      const [updatedGame] = await db.update(games)
+        .set({
+          homeTeamId: newHomeTeamId,
+          awayTeamId: newAwayTeamId,
+        })
+        .where(eq(games.id, slot.id))
+        .returning();
+      
+      updatedGames.push(updatedGame);
+    }
+    
+    return updatedGames;
   }
 
   async savePlayoffSlots(
