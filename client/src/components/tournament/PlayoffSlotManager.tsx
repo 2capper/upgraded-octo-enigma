@@ -256,6 +256,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
                         value={value.time}
                         onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
                         data-testid={`input-${slotKey}-time`}
+                        step="900"
                       />
                     </div>
                     <div className="space-y-2">
