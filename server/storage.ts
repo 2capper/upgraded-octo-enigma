@@ -171,6 +171,7 @@ export interface IStorage {
   
   // Playoff bracket generation
   generatePlayoffBracket(tournamentId: string, divisionId: string): Promise<Game[]>;
+  savePlayoffSlots(tournamentId: string, divisionId: string, slots: Record<string, { date: string; time: string; diamondId: string; }>): Promise<Game[]>;
   
   // House League Team methods
   getHouseLeagueTeams(organizationId: string): Promise<HouseLeagueTeam[]>;
@@ -1415,6 +1416,175 @@ export class DatabaseStorage implements IStorage {
     const createdGames = await db.insert(games).values(playoffGamesToInsert).returning();
     
     return createdGames;
+  }
+
+  async savePlayoffSlots(
+    tournamentId: string,
+    divisionId: string,
+    slots: Record<string, { date: string; time: string; diamondId: string; }>
+  ): Promise<Game[]> {
+    // Import dependencies
+    const { getBracketStructure } = await import('@shared/bracketStructure');
+    const { NotFoundError, ValidationError } = await import('./errors');
+    
+    // Pre-validation: Get tournament and validate
+    const tournament = await this.getTournament(tournamentId);
+    if (!tournament) {
+      throw new NotFoundError('Tournament not found');
+    }
+
+    // Pre-validation: Get division and validate
+    const [division] = await db.select().from(ageDivisions).where(eq(ageDivisions.id, divisionId));
+    if (!division) {
+      throw new NotFoundError('Division not found');
+    }
+
+    // Pre-validation: Get organization diamonds
+    const orgDiamonds = await db.select().from(diamonds).where(eq(diamonds.organizationId, tournament.organizationId));
+    const diamondMap = new Map(orgDiamonds.map(d => [d.id, d]));
+
+    // Pre-validation: Get bracket structure
+    const bracketStructure = getBracketStructure(tournament.playoffFormat || 'top_8');
+    if (bracketStructure.length === 0) {
+      throw new ValidationError(`Unsupported playoff format: ${tournament.playoffFormat}`);
+    }
+    const bracketSlotMap = new Map(bracketStructure.map(s => [`r${s.round}-g${s.gameNumber}`, s]));
+
+    // Pre-validation: Validate all slots before transaction
+    const validatedSlots: Array<{ slotKey: string; round: number; gameNumber: number; date: string; time: string; diamondId: string; }> = [];
+    
+    for (const [slotKey, slotData] of Object.entries(slots)) {
+      // Parse slot key
+      const match = slotKey.match(/^r(\d+)-g(\d+)$/);
+      if (!match) {
+        throw new ValidationError(`Invalid slot key format: ${slotKey}`);
+      }
+
+      const round = parseInt(match[1]);
+      const gameNumber = parseInt(match[2]);
+
+      // Validate bracket slot exists
+      if (!bracketSlotMap.has(slotKey)) {
+        throw new ValidationError(`No bracket slot found for ${slotKey}`);
+      }
+
+      // Validate required fields
+      const { date, time, diamondId } = slotData;
+      if (!date || !time || !diamondId) {
+        throw new ValidationError(`Missing required fields for slot ${slotKey}`);
+      }
+
+      // Validate date within tournament range
+      if (date < tournament.startDate || date > tournament.endDate) {
+        throw new ValidationError(`Date for ${slotKey} must be between ${tournament.startDate} and ${tournament.endDate}`);
+      }
+
+      // Validate diamond belongs to organization
+      if (!diamondMap.has(diamondId)) {
+        throw new ValidationError(`Invalid diamond for slot ${slotKey}`);
+      }
+
+      validatedSlots.push({ slotKey, round, gameNumber, date, time, diamondId });
+    }
+
+    // Execute in transaction
+    return await db.transaction(async (tx) => {
+      // Get all division pools
+      const divisionPools = await tx.select().from(pools).where(eq(pools.ageDivisionId, divisionId));
+      
+      // Find or create playoff pool
+      let playoffPool = divisionPools.find(p => p.name.toLowerCase().includes('playoff'));
+      if (!playoffPool) {
+        [playoffPool] = await tx.insert(pools).values({
+          id: `${tournamentId}_pool_${divisionId}-Playoff`,
+          name: 'Playoff',
+          tournamentId,
+          ageDivisionId: divisionId,
+          displayOrder: 999,
+        }).returning();
+      }
+
+      // Lock existing playoff games for this pool
+      const existingGames = await tx.select().from(games)
+        .where(and(
+          eq(games.poolId, playoffPool.id),
+          eq(games.isPlayoff, true)
+        ))
+        .for('update');
+
+      const existingGameMap = new Map(
+        existingGames.map(g => [`r${g.playoffRound}-g${g.playoffGameNumber}`, g])
+      );
+
+      const updatedGames: Game[] = [];
+
+      // Upsert each slot
+      for (const slot of validatedSlots) {
+        const { slotKey, round, gameNumber, date, time, diamondId } = slot;
+        const bracketSlot = bracketSlotMap.get(slotKey)!;
+        const diamond = diamondMap.get(diamondId)!;
+
+        const existingGame = existingGameMap.get(slotKey);
+
+        if (existingGame) {
+          // Update existing game
+          const [updated] = await tx.update(games)
+            .set({
+              date,
+              time,
+              diamondId,
+              location: diamond.location,
+              subVenue: diamond.name,
+            })
+            .where(eq(games.id, existingGame.id))
+            .returning();
+          updatedGames.push(updated);
+        } else {
+          // Create new game
+          const gameId = `${playoffPool.id}-r${round}-g${gameNumber}`;
+          
+          const newGame: InsertGame = {
+            id: gameId,
+            tournamentId,
+            ageDivisionId: divisionId,
+            poolId: playoffPool.id,
+            isPlayoff: true,
+            playoffRound: round,
+            playoffGameNumber: gameNumber,
+            date,
+            time,
+            diamondId,
+            location: diamond.location,
+            subVenue: diamond.name,
+            status: 'scheduled',
+            forfeitStatus: 'none',
+            homeTeamId: null,
+            awayTeamId: null,
+          };
+
+          // Add team source metadata from bracket structure
+          if (bracketSlot.homeSource.type === 'winner') {
+            newGame.team1Source = {
+              type: 'winner',
+              gameNumber: bracketSlot.homeSource.gameNumber,
+              round: bracketSlot.homeSource.round
+            } as any;
+          }
+          if (bracketSlot.awaySource.type === 'winner') {
+            newGame.team2Source = {
+              type: 'winner',
+              gameNumber: bracketSlot.awaySource.gameNumber,
+              round: bracketSlot.awaySource.round
+            } as any;
+          }
+
+          const [created] = await tx.insert(games).values(newGame).returning();
+          updatedGames.push(created);
+        }
+      }
+
+      return updatedGames;
+    });
   }
 
   // House League Team methods

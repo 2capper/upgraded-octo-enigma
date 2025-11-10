@@ -2004,6 +2004,43 @@ Waterdown 10U AA
     }
   });
 
+  // Pre-schedule playoff games (slot manager)
+  app.post("/api/tournaments/:tournamentId/divisions/:divisionId/playoff-slots", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId, divisionId } = req.params;
+      const { slots } = req.body;
+
+      if (!slots || typeof slots !== 'object') {
+        return res.status(400).json({ error: "Invalid request body. Expected { slots: {...} }" });
+      }
+
+      // Delegate to storage layer
+      const updatedGames = await storage.savePlayoffSlots(tournamentId, divisionId, slots);
+
+      res.json({ 
+        message: "Playoff schedule saved successfully",
+        gamesCreated: updatedGames.length,
+        games: updatedGames
+      });
+    } catch (error: any) {
+      console.error("Error saving playoff slots:", error);
+      
+      // Map domain errors to appropriate HTTP status codes
+      if (error.httpStatus) {
+        return res.status(error.httpStatus).json({ 
+          error: error.message,
+          details: error.name
+        });
+      }
+      
+      // Default to 500 for unexpected errors
+      res.status(500).json({ 
+        error: "Failed to save playoff schedule",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Move game to new date/time/diamond via drag-and-drop
   app.put("/api/games/:gameId/move", requireAdmin, async (req, res) => {
     try {
