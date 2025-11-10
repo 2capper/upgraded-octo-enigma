@@ -17,7 +17,7 @@ import { TeamIdScanner } from '@/components/tournament/team-id-scanner';
 import { PasswordResetTool } from '@/components/tournament/password-reset-tool';
 import { AdminRequestsTab } from '@/components/admin-requests-tab';
 import { TeamEditor } from '@/components/tournament/team-editor';
-import { PlayoffBracketGenerator } from '@/components/tournament/playoff-bracket-generator';
+import { PlayoffSlotManager } from '@/components/tournament/PlayoffSlotManager';
 import { ScheduleGenerator } from '@/components/tournament/schedule-generator';
 import { FeatureManagement } from '@/components/admin/feature-management';
 import { OrganizationSettings } from '@/components/admin/organization-settings';
@@ -39,6 +39,12 @@ export default function AdminPortal() {
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Fetch diamonds for the current tournament's organization
+  const { data: diamonds = [] } = useQuery<any[]>({
+    queryKey: [`/api/organizations/${currentTournament?.organizationId}/diamonds`],
+    enabled: !!currentTournament?.organizationId,
+  });
 
   // Fetch pending admin requests count for super admins
   const { data: adminRequests } = useQuery<any[]>({
@@ -521,7 +527,48 @@ export default function AdminPortal() {
           </TabsContent>
 
           <TabsContent value="playoffs" className="mt-6">
-            <PlayoffBracketGenerator tournamentId={currentTournamentId} />
+            <Card>
+              <CardHeader>
+                <CardTitle>Playoff Slot Scheduling</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!currentTournament ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Select a tournament to schedule playoff slots</p>
+                  </div>
+                ) : ageDivisions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No age divisions found for this tournament</p>
+                  </div>
+                ) : ageDivisions.length === 1 ? (
+                  <PlayoffSlotManager
+                    tournament={currentTournament}
+                    ageDivision={ageDivisions[0]}
+                    diamonds={diamonds}
+                  />
+                ) : (
+                  <Tabs defaultValue={ageDivisions[0]?.id} className="w-full">
+                    <TabsList className="grid w-full mb-6" style={{ gridTemplateColumns: `repeat(${ageDivisions.length}, minmax(0, 1fr))` }}>
+                      {ageDivisions.map((division) => (
+                        <TabsTrigger key={division.id} value={division.id} className="text-sm md:text-base">
+                          {division.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    
+                    {ageDivisions.map((division) => (
+                      <TabsContent key={division.id} value={division.id}>
+                        <PlayoffSlotManager
+                          tournament={currentTournament}
+                          ageDivision={division}
+                          diamonds={diamonds}
+                        />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
           
           <TabsContent value="manage" className="mt-6">
