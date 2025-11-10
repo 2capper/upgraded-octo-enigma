@@ -329,6 +329,8 @@ function DiamondFormDialog({ organizationId, diamond, isOpen, onOpenChange }: Di
       organizationId,
       name: diamond?.name || '',
       location: diamond?.location || '',
+      latitude: diamond?.latitude || '',
+      longitude: diamond?.longitude || '',
       availableStartTime: diamond?.availableStartTime || '08:00',
       availableEndTime: diamond?.availableEndTime || '20:00',
       hasLights: diamond?.hasLights || false,
@@ -438,6 +440,48 @@ function DiamondFormDialog({ organizationId, diamond, isOpen, onOpenChange }: Di
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Latitude (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="e.g., 42.12345"
+                        data-testid="input-diamond-latitude"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Longitude (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ''}
+                        placeholder="e.g., -82.12345"
+                        data-testid="input-diamond-longitude"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormDescription className="!mt-2">
+              Optional coordinates for precise walking directions. If left blank, directions will use the main location address.
+            </FormDescription>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
