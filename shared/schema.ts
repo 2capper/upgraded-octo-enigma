@@ -70,6 +70,8 @@ export const diamonds = pgTable("diamonds", {
   organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   location: text("location"),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
   availableStartTime: text("available_start_time").notNull().default("08:00"),
   availableEndTime: text("available_end_time").notNull().default("20:00"),
   hasLights: boolean("has_lights").notNull().default(false),
