@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +16,7 @@ interface PoolAssignmentProps {
   tournamentId: string;
   divisionId?: string;
   tournament?: any;
+  onMatchupsGenerated?: () => void;
 }
 
 function DraggableTeam({ team }: { team: Team }) {
@@ -141,9 +141,8 @@ function UnassignedDropZone({ teams, activeTeam }: { teams: Team[]; activeTeam: 
   );
 }
 
-export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournament }: PoolAssignmentProps) {
+export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournament, onMatchupsGenerated }: PoolAssignmentProps) {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
 
   // Filter teams by division if specified
@@ -305,11 +304,13 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
 
       toast({
         title: "Matchups Created!",
-        description: `Taking you to the scheduler...`,
+        description: `Scroll down to see the schedule builder with your new matchups.`,
       });
 
-      // Navigate to schedule tab for seamless workflow
-      setLocation(`/admin-portal/${tournamentId}?tab=schedule`);
+      // Scroll to the scheduler
+      if (onMatchupsGenerated) {
+        onMatchupsGenerated();
+      }
     },
     onError: (error: Error) => {
       toast({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,9 +17,25 @@ interface ScheduleGeneratorProps {
   tournament: any;
 }
 
+// Ref type for scroll target
+interface ScrollTargetRef {
+  scrollIntoView: (options?: ScrollIntoViewOptions) => void;
+}
+
 export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGeneratorProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const schedulerRef = useRef<HTMLDivElement>(null);
+  
+  // Function to scroll to scheduler
+  const scrollToScheduler = () => {
+    setTimeout(() => {
+      schedulerRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 300); // Small delay to let queries refresh
+  };
   
   // Fetch teams, pools, and age divisions
   const { data: teams = [] } = useQuery<Team[]>({
@@ -158,16 +174,18 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
           tournamentId={tournamentId}
           divisionId={selectedDivision || undefined}
           tournament={tournament}
+          onMatchupsGenerated={scrollToScheduler}
         />
       )}
       
       {/* Drag-and-Drop Schedule Builder */}
-      {selectedDivision ? (
-        <DragScheduleBuilder
-          tournamentId={tournamentId}
-          divisionId={selectedDivision}
-        />
-      ) : (
+      <div ref={schedulerRef}>
+        {selectedDivision ? (
+          <DragScheduleBuilder
+            tournamentId={tournamentId}
+            divisionId={selectedDivision}
+          />
+        ) : (
         <Card>
           <CardContent className="pt-6">
             <Alert>
@@ -178,7 +196,8 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
             </Alert>
           </CardContent>
         </Card>
-      )}
+        )}
+      </div>
     </div>
   );
 }
