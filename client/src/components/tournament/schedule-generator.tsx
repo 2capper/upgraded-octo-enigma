@@ -39,15 +39,15 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
   
   // Fetch teams, pools, and age divisions
   const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: [`/api/tournaments/${tournamentId}/teams`],
+    queryKey: ['/api/tournaments', tournamentId, 'teams'],
   });
   
   const { data: pools = [] } = useQuery<Pool[]>({
-    queryKey: [`/api/tournaments/${tournamentId}/pools`],
+    queryKey: ['/api/tournaments', tournamentId, 'pools'],
   });
   
   const { data: ageDivisions = [] } = useQuery<AgeDivision[]>({
-    queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
+    queryKey: ['/api/tournaments', tournamentId, 'age-divisions'],
   });
   
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function ScheduleGenerator({ tournamentId, tournament }: ScheduleGenerato
       return await apiRequest('PUT', `/api/age-divisions/${divisionId}`, { defaultGameDuration: duration });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/age-divisions`] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'age-divisions'] });
       toast({
         title: "Default Duration Updated",
         description: "New games will use the updated duration",

@@ -106,10 +106,10 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
         description: "Created 4 pools, 16 teams, and 24 completed games with results.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/age-divisions`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/teams`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/pools`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'age-divisions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'teams'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'pools'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
     },
     onError: (error: Error) => {
       toast({

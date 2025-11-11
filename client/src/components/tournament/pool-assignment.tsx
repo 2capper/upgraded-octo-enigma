@@ -178,11 +178,8 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       return await apiRequest('PUT', `/api/teams/${teamId}`, { poolId });
     },
     onSuccess: (_, variables) => {
-      // THIS IS THE FIX.
-      // We tell React Query the 'teams' data is stale and force
-      // a refetch from the database. This is the single source of truth.
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/tournaments/${tournamentId}/teams`] 
+        queryKey: ['/api/tournaments', tournamentId, 'teams'] 
       });
 
       toast({
@@ -267,7 +264,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       return await Promise.all(promises);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/pools`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'pools'] });
       toast({
         title: 'Pools Created',
         description: `Successfully created ${numberOfPools} pools`,
@@ -294,22 +291,26 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       return data; // Return full response with matchups and pools
     },
     onSuccess: (data) => {
-      // SLEDGEHAMMER APPROACH: Invalidate EVERYTHING the scheduler could depend on
+      // Invalidate all keys the scheduler depends on
       
+      // 1. Invalidate Matchups
       queryClient.invalidateQueries({
         queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
       });
       
+      // 2. Invalidate Games
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games']
       });
       
+      // 3. Invalidate Pools - FIXED: Array form matches DragScheduleBuilder fetch key
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/tournaments/${tournamentId}/pools`]
+        queryKey: ['/api/tournaments', tournamentId, 'pools']
       });
       
+      // 4. Invalidate Age Divisions
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/tournaments/${tournamentId}/age-divisions`]
+        queryKey: ['/api/tournaments', tournamentId, 'age-divisions']
       });
 
       toast({

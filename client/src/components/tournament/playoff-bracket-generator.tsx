@@ -21,7 +21,7 @@ export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBra
   });
 
   const { data: games = [] } = useQuery({
-    queryKey: [`/api/tournaments/${tournamentId}/games`],
+    queryKey: ['/api/tournaments', tournamentId, 'games'],
   }) as { data: Game[] };
 
   const generateBracketMutation = useMutation({
@@ -34,7 +34,7 @@ export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBra
       return data as { message: string; games: Game[] };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
       toast({
         title: 'Playoff Bracket Generated',
         description: data.message,
