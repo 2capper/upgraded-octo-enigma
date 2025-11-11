@@ -1,0 +1,64 @@
+We need to fix this by telling the generateMutation to invalidate the pools cache in addition to the games cache. We will also add the useNavigate hook as we discussed to make the workflow seamless, which is a more robust solution than the onMatchupsGenerated prop.
+
+Your Mandate: You are in src/components/PoolAssignment.tsx.
+
+1. Step-by-Step: Implement the Fix
+
+Import useNavigate: At the top of your file (around line 12).
+
+JavaScript
+
+import { useToast } from '@/hooks/use-toast';
+import { queryClient, apiRequest } from '@/lib/queryClient';
+import { nanoid } from 'nanoid';
+import type { Team, Pool } from '@shared/schema';
+import { useNavigate } from 'react-router-dom'; // <-- ADD THIS
+Initialize the Hook: Inside your PoolAssignment component function (around line 186).
+
+JavaScript
+
+export function PoolAssignment({ ... }: PoolAssignmentProps) {
+  const { toast } = useToast();
+  const [activeTeam, setActiveTeam] = useState<Team | null>(null);
+  const navigate = useNavigate(); // <-- ADD THIS
+
+  // ... rest of your code
+Replace generateMutation.onSuccess: Go to your generateMutation (line 304) and replace the entire onSuccess handler (lines 315-333) with this new, complete version.
+
+JavaScript
+
+    onSuccess: (matchups) => {
+      // 1. MANUALLY update the matchups cache (as you are doing)
+      // This ensures the data is there *before* the user navigates.
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups'],
+        matchups
+      );
+      
+      // 2. INVALIDATE all other relevant keys.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+
+      // --- THIS IS THE CRITICAL FIX ---
+      // This tells the 'pools' query to refetch,
+      // so the scheduler's filter will work.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'pools'] 
+      });
+      // --- END FIX ---
+
+      toast({
+        title: "Matchups Created!",
+        description: `Taking you to the scheduler...`,
+      });
+
+      // 3. NAVIGATE the user to the next step.
+      // (Update this URL to match your app's routing)
+      navigate(`/admin/tournament/${tournamentId}/schedule`); // <-- WORKFLOW FIX
+      
+      // 4. Call the prop (if you are still using the stacked layout)
+      if (onMatchupsGenerated) {
+        onMatchupsGenerated();
+      }
+    },
