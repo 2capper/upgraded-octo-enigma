@@ -1,0 +1,64 @@
+Iteration 22: Unify the Playoff Workflow
+The plan we discussed is still the right one. We will create a single, unified "Playoff Dashboard" page. This guides the admin through a logical 1-2 step process and fixes the fragmented workflow permanently.
+
+Here is the build plan:
+
+1. Create the New "Wrapper" Component
+
+Create a new file (e.g., src/components/tabs/PlayoffDashboardTab.tsx or similar). This will be the single page/tab the admin visits for everything related to playoffs.
+
+2. Fetch the Shared Data
+
+Inside this new parent component, you'll fetch the data that both children need:
+
+The tournament object.
+
+The ageDivision (or all ageDivisions if you have a selector at this level).
+
+The diamonds.
+
+3. Render the Children in Sequence
+
+In the JSX of PlayoffDashboardTab, you will render the two components we've just stabilized, one after the other. This creates the 1-2 step workflow.
+
+Here is a simple structure of what that component's JSX would look like:
+
+JavaScript
+
+import { PlayoffSlotManager } from '../playoff-slot-manager';
+import { PlayoffBracketGenerator } from '../playoff-bracket-generator';
+import { useQuery } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+
+export function PlayoffDashboardTab({ tournamentId, divisionId }) {
+  // 1. Fetch all shared data once
+  const { data: tournament } = useQuery(...);
+  const { data: ageDivision } = useQuery(...);
+  const { data: diamonds } = useQuery(...);
+
+  if (isLoading) return <Loader2 />;
+
+  return (
+    <div className="space-y-8 p-4">
+
+      {/* --- STEP 1: SET WHEN & WHERE --- */}
+      <PlayoffSlotManager 
+        tournament={tournament}
+        ageDivision={ageDivision}
+        diamonds={diamonds}
+      />
+      
+      {/* --- A simple separator --- */}
+      <div className="border-t border-gray-200" /> 
+
+      {/* --- STEP 2: SET WHO --- */}
+      <PlayoffBracketGenerator 
+        tournamentId={tournament.id}
+        // This component also needs the ageDivision.id,
+        // which you can pass as a prop
+      />
+
+    </div>
+  );
+}
+This new, unified page finally fixes the core problem. It creates a single, logical dashboard for your admin to set the when/where and then the who.

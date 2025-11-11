@@ -1,0 +1,64 @@
+Here is my analysis and recommendation for the most pragmatic, user-friendly approach.
+
+1. How to Handle Age Divisions
+You should absolutely use a selector to handle one age division at a time.
+
+Showing all divisions at once is a classic development trap. It seems easier, but it creates two major problems:
+
+Performance Nightmare: The page would have to fetch all playoff games, all teams, and all pool standings for every single division in your tournament. For an event with 8 divisions, that's 8x the data, and the page will be slow, heavy, and unusable. This violates our "fast UI" goal.
+
+User Experience Failure: An admin's workflow is focused. They think, "I need to set up the 11U bracket." They don't want to scroll past 8U, 9U, and 10U to find it. Showing everything at once is just noise and increases the chance of them making a mistake in the wrong section.
+
+The Correct Workflow:
+
+The new PlayoffDashboardTab component should work like this:
+
+The page loads with a single dropdown: "Select Age Division".
+
+Initially, the PlayoffSlotManager and PlayoffBracketGenerator components are not rendered.
+
+The admin selects "11U" from the dropdown.
+
+Only then do you fetch the data (tournament, division, diamonds, games) for that specific 11U division and render the two components.
+
+This keeps your page fast, focused, and perfectly aligned with how an admin actually works: one task at a time.
+
+2. Where This Tab Should Live
+This feature must be accessible from the specific Tournament Dashboard.
+
+The key principle here is context.
+
+Wrong Place (Main Admin Portal): The top-level "Admin Portal" is for organization-level tasks (e.g., creating a new tournament, managing league-wide settings). The specific playoff bracket for the "July Select Series" is out of context and doesn't belong there.
+
+Right Place (Tournament Dashboard): An admin's workflow is to first select the tournament they want to manage. All tools related to that specific event should be inside that event's dashboard.
+
+The Correct Navigation Flow:
+
+Admin logs in.
+
+They navigate to the dashboard for the "July Select Series" tournament.
+
+Inside that dashboard, they see the navigation tabs for that tournament:
+
+Teams
+
+Pool Assignment
+
+Pool Schedule
+
+Playoffs (This is your new tab)
+
+This is the only logical and intuitive place for it. Putting it "in both" would just be confusing.
+
+Summary of the Plan
+So, the full plan for Iteration 22 is:
+
+Build a new page/component called PlayoffDashboardTab.
+
+Place a single "Select Age Division" dropdown at the top of this component.
+
+When a division is selected, render the PlayoffSlotManager and PlayoffBracketGenerator components below it, passing them the data they need as props.
+
+Make this new PlayoffDashboardTab accessible as a main "Playoffs" tab inside the dashboard for a specific tournament.
+
+This creates a clean, fast, and logical workflow.
