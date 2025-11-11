@@ -1,0 +1,69 @@
+Fix the "Stuck State" Bug (The Real Fix)
+Goal: Stabilize the useQuery hook by memoizing both its queryKey and its select function. This will prevent the useEffect from re-running on every render and clobbering the user's input.
+
+Your Mandate: You are in PlayoffSlotManager.tsx.
+
+1. Step-by-Step: Fix the useQuery Hook (Line 44)
+
+Import useCallback and useMemo: At the top of your file (line 1), add these to your React imports.
+
+JavaScript
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+Replace your useQuery (lines 44-53): We are going to replace this entire block with a new, stabilized version.
+
+Replace This (Unstable):
+
+JavaScript
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    select: (allGames) => {
+      return allGames.filter(g => 
+        g.isPlayoff && 
+        g.ageDivisionId === ageDivision.id
+      );
+    }
+  });
+...with this new, STABLE version:
+
+JavaScript
+
+  // We MUST stabilize the queryKey and select function,
+  // or they will create new references on every render
+  // and cause an infinite loop with your useEffect.
+
+  // 1. Stabilize the queryKey using useMemo.
+  // It will only recalculate if the tournament ID *actually changes*.
+  const gamesQueryKey = useMemo(() => 
+    ['/api/tournaments', tournament.id, 'games'], 
+    [tournament.id]
+  );
+
+  // 2. Stabilize the select function using useCallback.
+  // It will only recalculate if the division ID *actually changes*.
+  const selectPlayoffGames = useCallback((allGames: Game[]) => {
+    return allGames.filter(g => 
+      g.isPlayoff && 
+      g.ageDivisionId === ageDivision.id
+    );
+  }, [ageDivision.id]); // Depends *only* on the primitive ID
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: gamesQueryKey,     // Use the stable key
+    select: selectPlayoffGames, // Use the stable function
+  });
+2. Step-by-Step: Fix the Time Input (15-min Increments)
+
+Go to your Time Input component (around line 287).
+
+Add the step="900" attribute. (900 seconds = 15 minutes). This was your request from before.
+
+JavaScript
+
+                    <Input
+                      id={`${slotKey}-time`}
+s                     type="time"
+                      // ...
+                      step="900" // <-- ADD THIS
+                    />
