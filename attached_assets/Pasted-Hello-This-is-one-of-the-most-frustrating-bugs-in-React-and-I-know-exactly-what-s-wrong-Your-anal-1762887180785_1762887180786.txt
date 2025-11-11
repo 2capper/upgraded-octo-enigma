@@ -1,0 +1,135 @@
+Hello! This is one of the most frustrating bugs in React, and I know exactly what's wrong. Your analysis is perfect, and this isn't your fault.
+
+You are correct: this is a "stuck state" bug. Your onChange and onValueChange handlers are trying to update your formState, but another piece of code is wiping out their changes on every single keystroke or click.
+
+The bug is a combination of two things:
+
+The Cause (Line 46): The select function inside your useQuery for existingGames is an inline arrow function. This means it creates a brand new array on every single render of the component.
+
+The Symptom (Line 39): Your useEffect hook is watching existingGames. Since existingGames is a "new" array on every render, the useEffect hook runs again on every render, calculates initialState from the original data, and calls setFormState(initialState), completely clobbering the changes you just tried to make.
+
+We are going to fix this permanently by stabilizing that select function with useCallback. We'll also fix your 15-minute time-step request at the same time.
+
+🚀 Iteration 29: Fix the "Stuck State" Bug
+Goal: Stabilize the existingGames query to stop the useEffect from clobbering your form state, and update the time input step.
+
+Your Mandate: You are in PlayoffSlotManager.tsx.
+
+1. Step-by-Step: Fix the useQuery Hook
+
+Import useCallback: At the top of your file (line 1), add useCallback to your React imports.
+
+JavaScript
+
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+Fix the useQuery (lines 44-53): We need to wrap your select function in useCallback so it only re-runs when the data changes, not on every render.
+
+Replace this code:
+
+JavaScript
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    select: (allGames) => {
+      return allGames.filter(g => 
+        g.isPlayoff && 
+        g.ageDivisionId === ageDivision.id
+      );
+    }
+  });
+...with this new, correct version:
+
+JavaScript
+
+  // THIS IS THE FIX. We memoize the select function so it's not
+  // a new function on every render.
+  const selectPlayoffGames = useCallback((allGames: Game[]) => {
+    return allGames.filter(g => 
+      g.isPlayoff && 
+      g.ageDivisionId === ageDivision.id
+    );
+  }, [ageDivision.id]); // The dependency is the division ID
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    select: selectPlayoffGames, // Use the memoized function
+  });
+2. Step-by-Step: Fix the useEffect Hook (from Iteration 21)
+
+Your useEffect (line 39) is still the old version that doesn't account for empty slots. We must replace it with the new version (which we planned in Iteration 21) that loops through slots first.
+
+Replace your entire useEffect block (lines 39-95) with this:
+
+JavaScript
+
+  useEffect(() => {
+    // Wait for all data + timezone to be loaded
+    if (slots.length > 0 && existingGames && timezone) {
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const initialState: Record<string, SlotScheduleData> = {};
+
+      // 1. Create a quick-lookup map of existing games
+      const gameMap = new Map<string, Game>();
+      existingGames.forEach(game => {
+        if (game.playoffRound !== null && game.playoffGameNumber !== null) {
+          const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+          gameMap.set(slotKey, game);
+        }
+      });
+
+      // 2. Loop through the *slots* from getBracketStructure (the source of truth)
+      slots.forEach(slot => {
+        const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+        const game = gameMap.get(slotKey);
+
+        if (game && game.date && game.time) {
+          // 3. We have a game with a date/time, convert it for display
+          try {
+            const tournamentDateTime = `${game.date}T${game.time}`;
+            const utcDate = fromZonedTime(tournamentDateTime, timezone);
+            
+            const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
+            const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
+            
+            initialState[slotKey] = {
+              date: localDate,
+              time: localTime,
+              diamondId: game.diamondId || '',
+.           };
+          } catch (error) {
+            console.error(`Error converting game ${slotKey} timezone:`, error);
+            initialState[slotKey] = {
+              date: game.date || '',
+              time: game.time || '',
+              diamondId: game.diamondId || '',
+D           };
+          }
+        } else {
+          // 4. No game exists for this slot, initialize an empty object
+          initialState[slotKey] = {
+            date: '',
+            time: '',
+            diamondId: game?.diamondId || '', // Preserve diamondId if it exists
+Access         };
+        }
+      });
+      
+      setFormState(initialState);
+A   }
+  }, [slots, existingGames, timezone]); // <-- 'slots' is now a dependency
+3. Step-by-Step: Fix the Time Input (15-min Increments)
+
+Go to your Time Input component (around line 287).
+
+Add the step="900" attribute. (900 seconds = 15 minutes).
+
+JavaScript
+
+                    <Input
+                  t   id={`${slotKey}-time`}
+                      type="time"
+                      value={value.time}
+                      onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
+                      data-testid={`input-${slotKey}-time`}
+                      step="900" // <-- THIS IS YOUR FIX
+                    />
