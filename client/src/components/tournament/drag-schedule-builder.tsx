@@ -578,27 +578,10 @@ export function DragScheduleBuilder({
 
   // Filter matchups by division (client-side)
   const matchups = useMemo(() => {
-    console.groupCollapsed('DragScheduleBuilder Re-render');
-    console.log('Passed-in divisionId:', divisionId);
-    console.log('Fetched allMatchups count:', allMatchups.length, allMatchups);
-    console.log('Fetched pools count:', pools.length, pools);
-    
-    if (!divisionId) {
-      console.log('Filter result:', allMatchups.length, '(No divisionId - returning all matchups)');
-      console.groupEnd();
-      return allMatchups;
-    }
-
+    if (!divisionId) return allMatchups;
     const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
     const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
-    
-    const filtered = allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
-    
-    console.log('Found divisionPools:', divisionPools);
-    console.log('Filter result: ', filtered.length, filtered);
-    console.groupEnd();
-    
-    return filtered;
+    return allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
   }, [allMatchups, pools, divisionId]);
 
   // Initialize placedMatchupIds from existing games (runs only when games actually change)
