@@ -60,7 +60,6 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   });
 
   useEffect(() => {
-    console.log('[PlayoffSlotManager] useEffect running - initializing form state');
     // Wait for all data + timezone to be loaded
     if (slots.length > 0 && existingGames && timezone) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
