@@ -294,32 +294,29 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       return data; // Return full response with matchups and pools
     },
     onSuccess: (data) => {
-      const { matchups, pools } = data;
+      // SLEDGEHAMMER APPROACH: Invalidate EVERYTHING the scheduler could depend on
       
-      // ATOMIC CACHE UPDATE: Set both caches simultaneously
-      // This bypasses the 304 Not Modified issue and ensures perfect synchronization
+      queryClient.invalidateQueries({
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
       
-      queryClient.setQueryData(
-        ['/api/tournaments', tournamentId, 'matchups'],
-        matchups
-      );
-      
-      queryClient.setQueryData(
-        [`/api/tournaments/${tournamentId}/pools`],
-        pools
-      );
-      
-      // Still invalidate games to clear them
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games']
+      });
+      
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/pools`]
+      });
+      
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/age-divisions`]
       });
 
       toast({
         title: "Matchups Created!",
-        description: `Scroll down to see the schedule builder with your new matchups.`,
+        description: `Scroll down to see the schedule builder.`,
       });
 
-      // Scroll to the scheduler (no navigation needed - same page)
       if (onMatchupsGenerated) {
         onMatchupsGenerated();
       }
