@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StandingsTable } from '@/components/tournament/standings-table';
 import { GamesTab } from '@/components/tournament/games-tab';
 import { TeamsTab } from '@/components/tournament/teams-tab';
-import { PlayoffDashboardTab } from '@/components/tournament/playoff-dashboard-tab';
+import { PublicPlayoffsTab } from '@/components/tournament/public-playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
@@ -248,10 +248,11 @@ export default function TournamentDashboard() {
           </TabsContent>
           
           <TabsContent value="playoffs" className="mt-6">
-            <PlayoffDashboardTab 
+            <PublicPlayoffsTab 
+              tournamentId={tournamentId}
               tournament={currentTournament}
               ageDivisions={ageDivisions}
-              diamonds={diamonds}
+              teams={teams}
             />
           </TabsContent>
         </Tabs>
