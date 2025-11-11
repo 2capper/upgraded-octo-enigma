@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Trophy, Medal, ChevronDown, ArrowRight } from 'lucide-react';
 import { Game, Team, Diamond } from '@shared/schema';
+import { getTeamSourceLabel } from '@shared/seedLabels';
 import {
   Accordion,
   AccordionContent,
@@ -27,6 +28,8 @@ interface CrossPoolBracketViewProps {
   onGameClick: (game: Game) => void;
   primaryColor?: string;
   secondaryColor?: string;
+  seedingPattern?: string | null;
+  playoffFormat?: string | null;
 }
 
 interface PoolStandings {
@@ -52,6 +55,8 @@ export function CrossPoolBracketView({
   onGameClick,
   primaryColor = '#1f2937',
   secondaryColor = '#ca8a04',
+  seedingPattern = 'cross_pool_4',
+  playoffFormat = null,
 }: CrossPoolBracketViewProps) {
   // Memoize diamond lookup map for performance
   const diamondMap = useMemo(() => {
@@ -118,18 +123,30 @@ export function CrossPoolBracketView({
     return `Round ${round}`;
   };
 
-  // Get team label with pool info
-  const getTeamLabel = (teamId: string | null | undefined) => {
-    if (!teamId) return 'TBD';
-    const team = teams.find(t => t.id === teamId);
-    if (!team) return 'TBD';
+  // Get team label with pool info, checking team source metadata first
+  const getTeamLabel = (game: Game, position: 'home' | 'away') => {
+    const teamId = position === 'home' ? game.homeTeamId : game.awayTeamId;
+    const teamSource = position === 'home' ? game.team1Source : game.team2Source;
     
-    const playoffTeam = playoffTeams.find(t => t.id === teamId);
-    if (playoffTeam?.poolName && playoffTeam?.poolRank) {
-      return `${playoffTeam.poolName}${playoffTeam.poolRank} - ${team.name}`;
+    // If no team assigned yet, show the seed label from team source
+    if (!teamId && teamSource) {
+      return getTeamSourceLabel(teamSource, seedingPattern, playoffFormat);
     }
     
-    return team.name;
+    // If team is assigned, show actual team name with pool info
+    if (teamId) {
+      const team = teams.find(t => t.id === teamId);
+      if (!team) return 'TBD';
+      
+      const playoffTeam = playoffTeams.find(t => t.id === teamId);
+      if (playoffTeam?.poolName && playoffTeam?.poolRank) {
+        return `${playoffTeam.poolName}${playoffTeam.poolRank} - ${team.name}`;
+      }
+      
+      return team.name;
+    }
+    
+    return 'TBD';
   };
 
   // Get winner of a game
@@ -200,7 +217,7 @@ export function CrossPoolBracketView({
           >
             <div className="flex-1 min-w-0">
               <div className="text-white font-semibold text-sm">
-                {getTeamLabel(game.homeTeamId)}
+                {getTeamLabel(game, 'home')}
               </div>
             </div>
             <div className="ml-2 text-white font-bold text-lg min-w-[2rem] text-right">
@@ -217,7 +234,7 @@ export function CrossPoolBracketView({
           >
             <div className="flex-1 min-w-0">
               <div className="text-white font-semibold text-sm">
-                {getTeamLabel(game.awayTeamId)}
+                {getTeamLabel(game, 'away')}
               </div>
             </div>
             <div className="ml-2 text-white font-bold text-lg min-w-[2rem] text-right">

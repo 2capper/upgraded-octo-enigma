@@ -6,6 +6,7 @@ import { Trophy, Calendar, Clock, MapPin, AlertCircle } from 'lucide-react';
 import type { Tournament, Diamond, AgeDivision, Game, Team, Pool } from '@shared/schema';
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
 import { PlayoffBracketPreview } from './playoff-bracket-preview';
+import { getTeamSourceLabel } from '@shared/seedLabels';
 import { format } from 'date-fns';
 
 interface PublicPlayoffsTabProps {
@@ -144,6 +145,8 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
                 onGameClick={() => {}} // No-op for public view
                 primaryColor={tournament.primaryColor || undefined}
                 secondaryColor={tournament.secondaryColor || undefined}
+                seedingPattern={tournament.seedingPattern}
+                playoffFormat={tournament.playoffFormat}
               />
             </div>
           );
@@ -216,11 +219,19 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
                               
                               <div className="md:col-span-2 space-y-2">
                                 <div className="flex justify-between items-center">
-                                  <span className="font-semibold">{homeTeam?.name || 'TBD'}</span>
+                                  <span className="font-semibold">
+                                    {!game.homeTeamId && game.team1Source
+                                      ? getTeamSourceLabel(game.team1Source, tournament.seedingPattern, tournament.playoffFormat)
+                                      : homeTeam?.name || 'TBD'}
+                                  </span>
                                   <span className="text-lg font-bold">{game.homeScore ?? '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <span className="font-semibold">{awayTeam?.name || 'TBD'}</span>
+                                  <span className="font-semibold">
+                                    {!game.awayTeamId && game.team2Source
+                                      ? getTeamSourceLabel(game.team2Source, tournament.seedingPattern, tournament.playoffFormat)
+                                      : awayTeam?.name || 'TBD'}
+                                  </span>
                                   <span className="text-lg font-bold">{game.awayScore ?? '-'}</span>
                                 </div>
                               </div>
