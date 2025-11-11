@@ -5,7 +5,7 @@ import { AlertCircle, Trophy, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import type { Tournament, AgeDivision, Game } from '@shared/schema';
+import type { Tournament, Game } from '@shared/schema';
 import { getPlayoffTeamCount, type PlayoffFormat } from '@shared/playoffFormats';
 
 interface PlayoffBracketGeneratorProps {
@@ -18,10 +18,6 @@ export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBra
 
   const { data: tournament } = useQuery<Tournament>({
     queryKey: [`/api/tournaments/${tournamentId}`],
-  });
-
-  const { data: ageDivisions = [] } = useQuery<AgeDivision[]>({
-    queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
   });
 
   const { data: games = [] } = useQuery({
