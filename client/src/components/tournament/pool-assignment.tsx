@@ -293,11 +293,15 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       const data = await response.json();
       return data.matchups;
     },
-    onSuccess: (data) => {
-      // Invalidate both matchups and games queries to refetch from database
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
-      });
+    onSuccess: (matchups) => {
+      // Directly set the matchups cache with the returned data
+      // This eliminates the race condition and ensures immediate UI update
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups'],
+        matchups
+      );
+      
+      // Also invalidate games query to refresh any game-related data
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
