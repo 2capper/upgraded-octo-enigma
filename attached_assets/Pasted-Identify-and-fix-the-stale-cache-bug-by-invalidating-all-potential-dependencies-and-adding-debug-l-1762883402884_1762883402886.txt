@@ -1,0 +1,82 @@
+Identify and fix the "stale cache" bug by invalidating all potential dependencies and adding debug logging.
+
+Your Mandate (Part 1: The "Sledgehammer" Fix)
+
+You are in src/components/PoolAssignment.tsx.
+
+Go to your generateMutation (line 304).
+
+Replace the entire onSuccess handler (lines 315-333) with this "sledgehammer" version. We are going back to pure invalidation, but we are being extremely aggressive.
+
+JavaScript
+
+    onSuccess: (data) => {
+      // We are invalidating EVERYTHING that the scheduler component
+      // could possibly depend on. This is a "sledgehammer" to
+      // find the stale cache.
+      
+      // 1. Invalidate Matchups (which you are creating)
+      queryClient.invalidateQueries({
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
+      
+      // 2. Invalidate Games (which your backend is deleting)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games']
+      });
+      
+      // 3. Invalidate Pools (which the scheduler uses for filtering)
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/pools`]
+      });
+      
+      // 4. Invalidate Age Divisions (in case the parent's divisionId prop is stale)
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/age-divisions`]
+      });
+
+      toast({
+        title: "Matchups Created!",
+        description: `Scroll down to see the schedule builder.`,
+      });
+      
+      if (onMatchupsGenerated) {
+        onMatchupsGenerated();
+      }
+    },
+Your Mandate (Part 2: The "Debug Logging")
+
+You are in src/components/DragScheduleBuilder.tsx.
+
+Go to the useMemo hook that defines your matchups (around line 500).
+
+Add console.log statements inside it so we can see exactly what data it's using during the failing re-render.
+
+JavaScript
+
+  // Filter matchups by division (client-side)
+  const matchups = useMemo(() => {
+    // --- ADD THIS DEBUGGING BLOCK ---
+    console.groupCollapsed('DragScheduleBuilder Re-render');
+    console.log('Passed-in divisionId:', divisionId);
+    console.log('Fetched allMatchups count:', allMatchups.length, allMatchups);
+    console.log('Fetched pools count:', pools.length, pools);
+    // --- END DEBUGGING BLOCK ---
+
+    if (!divisionId) {
+      console.log('Filter result: 0 (No divisionId)');
+      console.groupEnd();
+      return allMatchups;
+    }
+
+    const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
+    const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
+    
+    const filtered = allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
+    
+    console.log('Found divisionPools:', divisionPools);
+    console.log('Filter result: ', filtered.length, filtered);
+    console.groupEnd();
+    
+    return filtered;
+  }, [allMatchups, pools, divisionId]);
