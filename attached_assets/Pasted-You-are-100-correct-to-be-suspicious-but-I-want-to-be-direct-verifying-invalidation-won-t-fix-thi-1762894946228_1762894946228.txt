@@ -1,0 +1,123 @@
+You are 100% correct to be suspicious, but I want to be direct: verifying invalidation won't fix this bug.
+
+Your diagnosis from your previous message was the real issue. The problem isn't a stale cache from react-query. The problem is a vicious, infinite re-render loop caused by unstable variables in your useEffect hook.
+
+Here is the "stuck input" bug, step-by-step:
+
+You type one character in the "Date" input.
+
+handleSlotChange calls setFormState.
+
+This state change triggers a re-render of the PlayoffSlotManager component.
+
+During this re-render, getBracketStructure() (line 42) is called again, creating a new slots array.
+
+Your useQuery (line 44) is also re-creating its queryKey and select function, creating a new existingGames array.
+
+Your useEffect hook (line 54) sees these "new" slots and existingGames arrays and runs again.
+
+setFormState(initialState) is called, instantly wiping out the character you just typed.
+
+Your plan to memoize the slots variable is the key. We just have to be thorough and memoize all the dependencies of that useEffect hook to break the loop for good.
+
+This is the final, definitive fix.
+
+🚀 Iteration 32 (The Real Fix): Stabilize All useEffect Dependencies
+Goal: Permanently fix the "stuck input" bug by wrapping the dependencies of your main useEffect (slots and existingGames) in useMemo and useCallback so they are not re-created on every render.
+
+Your Mandate: You are in PlayoffSlotManager.tsx.
+
+1. Step-by-Step: Stabilize slots (Your Insight)
+
+Go to line 42.
+
+Wrap getBracketStructure in useMemo to ensure the slots array is stable.
+
+Change This (Unstable):
+
+JavaScript
+
+  const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
+To This (Stable):
+
+JavaScript
+
+  // 1. Stabilize `slots`
+  const slots = useMemo(() => {
+    return getBracketStructure(tournament.playoffFormat || 'top_8');
+  }, [tournament.playoffFormat]);
+2. Step-by-Step: Stabilize existingGames (The Other Loop)
+
+Go to line 44. This useQuery is also creating unstable references.
+
+Replace your entire useQuery block with this fully stabilized version.
+
+Change This (Unstable):
+
+JavaScript
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    select: (allGames) => {
+      return allGames.filter(g => 
+        g.isPlayoff && 
+        g.ageDivisionId === ageDivision.id
+      );
+    }
+  });
+To This (Stable):
+
+JavaScript
+
+  // 2. Stabilize the queryKey for existingGames
+  const gamesQueryKey = useMemo(() => 
+    ['/api/tournaments', tournament.id, 'games'], 
+    [tournament.id]
+  );
+
+  // 3. Stabilize the select function for existingGames
+  const selectPlayoffGames = useCallback((allGames: Game[]) => {
+    if (!allGames) return [];
+    return allGames.filter(g => 
+      g.isPlayoff && 
+      g.ageDivisionId === ageDivision.id
+    );
+  }, [ageDivision.id]);
+
+  // 4. The query is now 100% stable
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: gamesQueryKey,
+    select: selectPlayoffGames,
+  });
+3. Step-by-Step: Clean the useEffect Hook
+
+Go to your useEffect (line 54).
+
+If you added my "patch" from Iteration 31 (isInitialized), remove it completely. It's a hack, and we just fixed the root cause.
+
+Confirm your useEffect is now clean:
+
+JavaScript
+
+  useEffect(() => {
+    // Now this only runs when `slots`, `existingGames`, or `timezone`
+    // *actually change*, not on every render.
+    if (slots.length > 0 && existingGames && timezone) {
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const initialState: Record<string, SlotScheduleData> = {};
+      // ... (your full form state mapping logic) ...
+      setFormState(initialState);
+    }
+  }, [slots, existingGames, timezone]); // <-- Clean, stable dependencies
+4. Post-Check: Validate the Fix
+Reload your application.
+
+Go to the PlayoffSlotManager component.
+
+Confirm (Date): Select a date. The input updates and stays.
+
+Confirm (Time): Select a time. The input updates and stays.
+
+Confirm (Diamond): Select a diamond. The input updates and stays.
+
+This is the fix. Your plan to memoize slots was the key. This just makes it complete by also memoizing existingGames. This breaks the re-render loop for good.
