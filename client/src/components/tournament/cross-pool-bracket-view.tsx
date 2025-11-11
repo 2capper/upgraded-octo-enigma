@@ -58,11 +58,19 @@ export function CrossPoolBracketView({
     return new Map(diamonds.map(d => [d.id, d.name]));
   }, [diamonds]);
 
-  // Group playoff teams by pool
+  // Group playoff teams by pool, filtering out empty system pools
   const poolStandings = useMemo<PoolStandings>(() => {
     const standings: PoolStandings = {};
+    const systemPools = ['playoff', 'unassigned'];
+    
     playoffTeams.forEach(team => {
       if (team.poolName) {
+        // Filter out system pools
+        const poolNameLower = team.poolName.toLowerCase();
+        if (systemPools.some(sp => poolNameLower.includes(sp))) {
+          return;
+        }
+        
         if (!standings[team.poolName]) {
           standings[team.poolName] = [];
         }

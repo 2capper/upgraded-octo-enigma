@@ -122,8 +122,10 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
         slots: data 
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournament.id, 'games'] });
+    onSuccess: async () => {
+      // Invalidate and refetch to ensure form state updates with saved data
+      await queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournament.id, 'games'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/tournaments', tournament.id, 'games'] });
       toast({
         title: "Playoff Schedule Saved",
         description: "The playoff game slots have been successfully created/updated.",
