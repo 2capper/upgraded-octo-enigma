@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,13 +20,26 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
     queryKey: [`/api/tournaments/${tournamentId}/games`],
   });
 
-  const { data: pools = [] } = useQuery<Pool[]>({
+  const { data: allPools = [] } = useQuery<Pool[]>({
     queryKey: [`/api/tournaments/${tournamentId}/pools`],
   });
 
   const { data: diamonds = [] } = useQuery<Diamond[]>({
     queryKey: [`/api/tournaments/${tournamentId}/diamonds`],
   });
+
+  // Filter out system pools for standings display only
+  const poolsForStandings = useMemo(() => {
+    return allPools.filter(pool => {
+      if (!pool.ageDivisionId) return false;
+      const nameLower = pool.name.toLowerCase();
+      // Exclude all system pools
+      if (nameLower.includes('playoff')) return false;
+      if (nameLower.includes('unassigned')) return false;
+      if (pool.id.includes('_pool_temp_')) return false;
+      return true;
+    });
+  }, [allPools]);
 
   const playoffGames = games.filter(g => g.isPlayoff);
 
@@ -49,11 +63,11 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
             Playoff brackets will be available once pool play is complete and brackets are generated.
           </AlertDescription>
         </Alert>
-        {pools.length > 0 && (
+        {poolsForStandings.length > 0 && (
           <PlayoffBracketPreview
             playoffFormat={tournament.playoffFormat || 'top_8'}
             seedingPattern={tournament.seedingPattern || 'straight'}
-            pools={pools}
+            pools={poolsForStandings}
             primaryColor={tournament.primaryColor || undefined}
             secondaryColor={tournament.secondaryColor || undefined}
           />
@@ -63,10 +77,10 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
   }
 
   // Group playoff games by division
-  // Playoff games are assigned to special "playoff" pools that link to age divisions
+  // Use unfiltered allPools to find playoff pools (needed for game lookup)
   const gamesByDivision = ageDivisions.map(division => {
     // Find the playoff pool(s) for this division
-    const divisionPlayoffPools = pools.filter(p => 
+    const divisionPlayoffPools = allPools.filter(p => 
       p.ageDivisionId === division.id && 
       p.name.toLowerCase().includes('playoff')
     );
@@ -82,9 +96,9 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
     <div className="space-y-8">
       {gamesByDivision.map(({ division, games: divisionGames }) => {
         // Calculate playoff teams for this division
-        // Teams don't have ageDivisionId, we need to join through pools
+        // Use filtered pools for standings (exclude system pools)
         const divisionPoolIds = new Set(
-          pools.filter(p => p.ageDivisionId === division.id).map(p => p.id)
+          poolsForStandings.filter(p => p.ageDivisionId === division.id).map(p => p.id)
         );
         const divisionTeams = teams.filter(t => 
           t.poolId && divisionPoolIds.has(t.poolId)
@@ -92,10 +106,10 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
         const playoffTeamIds = new Set(
           divisionGames.flatMap(g => [g.homeTeamId, g.awayTeamId].filter(Boolean))
         );
-        // Find pool info for each team to get poolName
+        // Find pool info for each team to get poolName (use filtered pools)
         const teamPoolMap = new Map(
           divisionTeams.map(t => {
-            const pool = pools.find(p => p.id === t.poolId);
+            const pool = poolsForStandings.find(p => p.id === t.poolId);
             return [t.id, pool?.name];
           })
         );
