@@ -1,0 +1,76 @@
+The "Atomic Cache" Fix (Backend + Frontend)
+Goal: Fix this race condition permanently by ensuring the generateMutation provides all the data the scheduler needs for its immediate next render.
+
+Your Mandate (Part 1: Backend API)
+
+Go to your backend API controller for POST /api/tournaments/:tournamentId/generate-matchups.
+
+Your logic currently generates matchups and saves them.
+
+This is the fix: Your API response must return an object containing both the new matchups and the pools for that division.
+
+Change your backend response from this:
+
+JavaScript
+
+return res.json({ matchups: newMatchups });
+To this:
+
+JavaScript
+
+// Also fetch the pools you just used to generate the matchups
+const divisionPools = await db.query.pools.findMany({
+  where: eq(pools.ageDivisionId, divisionId),
+});
+
+return res.json({ 
+  matchups: newMatchups,
+  pools: divisionPools 
+});
+Your Mandate (Part 2: Frontend onSuccess Handler)
+
+Now that your mutation is returning all the data we need, we can update the cache instantly and atomically.
+
+You are in src/components/PoolAssignment.tsx.
+
+Go to your generateMutation (line 304).
+
+Replace the entire onSuccess handler (lines 315-333) with this final, correct version.
+
+JavaScript
+
+    onSuccess: (data) => {
+      // 'data' is now { matchups: [], pools: [] } from your API
+      const { matchups, pools } = data;
+
+      // --- THIS IS THE ATOMIC FIX ---
+      
+      // 1. MANUALLY update the matchups cache. (Instant)
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups'],
+        matchups
+      );
+      
+      // 2. MANUALLY update the pools cache. (Instant)
+      // This is the piece we were missing.
+      queryClient.setQueryData(
+        [`/api/tournaments/${tournamentId}/pools`], // Use the key from your other component
+        pools
+      );
+      
+      // 3. Invalidate 'games' just to clear them (Instant)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games']
+      });
+      // --- END FIX ---
+
+      toast({
+        title: "Matchups Created!",
+        description: `Scroll down to see the schedule builder.`,
+      });
+      
+      // 4. Scroll to scheduler
+      if (onMatchupsGenerated) {
+        onMatchupsGenerated();
+      }
+    },
