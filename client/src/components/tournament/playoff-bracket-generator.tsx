@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Trophy, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -12,10 +10,10 @@ import { getPlayoffTeamCount, type PlayoffFormat } from '@shared/playoffFormats'
 
 interface PlayoffBracketGeneratorProps {
   tournamentId: string;
+  divisionId?: string;
 }
 
-export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGeneratorProps) {
-  const [selectedDivision, setSelectedDivision] = useState<string>('');
+export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBracketGeneratorProps) {
   const { toast } = useToast();
 
   const { data: tournament } = useQuery<Tournament>({
@@ -31,10 +29,10 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
   }) as { data: Game[] };
 
   const generateBracketMutation = useMutation({
-    mutationFn: async (divisionId: string) => {
+    mutationFn: async (divId: string) => {
       const response = await apiRequest(
         'POST',
-        `/api/tournaments/${tournamentId}/divisions/${divisionId}/generate-bracket`
+        `/api/tournaments/${tournamentId}/divisions/${divId}/generate-bracket`
       );
       const data = await response.json();
       return data as { message: string; games: Game[] };
@@ -45,7 +43,6 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
         title: 'Playoff Bracket Generated',
         description: data.message,
       });
-      setSelectedDivision('');
     },
     onError: (error: any) => {
       toast({
@@ -57,15 +54,15 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
   });
 
   const handleGenerateBracket = () => {
-    if (!selectedDivision) {
+    if (!divisionId) {
       toast({
         title: 'No Division Selected',
-        description: 'Please select an age division to generate the playoff bracket',
+        description: 'Please select an age division first',
         variant: 'destructive',
       });
       return;
     }
-    generateBracketMutation.mutate(selectedDivision);
+    generateBracketMutation.mutate(divisionId);
   };
 
   // Check if playoff games already exist
@@ -162,36 +159,11 @@ export function PlayoffBracketGenerator({ tournamentId }: PlayoffBracketGenerato
           </Alert>
         )}
 
-        {/* Division Selection */}
+        {/* Generate Button */}
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
-              Select Age Division
-            </label>
-            <Select value={selectedDivision} onValueChange={setSelectedDivision}>
-              <SelectTrigger data-testid="select-division">
-                <SelectValue placeholder="Choose an age division..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ageDivisions.length === 0 ? (
-                  <SelectItem value="none" disabled>No divisions available</SelectItem>
-                ) : (
-                  ageDivisions.map((division) => (
-                    <SelectItem key={division.id} value={division.id}>
-                      {division.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-gray-500 mt-1">
-              Select the age division for which you want to generate playoff brackets
-            </p>
-          </div>
-
           <Button
             onClick={handleGenerateBracket}
-            disabled={!selectedDivision || generateBracketMutation.isPending || ageDivisions.length === 0}
+            disabled={!divisionId || generateBracketMutation.isPending}
             className="w-full bg-[var(--forest-green)] text-[var(--yellow)] hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
             data-testid="button-generate-bracket"
           >

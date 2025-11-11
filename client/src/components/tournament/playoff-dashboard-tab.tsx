@@ -94,7 +94,10 @@ export function PlayoffDashboardTab({ tournament, ageDivisions, diamonds }: Play
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Generate the playoff bracket based on pool standings. Pre-scheduled times and locations will be preserved.
               </p>
-              <PlayoffBracketGenerator tournamentId={tournament.id} />
+              <PlayoffBracketGenerator 
+                tournamentId={tournament.id} 
+                divisionId={selectedDivision.id}
+              />
             </div>
           </div>
         </>
