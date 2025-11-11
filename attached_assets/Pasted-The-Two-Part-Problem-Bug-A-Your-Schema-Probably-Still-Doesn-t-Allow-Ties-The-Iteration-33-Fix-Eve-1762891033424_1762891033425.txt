@@ -1,0 +1,29 @@
+The Two-Part Problem
+Bug A: Your Schema Probably Still Doesn't Allow Ties (The Iteration 33 Fix) Even if we fix the other bug, your first test (the 4-4 tie) will fail if your games table in the database has winnerId and loserId set to NOT NULL. This is the first thing you must fix. A 4-4 tie must be saved to the database with winnerId: null and loserId: null.
+
+Bug B: Your "Submit Score" API is Too Smart (The Iteration 34 Fix) This is the bug you found. Your PUT /api/games/... endpoint is doing more than just saving a score. It's also saying, "Oh, this is the last game! I'm going to run the entire complex tie-breaker and playoff seeding logic right now!"
+
+This is a brittle design. What happens if there's a 3-way tie your logic can't resolve? The admin isn't even allowed to save the final score. The API fails, and the user is stuck.
+
+The Pragmatic Solution (The "Decoupled" Workflow)
+We must separate these two jobs. This is the only way to build a robust app.
+
+Fix 1 (Database): You must implement the fix from Iteration 33. Go to shared/schema.ts and your API validation. Make 100% sure that winnerId and loserId are nullable. This allows ties to be saved.
+
+Fix 2 (Backend API): You must implement the fix from Iteration 34. Go to your PUT /api/games/:gameId endpoint (the one for submitting scores).
+
+Remove all logic that tries to auto-generate the playoff bracket.
+
+This endpoint's only job is to: save the score, set isFinal: true, and (if it's a tie) set winnerId: null and loserId: null. It must be a "dumb," reliable save.
+
+The Correct Workflow (Your Playoffs Tab):
+
+The admin saves the 4-4 tie. The "Score" API (now fixed) just saves it and returns 200 OK.
+
+The admin then goes to the "Playoffs" tab (the PlayoffDashboardTab we designed).
+
+They click the "Generate Playoff Bracket" button.
+
+Now, your backend POST /.../generate-bracket endpoint fires. This is where your complex tie-breaker logic should run. If it fails, it can return a clean error message to that page (e.g., "Error: Cannot resolve 3-way tie for 2nd place").
+
+This "decouples" the system. Saving a score is a simple, reliable job. Generating a complex playoff bracket is a separate job. They should not be linked.
