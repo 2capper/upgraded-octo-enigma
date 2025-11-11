@@ -33,7 +33,17 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
 
   const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
 
-  // Memoize the select function to prevent re-creating on every render
+  // CRITICAL FIX: Memoize both queryKey and select function to prevent infinite re-renders.
+  // Without useMemo, the array ['/api/tournaments', tournament.id, 'games'] is recreated
+  // on every render, causing React Query to treat it as a new query and re-triggering useEffect.
+  
+  // 1. Stabilize the queryKey using useMemo
+  const gamesQueryKey = useMemo(() => 
+    ['/api/tournaments', tournament.id, 'games'], 
+    [tournament.id]
+  );
+
+  // 2. Stabilize the select function using useCallback
   const selectPlayoffGames = useCallback((allGames: Game[]) => {
     return allGames.filter(g => 
       g.isPlayoff && 
@@ -42,7 +52,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   }, [ageDivision.id]);
 
   const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
-    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    queryKey: gamesQueryKey,
     select: selectPlayoffGames,
   });
 
