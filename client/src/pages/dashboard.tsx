@@ -9,7 +9,7 @@ import { DashboardHeader } from '@/components/tournament/dashboard-header';
 import { TournamentCards } from '@/components/tournament/tournament-cards';
 import { StandingsTable } from '@/components/tournament/standings-table';
 import { GamesTab } from '@/components/tournament/games-tab';
-import { PlayoffsTab } from '@/components/tournament/playoffs-tab';
+import { PlayoffDashboardTab } from '@/components/tournament/playoff-dashboard-tab';
 import { TeamsTab } from '@/components/tournament/teams-tab';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import type { Diamond } from '@shared/schema';
@@ -139,13 +139,10 @@ export default function Dashboard() {
             
             <TabsContent value="playoffs" className="mt-6">
               {currentTournament ? (
-                <PlayoffsTab 
-                  teams={teams}
-                  games={games}
-                  pools={pools}
-                  ageDivisions={ageDivisions}
-                  tournamentId={currentTournamentId}
+                <PlayoffDashboardTab 
                   tournament={currentTournament}
+                  ageDivisions={ageDivisions}
+                  diamonds={diamonds}
                 />
               ) : (
                 <div className="text-center p-8">
