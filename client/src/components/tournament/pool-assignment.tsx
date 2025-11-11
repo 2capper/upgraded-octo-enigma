@@ -291,22 +291,27 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
         { divisionId },
       );
       const data = await response.json();
-      return data.matchups;
+      return data; // Return full response with matchups and pools
     },
     onSuccess: (data) => {
-      // Invalidate matchups query to refetch fresh data with pool metadata
-      queryClient.invalidateQueries({
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
-      });
+      const { matchups, pools } = data;
       
-      // Invalidate games query
+      // ATOMIC CACHE UPDATE: Set both caches simultaneously
+      // This bypasses the 304 Not Modified issue and ensures perfect synchronization
+      
+      queryClient.setQueryData(
+        ['/api/tournaments', tournamentId, 'matchups'],
+        matchups
+      );
+      
+      queryClient.setQueryData(
+        [`/api/tournaments/${tournamentId}/pools`],
+        pools
+      );
+      
+      // Still invalidate games to clear them
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games']
-      });
-      
-      // CRITICAL: Invalidate pools to ensure division filter has fresh data
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/tournaments/${tournamentId}/pools`]
       });
 
       toast({
