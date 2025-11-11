@@ -31,19 +31,22 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
   const { timezone, isLoading: timezoneLoading } = useTournamentTimezone(tournament.id);
 
-  const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
-
-  // CRITICAL FIX: Memoize both queryKey and select function to prevent infinite re-renders.
-  // Without useMemo, the array ['/api/tournaments', tournament.id, 'games'] is recreated
-  // on every render, causing React Query to treat it as a new query and re-triggering useEffect.
+  // CRITICAL FIX: Memoize slots, queryKey, and select function to prevent infinite re-renders.
   
-  // 1. Stabilize the queryKey using useMemo
+  // 1. Stabilize the slots array using useMemo
+  // getBracketStructure returns a new array on every call, triggering useEffect
+  const slots = useMemo(() => 
+    getBracketStructure(tournament.playoffFormat || 'top_8'),
+    [tournament.playoffFormat]
+  );
+  
+  // 2. Stabilize the queryKey using useMemo
   const gamesQueryKey = useMemo(() => 
     ['/api/tournaments', tournament.id, 'games'], 
     [tournament.id]
   );
 
-  // 2. Stabilize the select function using useCallback
+  // 3. Stabilize the select function using useCallback
   const selectPlayoffGames = useCallback((allGames: Game[]) => {
     return allGames.filter(g => 
       g.isPlayoff && 
@@ -57,6 +60,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   });
 
   useEffect(() => {
+    console.log('[PlayoffSlotManager] useEffect running - initializing form state');
     // Wait for all data + timezone to be loaded
     if (slots.length > 0 && existingGames && timezone) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
