@@ -1504,11 +1504,14 @@ export class DatabaseStorage implements IStorage {
       const updatedGames: Game[] = [];
 
       // Upsert each slot
+      const processedSlotKeys = new Set<string>();
+      
       for (const slot of validatedSlots) {
         const { slotKey, round, gameNumber, date, time, diamondId } = slot;
         const bracketSlot = bracketSlotMap.get(slotKey)!;
         const diamond = diamondMap.get(diamondId)!;
 
+        processedSlotKeys.add(slotKey);
         const existingGame = existingGameMap.get(slotKey);
 
         if (existingGame) {
@@ -1566,6 +1569,17 @@ export class DatabaseStorage implements IStorage {
           const [created] = await tx.insert(games).values(newGame).returning();
           updatedGames.push(created);
         }
+      }
+
+      // Delete slots that were previously saved but are no longer in the payload
+      // This allows admins to "un-schedule" slots by clearing all fields
+      const gamesToDelete = existingGames.filter(game => {
+        const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+        return !processedSlotKeys.has(slotKey);
+      });
+
+      for (const gameToDelete of gamesToDelete) {
+        await tx.delete(games).where(eq(games.id, gameToDelete.id));
       }
 
       return updatedGames;

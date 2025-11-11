@@ -44,49 +44,62 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   });
 
   useEffect(() => {
-    if (existingGames && timezone) {
+    if (timezone) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const initialState: Record<string, SlotScheduleData> = {};
       
-      existingGames.forEach(game => {
-        const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
-        
-        // Convert stored tournament-timezone values to browser local for display
-        if (game.date && game.time) {
-          try {
-            // Parse stored values as tournament timezone
-            const tournamentDateTime = `${game.date}T${game.time}`;
-            const utcDate = fromZonedTime(tournamentDateTime, timezone);
-            
-            // Format to browser local for input display
-            const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
-            const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
-            
+      // Initialize ALL slots with empty values first
+      slots.forEach(slot => {
+        const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+        initialState[slotKey] = {
+          date: '',
+          time: '',
+          diamondId: '',
+        };
+      });
+      
+      // Then overlay saved values from existing games
+      if (existingGames) {
+        existingGames.forEach(game => {
+          const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+          
+          // Convert stored tournament-timezone values to browser local for display
+          if (game.date && game.time) {
+            try {
+              // Parse stored values as tournament timezone
+              const tournamentDateTime = `${game.date}T${game.time}`;
+              const utcDate = fromZonedTime(tournamentDateTime, timezone);
+              
+              // Format to browser local for input display
+              const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
+              const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
+              
+              initialState[slotKey] = {
+                date: localDate,
+                time: localTime,
+                diamondId: game.diamondId || '',
+              };
+            } catch (error) {
+              console.error(`Error converting game ${slotKey} timezone:`, error);
+              // Fallback: show tournament times directly
+              initialState[slotKey] = {
+                date: game.date || '',
+                time: game.time || '',
+                diamondId: game.diamondId || '',
+              };
+            }
+          } else {
             initialState[slotKey] = {
-              date: localDate,
-              time: localTime,
-              diamondId: game.diamondId || '',
-            };
-          } catch (error) {
-            console.error(`Error converting game ${slotKey} timezone:`, error);
-            // Fallback: show tournament times directly
-            initialState[slotKey] = {
-              date: game.date || '',
-              time: game.time || '',
+              date: '',
+              time: '',
               diamondId: game.diamondId || '',
             };
           }
-        } else {
-          initialState[slotKey] = {
-            date: '',
-            time: '',
-            diamondId: game.diamondId || '',
-          };
-        }
-      });
+        });
+      }
       setFormState(initialState);
     }
-  }, [existingGames, timezone]);
+  }, [existingGames, timezone, slots]);
 
   const saveSlotsMutation = useMutation({
     mutationFn: async (data: Record<string, SlotScheduleData>) => {
@@ -132,21 +145,8 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
       return;
     }
 
-    // Validate all slots have data
-    for (const slot of slots) {
-      const slotKey = `r${slot.round}-g${slot.gameNumber}`;
-      const data = formState[slotKey];
-      if (!data || !data.date || !data.time || !data.diamondId) {
-        toast({
-          title: "Incomplete Schedule",
-          description: `Please fill in all fields for "${slot.name}".`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
     // Convert browser-local input values to tournament timezone for storage
+    // Only include slots that are fully complete (date, time, and diamond)
     const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const tournamentLocalSlots: Record<string, SlotScheduleData> = {};
     
@@ -154,7 +154,8 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
       for (const [slotKey, slotData] of Object.entries(formState)) {
         const { date, time, diamondId } = slotData;
         
-        if (date && time) {
+        // Only include slots that have all three required fields
+        if (date && time && diamondId) {
           // Parse input values as browser-local time
           const browserDateTime = `${date}T${time}`;
           const utcFromBrowser = fromZonedTime(browserDateTime, browserTz);
@@ -168,9 +169,8 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
             time: tournamentTime,
             diamondId,
           };
-        } else {
-          tournamentLocalSlots[slotKey] = slotData;
         }
+        // Skip incomplete slots - they won't be saved
       }
     } catch (error) {
       console.error('Error converting times to tournament timezone:', error);
@@ -182,6 +182,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
       return;
     }
 
+    // Allow empty payload - this will delete all existing slots
     saveSlotsMutation.mutate(tournamentLocalSlots);
   };
 
