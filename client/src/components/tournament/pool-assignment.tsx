@@ -293,17 +293,20 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
       const data = await response.json();
       return data.matchups;
     },
-    onSuccess: (matchups) => {
-      // Directly set the matchups cache with the returned data
-      // This eliminates the race condition and ensures immediate UI update
-      queryClient.setQueryData(
-        ['/api/tournaments', tournamentId, 'matchups'],
-        matchups
-      );
+    onSuccess: (data) => {
+      // Invalidate matchups query to refetch fresh data with pool metadata
+      queryClient.invalidateQueries({
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
       
-      // Also invalidate games query to refresh any game-related data
+      // Invalidate games query
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+        queryKey: ['/api/tournaments', tournamentId, 'games']
+      });
+      
+      // CRITICAL: Invalidate pools to ensure division filter has fresh data
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/pools`]
       });
 
       toast({
@@ -311,7 +314,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
         description: `Scroll down to see the schedule builder with your new matchups.`,
       });
 
-      // Scroll to the scheduler
+      // Scroll to the scheduler (no navigation needed - same page)
       if (onMatchupsGenerated) {
         onMatchupsGenerated();
       }
