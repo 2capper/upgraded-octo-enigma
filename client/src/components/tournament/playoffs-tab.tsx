@@ -1,790 +1,306 @@
-import { useMemo, useState } from 'react';
-import { Medal, Trophy, RefreshCw, Printer, Edit3, CheckCircle, Shield, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { Loader2, Calendar, Clock, MapPin, Trophy, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
-import { useAuth } from '@/hooks/useAuth';
-import { Team, Game, Pool, AgeDivision, Tournament, Diamond } from '@shared/schema';
-import { getPlayoffTeamCount } from '@shared/playoffFormats';
-import { CrossPoolBracketView } from './cross-pool-bracket-view';
-import { PlayoffBracketPreview } from './playoff-bracket-preview';
-import { PlayoffSlotManager } from './PlayoffSlotManager';
-import { calculateStats, resolveTie } from '@shared/standings';
+import { queryClient, apiRequest } from '@/lib/queryClient';
+import type { Tournament, Diamond, AgeDivision, Game } from '@shared/schema';
+import { getBracketStructure } from '@shared/bracketStructure';
+import { useTournamentTimezone } from '@/hooks/useTournamentTimezone';
+import { fromZonedTime, toZonedTime, format as formatTz } from 'date-fns-tz';
 
-interface PlayoffsTabProps {
-  teams: Team[];
-  games: Game[];
-  pools: Pool[];
-  ageDivisions: AgeDivision[];
-  tournamentId: string;
-  tournament: Tournament;
+interface SlotScheduleData {
+  date: string;
+  time: string;
+  diamondId: string;
 }
 
-// Playoff Score Dialog Component
-const PlayoffScoreDialog = ({ 
-  game, 
-  teams, 
-  tournamentId, 
-  onClose 
-}: { 
-  game: Game | null; 
-  teams: Team[]; 
-  tournamentId: string; 
-  onClose: () => void; 
-}) => {
-  const [homeScore, setHomeScore] = useState('');
-  const [awayScore, setAwayScore] = useState('');
-  const [homeInnings, setHomeInnings] = useState('7');
-  const [awayInnings, setAwayInnings] = useState('7');
-  const [forfeitStatus, setForfeitStatus] = useState('none');
-  
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+interface PlayoffSlotManagerProps {
+  tournament: Tournament;
+  ageDivision: AgeDivision;
+  diamonds: Diamond[];
+}
 
-  const updateGameMutation = useMutation({
-    mutationFn: async (updateData: any) => {
-      const response = await fetch(`/api/games/${game?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
-      if (!response.ok) throw new Error('Failed to update game');
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Playoff Game Updated",
-        description: "Game score has been successfully submitted.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Update Failed",
-        description: "Failed to update game score. Please try again.",
-        variant: "destructive",
-      });
+export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: PlayoffSlotManagerProps) {
+  const { toast } = useToast();
+  const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
+  const { timezone, isLoading: timezoneLoading } = useTournamentTimezone(tournament.id);
+
+  const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
+
+  const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
+    queryKey: ['/api/tournaments', tournament.id, 'games'],
+    select: (allGames) => {
+      return allGames.filter(g => 
+        g.isPlayoff && 
+        g.ageDivisionId === ageDivision.id
+      );
     }
   });
 
+  useEffect(() => {
+    if (existingGames && timezone) {
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const initialState: Record<string, SlotScheduleData> = {};
+      
+      existingGames.forEach(game => {
+        const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+        
+        // Convert stored tournament-timezone values to browser local for display
+        if (game.date && game.time) {
+          try {
+            // Parse stored values as tournament timezone
+            const tournamentDateTime = `${game.date}T${game.time}`;
+            const utcDate = fromZonedTime(tournamentDateTime, timezone);
+            
+            // Format to browser local for input display
+            const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
+            const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
+            
+            initialState[slotKey] = {
+              date: localDate,
+              time: localTime,
+              diamondId: game.diamondId || '',
+            };
+          } catch (error) {
+            console.error(`Error converting game ${slotKey} timezone:`, error);
+            // Fallback: show tournament times directly
+            initialState[slotKey] = {
+              date: game.date || '',
+              time: game.time || '',
+              diamondId: game.diamondId || '',
+            };
+          }
+        } else {
+          initialState[slotKey] = {
+            date: '',
+            time: '',
+            diamondId: game.diamondId || '',
+          };
+        }
+      });
+      setFormState(initialState);
+    }
+  }, [existingGames, timezone]);
+
+  const saveSlotsMutation = useMutation({
+    mutationFn: async (data: Record<string, SlotScheduleData>) => {
+      return apiRequest('POST', `/api/tournaments/${tournament.id}/divisions/${ageDivision.id}/playoff-slots`, { 
+        slots: data 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournament.id, 'games'] });
+      toast({
+        title: "Playoff Schedule Saved",
+        description: "The playoff game slots have been successfully created/updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save the playoff schedule.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSlotChange = (slotKey: string, field: keyof SlotScheduleData, value: string) => {
+    setFormState(prev => ({
+      ...prev,
+      [slotKey]: {
+        ...(prev[slotKey] || { date: '', time: '', diamondId: '' }),
+        [field]: value,
+      },
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!homeScore || !awayScore || !homeInnings || !awayInnings) {
+
+    if (!timezone) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: "Error",
+        description: "Tournament timezone not loaded. Please try again.",
         variant: "destructive",
       });
       return;
     }
 
-    const updateData = {
-      homeScore: Number(homeScore),
-      awayScore: Number(awayScore),
-      homeInningsBatted: Number(homeInnings),
-      awayInningsBatted: Number(awayInnings),
-      forfeitStatus,
-      status: 'completed' as const
-    };
+    // Validate all slots have data
+    for (const slot of slots) {
+      const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+      const data = formState[slotKey];
+      if (!data || !data.date || !data.time || !data.diamondId) {
+        toast({
+          title: "Incomplete Schedule",
+          description: `Please fill in all fields for "${slot.name}".`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
-    updateGameMutation.mutate(updateData);
-  };
-
-  if (!game) return null;
-
-  const homeTeam = teams.find(t => t.id === game.homeTeamId);
-  const awayTeam = teams.find(t => t.id === game.awayTeamId);
-
-  return (
-    <DialogContent className="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle className="flex items-center">
-          <Trophy className="w-5 h-5 mr-2 text-[var(--falcons-green)]" />
-          Submit Playoff Game Score
-        </DialogTitle>
-      </DialogHeader>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="text-center p-4 bg-gray-50 rounded-lg">
-          <div className="font-semibold text-lg">
-            {awayTeam?.name || 'TBD'} @ {homeTeam?.name || 'TBD'}
-          </div>
-          <div className="text-sm text-gray-600 mt-1">
-            {game.date} at {game.time} - {game.location}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="awayScore">Away Score</Label>
-            <Input
-              id="awayScore"
-              type="number"
-              min="0"
-              value={awayScore}
-              onChange={(e) => setAwayScore(e.target.value)}
-              placeholder="0"
-              required
-            />
-            <div className="text-xs text-gray-500 mt-1">{awayTeam?.name || 'TBD'}</div>
-          </div>
+    // Convert browser-local input values to tournament timezone for storage
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tournamentLocalSlots: Record<string, SlotScheduleData> = {};
+    
+    try {
+      for (const [slotKey, slotData] of Object.entries(formState)) {
+        const { date, time, diamondId } = slotData;
+        
+        if (date && time) {
+          // Parse input values as browser-local time
+          const browserDateTime = `${date}T${time}`;
+          const utcFromBrowser = fromZonedTime(browserDateTime, browserTz);
           
-          <div>
-            <Label htmlFor="homeScore">Home Score</Label>
-            <Input
-              id="homeScore"
-              type="number"
-              min="0"
-              value={homeScore}
-              onChange={(e) => setHomeScore(e.target.value)}
-              placeholder="0"
-              required
-            />
-            <div className="text-xs text-gray-500 mt-1">{homeTeam?.name || 'TBD'}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="awayInnings">Away Innings</Label>
-            <Input
-              id="awayInnings"
-              type="number"
-              step="0.1"
-              min="0"
-              value={awayInnings}
-              onChange={(e) => setAwayInnings(e.target.value)}
-              required
-            />
-          </div>
+          // Convert to tournament timezone for storage
+          const tournamentDate = formatTz(utcFromBrowser, 'yyyy-MM-dd', { timeZone: timezone });
+          const tournamentTime = formatTz(utcFromBrowser, 'HH:mm', { timeZone: timezone });
           
-          <div>
-            <Label htmlFor="homeInnings">Home Innings</Label>
-            <Input
-              id="homeInnings"
-              type="number"
-              step="0.1"
-              min="0"
-              value={homeInnings}
-              onChange={(e) => setHomeInnings(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="forfeit">Forfeit Status</Label>
-          <Select value={forfeitStatus} onValueChange={setForfeitStatus}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Forfeit</SelectItem>
-              <SelectItem value="home">Home Team Forfeit</SelectItem>
-              <SelectItem value="away">Away Team Forfeit</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex gap-2 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={updateGameMutation.isPending}
-            className="flex-1 min-h-[48px] text-base font-semibold"
-            style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
-          >
-            {updateGameMutation.isPending ? 'Updating...' : 'Submit Score'}
-          </Button>
-        </div>
-      </form>
-    </DialogContent>
-  );
-};
-
-export const PlayoffsTab = ({ teams, games, pools, ageDivisions, tournamentId, tournament }: PlayoffsTabProps) => {
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Fetch diamonds for playoff slot scheduling (admin only)
-  const { data: diamonds = [] } = useQuery<Diamond[]>({
-    queryKey: ['/api/organizations', tournament.organizationId, 'diamonds'],
-    enabled: isAuthenticated && !!tournament.organizationId,
-  });
-  
-  // Generate Playoffs Mutation
-  const generatePlayoffsMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/tournaments/${tournamentId}/generate-playoffs`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
-      });
+          tournamentLocalSlots[slotKey] = {
+            date: tournamentDate,
+            time: tournamentTime,
+            diamondId,
+          };
+        } else {
+          tournamentLocalSlots[slotKey] = slotData;
+        }
+      }
+    } catch (error) {
+      console.error('Error converting times to tournament timezone:', error);
       toast({
-        title: "Playoffs Generated",
-        description: "The playoff bracket has been seeded and created.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to generate playoff bracket.",
+        title: "Timezone Conversion Error",
+        description: "Failed to convert times. Please try again.",
         variant: "destructive",
       });
-    },
-  });
-  
-  // Get playoff games and teams per division
-  const divisionPlayoffData = useMemo(() => {
-    if (!teams.length || !ageDivisions.length) return {};
-    
-    const result: Record<string, { games: Game[]; teams: any[] }> = {};
-    
-    // Process each division separately
-    ageDivisions.forEach(division => {
-      // Get pools for this division
-      const divisionPools = pools.filter(pool => pool.ageDivisionId === division.id);
-      const divisionPoolIds = divisionPools.map(p => p.id);
-      
-      // Get teams in this division
-      const divisionTeams = teams.filter(team => divisionPoolIds.includes(team.poolId));
-      const divisionTeamIds = divisionTeams.map(t => t.id);
-      
-      // Get ALL playoff games for this division (don't filter by recalculated standings)
-      const divisionPlayoffGames = games.filter(g => 
-        g.isPlayoff && 
-        divisionTeamIds.some(teamId => teamId === g.homeTeamId || teamId === g.awayTeamId)
-      );
-      
-      // Extract teams that are actually in playoff games
-      const playoffTeamIds = new Set<string>();
-      divisionPlayoffGames.forEach(g => {
-        if (g.homeTeamId) playoffTeamIds.add(g.homeTeamId);
-        if (g.awayTeamId) playoffTeamIds.add(g.awayTeamId);
-      });
-      
-      // Get all games for this division (pool play only, for stats calculation)
-      const poolGames = games.filter(g => 
-        !g.isPlayoff &&
-        g.homeTeamId && g.awayTeamId && 
-        divisionTeamIds.includes(g.homeTeamId) && divisionTeamIds.includes(g.awayTeamId)
-      );
-      
-      // Calculate stats for teams that are in the playoffs
-      const playoffTeamsWithStats = Array.from(playoffTeamIds)
-        .map(teamId => {
-          const team = divisionTeams.find(t => t.id === teamId);
-          if (!team) return null;
-          
-          const stats = calculateStats(team.id, poolGames);
-          return {
-            ...team,
-            ...stats,
-            points: (stats.wins * 2) + (stats.ties * 1),
-            runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : 0,
-            runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
-          };
-        })
-        .filter((team): team is NonNullable<typeof team> => team !== null);
-      
-      // Sort teams based on seeding pattern
-      // For cross-pool tournaments, order by pool then rank within pool (A1, A2, B1, B2, C1, C2, D1, D2)
-      // For standard tournaments, order by overall standings (points, then tiebreakers)
-      if (tournament.seedingPattern && tournament.seedingPattern.startsWith('cross_pool_')) {
-        // Cross-pool seeding: Group by pool, sort pools alphabetically, then by rank within pool
-        // Use pool name if available, otherwise fall back to pool ID (matches backend logic)
-        const poolKeys = Array.from(new Set(playoffTeamsWithStats.map(t => {
-          const pool = divisionPools.find(p => p.id === t.poolId);
-          return pool?.name || pool?.id || '';
-        }))).sort((a, b) => a.localeCompare(b));
-        
-        const sortedByPool: typeof playoffTeamsWithStats = [];
-        poolKeys.forEach(poolKey => {
-          const poolTeams = playoffTeamsWithStats
-            .filter(t => {
-              const pool = divisionPools.find(p => p.id === t.poolId);
-              const teamPoolKey = pool?.name || pool?.id || '';
-              return teamPoolKey === poolKey;
-            })
-            .sort((a, b) => {
-              // Sort within pool by points, then tiebreakers
-              if (b.points !== a.points) return b.points - a.points;
-              if (a.runsAgainstPerInning !== b.runsAgainstPerInning) return a.runsAgainstPerInning - b.runsAgainstPerInning;
-              return b.runsForPerInning - a.runsForPerInning;
-            })
-            .map((team, index) => ({
-              ...team,
-              poolName: poolKey,
-              poolRank: index + 1,
-            }));
-          sortedByPool.push(...poolTeams);
-        });
-        
-        result[division.id] = {
-          games: divisionPlayoffGames,
-          teams: sortedByPool,
-        };
-      } else {
-        // Standard seeding: Sort by overall standings
-        playoffTeamsWithStats.sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points;
-          if (a.runsAgainstPerInning !== b.runsAgainstPerInning) return a.runsAgainstPerInning - b.runsAgainstPerInning;
-          return b.runsForPerInning - a.runsForPerInning;
-        });
-        
-        result[division.id] = {
-          games: divisionPlayoffGames,
-          teams: playoffTeamsWithStats,
-        };
-      }
-    });
-    
-    return result;
-  }, [teams, games, pools, ageDivisions, tournament.seedingPattern]);
+      return;
+    }
 
-  // Check if any division has playoff games
-  const hasAnyPlayoffGames = Object.values(divisionPlayoffData).some(data => data.games.length > 0);
-  
-  if (!hasAnyPlayoffGames) {
+    saveSlotsMutation.mutate(tournamentLocalSlots);
+  };
+
+  if (isLoadingGames) {
     return (
-      <div className="p-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">
-          {isAuthenticated ? 'Playoff Management' : 'Playoff Bracket Preview'}
-        </h3>
-        
-        {ageDivisions.length > 1 ? (
-          <Tabs defaultValue={ageDivisions[0]?.id} className="w-full">
-            <TabsList className="grid w-full mb-6" style={{ gridTemplateColumns: `repeat(${ageDivisions.length}, minmax(0, 1fr))` }}>
-              {ageDivisions.map((division) => (
-                <TabsTrigger key={division.id} value={division.id} className="text-sm md:text-base">
-                  {division.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            
-            {ageDivisions.map((division) => {
-              const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
-              return (
-                <TabsContent key={division.id} value={division.id} className="space-y-6">
-                  {isAuthenticated ? (
-                    <>
-                      <Tabs defaultValue="preview" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6">
-                          <TabsTrigger value="preview">Bracket Preview</TabsTrigger>
-                          <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="preview">
-                          <PlayoffBracketPreview
-                            playoffFormat={tournament.playoffFormat || 'top_8'}
-                            seedingPattern={tournament.seedingPattern || 'standard'}
-                            pools={divisionPools}
-                            primaryColor={tournament.primaryColor || undefined}
-                            secondaryColor={tournament.secondaryColor || undefined}
-                          />
-                        </TabsContent>
-                        
-                        <TabsContent value="schedule">
-                          <PlayoffSlotManager
-                            tournament={tournament}
-                            ageDivision={division}
-                            diamonds={diamonds}
-                          />
-                        </TabsContent>
-                      </Tabs>
-                    </>
-                  ) : (
-                    <PlayoffBracketPreview
-                      playoffFormat={tournament.playoffFormat || 'top_8'}
-                      seedingPattern={tournament.seedingPattern || 'standard'}
-                      pools={divisionPools}
-                      primaryColor={tournament.primaryColor || undefined}
-                      secondaryColor={tournament.secondaryColor || undefined}
-                    />
-                  )}
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        ) : (
-          <>
-            {isAuthenticated ? (
-              <Tabs defaultValue="preview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="preview">Bracket Preview</TabsTrigger>
-                  <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="preview">
-                  <PlayoffBracketPreview
-                    playoffFormat={tournament.playoffFormat || 'top_8'}
-                    seedingPattern={tournament.seedingPattern || 'standard'}
-                    pools={pools}
-                    primaryColor={tournament.primaryColor || undefined}
-                    secondaryColor={tournament.secondaryColor || undefined}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="schedule">
-                  {ageDivisions[0] && (
-                    <PlayoffSlotManager
-                      tournament={tournament}
-                      ageDivision={ageDivisions[0]}
-                      diamonds={diamonds}
-                    />
-                  )}
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <PlayoffBracketPreview
-                playoffFormat={tournament.playoffFormat || 'top_8'}
-                seedingPattern={tournament.seedingPattern || 'standard'}
-                pools={pools}
-                primaryColor={tournament.primaryColor || undefined}
-                secondaryColor={tournament.secondaryColor || undefined}
-              />
-            )}
-          </>
-        )}
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
   }
 
+  if (slots.length === 0) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          This tournament's playoff format ("{tournament.playoffFormat}") is not supported.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Playoff Bracket</h3>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button 
-            onClick={() => generatePlayoffsMutation.mutate()}
-            disabled={generatePlayoffsMutation.isPending}
-            className="bg-[var(--falcons-gold)] text-white hover:bg-[var(--falcons-dark-gold)]"
-          >
-            {generatePlayoffsMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            {generatePlayoffsMutation.isPending ? 'Generating...' : 'Generate/Update Bracket'}
-          </Button>
-          <Button variant="outline">
-            <Printer className="w-4 h-4 mr-2" />
-            Print Bracket
-          </Button>
-        </div>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="w-5 h-5" />
+          {ageDivision.name} Playoff Schedule
+        </CardTitle>
+        <CardDescription>
+          Pre-schedule playoff games by assigning date, time, and diamond to each bracket slot.
+          Teams will be assigned automatically when you generate the bracket after pool play.
+          <span className="block mt-1 text-sm text-muted-foreground">
+            Times are shown in your local timezone and will be stored in the tournament's timezone ({timezone || 'America/Toronto'}).
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            {slots.map((slot) => {
+              const slotKey = `r${slot.round}-g${slot.gameNumber}`;
+              const value = formState[slotKey] || { date: '', time: '', diamondId: '' };
 
-      {/* Division Tabs */}
-      <Tabs defaultValue={ageDivisions[0]?.id} className="w-full">
-        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${ageDivisions.length}, minmax(0, 1fr))` }}>
-          {ageDivisions.map((division) => (
-            <TabsTrigger key={division.id} value={division.id} className="text-sm md:text-base">
-              {division.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
-        {ageDivisions.map((division) => {
-          const divisionData = divisionPlayoffData[division.id] || { games: [], teams: [] };
-          const divisionPlayoffGames = divisionData.games;
-          const playoffTeams = divisionData.teams;
-          
-          if (divisionPlayoffGames.length === 0) {
-            const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
-            return (
-              <TabsContent key={division.id} value={division.id} className="mt-6">
-                <PlayoffBracketPreview
-                  playoffFormat={tournament.playoffFormat || 'top_8'}
-                  seedingPattern={tournament.seedingPattern || 'standard'}
-                  pools={divisionPools}
-                  primaryColor={tournament.primaryColor || undefined}
-                  secondaryColor={tournament.secondaryColor || undefined}
-                />
-              </TabsContent>
-            );
-          }
-
-          // Group games by round
-          const gamesByRound: Record<number, typeof divisionPlayoffGames> = {};
-          divisionPlayoffGames.forEach(game => {
-            const round = game.playoffRound || 1;
-            if (!gamesByRound[round]) {
-              gamesByRound[round] = [];
-            }
-            gamesByRound[round].push(game);
-          });
-
-          // Sort games within each round by game number
-          Object.keys(gamesByRound).forEach(round => {
-            gamesByRound[Number(round)].sort((a, b) => 
-              (a.playoffGameNumber || 0) - (b.playoffGameNumber || 0)
-            );
-          });
-
-          const rounds = Object.keys(gamesByRound).map(Number).sort((a, b) => a - b);
-          
-          // Round name mapping
-          const getRoundName = (round: number, totalRounds: number) => {
-            if (round === totalRounds) return 'Finals';
-            if (round === totalRounds - 1) return 'Semifinals';
-            if (round === totalRounds - 2) return 'Quarterfinals';
-            if (round === 1 && totalRounds === 4) return 'Round of 16';
-            if (round === 1 && totalRounds === 3) return 'Round of 8';
-            return `Round ${round}`;
-          };
-          
-          // Check if using cross-pool seeding
-          const isCrossPool = tournament.seedingPattern === 'cross_pool_4';
-          
-          // Bracket content component
-          const bracketContent = (
-            <>
-              {isCrossPool ? (
-                /* Cross-Pool Bracket View */
-                <CrossPoolBracketView
-                  playoffGames={divisionPlayoffGames}
-                  teams={teams}
-                  playoffTeams={playoffTeams}
-                  onGameClick={(game) => {
-                    if (!isAuthenticated) {
-                      alert('Please sign in as an administrator to edit playoff scores.');
-                      return;
-                    }
-                    setSelectedGame(game);
-                  }}
-                  primaryColor={tournament.primaryColor || '#1f2937'}
-                  secondaryColor={tournament.secondaryColor || '#ca8a04'}
-                />
-              ) : (
-                <>
-                  {/* Playoff Rankings Table */}
-                  <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">{division.name} Playoff Rankings</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Rank</th>
-                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Team</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">W</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">L</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">T</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">PTS</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">RF</th>
-                            <th className="text-center py-2 px-3 font-semibold text-gray-700">RA</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {playoffTeams.map((team, index) => (
-                            <tr key={team.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
-                              <td className="py-2 px-3">
-                                <div className="flex items-center">
-                                  <span className="font-bold text-gray-900">{index + 1}</span>
-                                  {index < 3 && (
-                                    <Medal className={`w-4 h-4 ml-2 ${
-                                      index === 0 ? 'text-yellow-500' :
-                                      index === 1 ? 'text-gray-400' :
-                                      'text-orange-600'
-                                    }`} />
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2 px-3 font-medium text-gray-900">{team.name}</td>
-                              <td className="text-center py-2 px-3">{team.wins}</td>
-                              <td className="text-center py-2 px-3">{team.losses}</td>
-                              <td className="text-center py-2 px-3">{team.ties}</td>
-                              <td className="text-center py-2 px-3 font-bold">{team.points}</td>
-                              <td className="text-center py-2 px-3">{team.runsFor}</td>
-                              <td className="text-center py-2 px-3">{team.runsAgainst}</td>
-                            </tr>
+              return (
+                <div key={slotKey} className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 space-y-3">
+                  <Label className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    {slot.name}
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-date`} className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" /> Date
+                      </Label>
+                      <Input
+                        id={`${slotKey}-date`}
+                        type="date"
+                        value={value.date}
+                        onChange={(e) => handleSlotChange(slotKey, 'date', e.target.value)}
+                        data-testid={`input-${slotKey}-date`}
+                        min={tournament.startDate}
+                        max={tournament.endDate}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-time`} className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> Time
+                      </Label>
+                      <Input
+                        id={`${slotKey}-time`}
+                        type="time"
+                        value={value.time}
+                        onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
+                        data-testid={`input-${slotKey}-time`}
+                        step="900"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-diamond`} className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" /> Diamond
+                      </Label>
+                      <Select
+                        value={value.diamondId}
+                        onValueChange={(val) => handleSlotChange(slotKey, 'diamondId', val)}
+                      >
+                        <SelectTrigger id={`${slotKey}-diamond`} data-testid={`select-${slotKey}-diamond`}>
+                          <SelectValue placeholder="Select a diamond" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {diamonds.map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                           ))}
-                        </tbody>
-                      </table>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-
-                  {/* Playoff Bracket */}
-                  {divisionPlayoffGames.length > 0 ? (
-                <div className="rounded-xl p-6" style={{ backgroundColor: tournament.primaryColor || '#1f2937' }}>
-                  <Accordion type="multiple" defaultValue={rounds.map(r => `round-${r}`)} className="space-y-4">
-                    {rounds.map(round => {
-                      const roundGames = gamesByRound[round] || [];
-                      const roundName = getRoundName(round, rounds.length);
-                      const isFinals = round === rounds.length;
-                      
-                      return (
-                        <AccordionItem key={round} value={`round-${round}`} className="border-0">
-                          <AccordionTrigger className="text-lg font-bold text-white uppercase tracking-wider hover:no-underline px-4 py-3 rounded-lg" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-                            {roundName}
-                          </AccordionTrigger>
-                          <AccordionContent className="pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          
-                          {roundGames.map((game, gameIndex) => {
-                            const isCompleted = game.status === 'completed';
-                            const homeTeam = teams.find(t => t.id === game.homeTeamId);
-                            const awayTeam = teams.find(t => t.id === game.awayTeamId);
-                            
-                            // Get team seeds from playoff teams list
-                            const homeTeamSeed = homeTeam ? playoffTeams.findIndex(t => t.id === homeTeam.id) + 1 : null;
-                            const awayTeamSeed = awayTeam ? playoffTeams.findIndex(t => t.id === awayTeam.id) + 1 : null;
-                            
-                            return (
-                              <div 
-                                key={game.id}
-                                className="rounded-lg shadow-lg p-4 border-2 cursor-pointer transition-all"
-                                style={{
-                                  backgroundColor: isFinals 
-                                    ? tournament.secondaryColor || '#ca8a04'
-                                    : 'rgba(0, 0, 0, 0.3)',
-                                  borderColor: isCompleted 
-                                    ? '#22c55e'
-                                    : isFinals 
-                                      ? tournament.secondaryColor || '#eab308'
-                                      : 'rgba(255, 255, 255, 0.2)'
-                                }}
-                                onClick={() => {
-                                  if (!isAuthenticated) {
-                                    alert('Please sign in as an administrator to edit playoff scores.');
-                                    return;
-                                  }
-                                  if (homeTeam && awayTeam) {
-                                    setSelectedGame(game);
-                                  }
-                                }}
-                              >
-                                <div 
-                                  className="text-center text-xs font-bold uppercase mb-3 flex items-center justify-center"
-                                  style={{ color: isFinals ? 'white' : tournament.secondaryColor || '#facc15' }}
-                                >
-                                  Game {game.playoffGameNumber || gameIndex + 1}
-                                  {isCompleted ? (
-                                    <CheckCircle className="w-3 h-3 ml-1 text-green-400" />
-                                  ) : (
-                                    <Edit3 className={`w-3 h-3 ml-1 ${isFinals ? 'text-white' : 'text-gray-400'}`} />
-                                  )}
-                                </div>
-                                <div className="space-y-1">
-                                  <div 
-                                    className="flex items-center justify-between text-white p-3 rounded border"
-                                    style={{
-                                      backgroundColor: isFinals ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.4)',
-                                      borderColor: isFinals ? tournament.secondaryColor || '#ca8a04' : 'rgba(255, 255, 255, 0.3)'
-                                    }}
-                                  >
-                                    <span className="font-bold">
-                                      {homeTeamSeed ? `${homeTeamSeed}. ` : ''}{homeTeam ? homeTeam.name : 'TBD'}
-                                    </span>
-                                    <span className="font-bold text-xl">
-                                      {isCompleted && game.homeScore !== null ? game.homeScore : '-'}
-                                    </span>
-                                  </div>
-                                  <div className={`text-center ${isFinals ? 'text-white' : 'text-gray-300'} text-xs font-bold`}>VS</div>
-                                  <div 
-                                    className="flex items-center justify-between text-white p-3 rounded border"
-                                    style={{
-                                      backgroundColor: isFinals ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.4)',
-                                      borderColor: isFinals ? tournament.secondaryColor || '#ca8a04' : 'rgba(255, 255, 255, 0.3)'
-                                    }}
-                                  >
-                                    <span className="font-bold">
-                                      {awayTeamSeed ? `${awayTeamSeed}. ` : ''}{awayTeam ? awayTeam.name : 'TBD'}
-                                    </span>
-                                    <span className="font-bold text-xl">
-                                      {isCompleted && game.awayScore !== null ? game.awayScore : '-'}
-                                    </span>
-                                  </div>
-                                </div>
-                                {!isCompleted && homeTeam && awayTeam && (
-                                  <div className={`text-center mt-2 text-xs ${isFinals ? 'text-white' : 'text-gray-300'}`}>
-                                    Click to enter score
-                                  </div>
-                                )}
-                                {(!homeTeam || !awayTeam) && (
-                                  <div className={`text-center mt-2 text-xs ${isFinals ? 'text-gray-200' : 'text-gray-400'}`}>
-                                    Waiting for previous round
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
                 </div>
-              ) : (
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Playoff Games Generated</h3>
-                  <p className="text-gray-500">Generate the playoff bracket from the admin portal.</p>
-                </div>
-              )}
+              );
+            })}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={saveSlotsMutation.isPending}
+              className="min-h-[48px] font-semibold"
+              data-testid="button-save-playoff-schedule"
+            >
+              {saveSlotsMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
                 </>
-              )}
-            </>
-          );
-
-          return (
-            <TabsContent key={division.id} value={division.id} className="mt-6 space-y-6">
-              {isAuthenticated ? (
-                <Tabs defaultValue="bracket" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="bracket">Bracket</TabsTrigger>
-                    <TabsTrigger value="schedule">Schedule Slots</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="bracket">
-                    {bracketContent}
-                  </TabsContent>
-                  
-                  <TabsContent value="schedule">
-                    <PlayoffSlotManager
-                      tournament={tournament}
-                      ageDivision={division}
-                      diamonds={diamonds}
-                    />
-                  </TabsContent>
-                </Tabs>
               ) : (
-                bracketContent
+                'Save Playoff Schedule'
               )}
-            </TabsContent>
-          );
-        })}
-      </Tabs>
-
-      {/* Score Dialog */}
-      <Dialog open={!!selectedGame} onOpenChange={() => setSelectedGame(null)}>
-        <PlayoffScoreDialog
-          game={selectedGame}
-          teams={teams}
-          tournamentId={tournamentId}
-          onClose={() => setSelectedGame(null)}
-        />
-      </Dialog>
-    </div>
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
-};
+}
