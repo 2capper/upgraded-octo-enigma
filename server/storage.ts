@@ -1353,15 +1353,46 @@ export class DatabaseStorage implements IStorage {
         const existingGame = existingGameMap.get(slotKey);
 
         if (existingGame) {
-          // Update existing game
+          // Update existing game (preserve team source metadata)
+          const updatePayload: any = {
+            date,
+            time,
+            diamondId,
+            location: diamond.location,
+            subVenue: diamond.name,
+          };
+          
+          // Add team source metadata from bracket structure
+          if (bracketSlot.homeSource.type === 'winner') {
+            updatePayload.team1Source = {
+              type: 'winner',
+              gameNumber: bracketSlot.homeSource.gameNumber,
+              round: bracketSlot.homeSource.round
+            };
+          } else if (bracketSlot.homeSource.type === 'seed') {
+            updatePayload.team1Source = {
+              type: 'seed',
+              rank: bracketSlot.homeSource.rank,
+              label: bracketSlot.homeSource.label
+            };
+          }
+          
+          if (bracketSlot.awaySource.type === 'winner') {
+            updatePayload.team2Source = {
+              type: 'winner',
+              gameNumber: bracketSlot.awaySource.gameNumber,
+              round: bracketSlot.awaySource.round
+            };
+          } else if (bracketSlot.awaySource.type === 'seed') {
+            updatePayload.team2Source = {
+              type: 'seed',
+              rank: bracketSlot.awaySource.rank,
+              label: bracketSlot.awaySource.label
+            };
+          }
+          
           const [updated] = await tx.update(games)
-            .set({
-              date,
-              time,
-              diamondId,
-              location: diamond.location,
-              subVenue: diamond.name,
-            })
+            .set(updatePayload)
             .where(eq(games.id, existingGame.id))
             .returning();
           updatedGames.push(updated);
@@ -1395,12 +1426,25 @@ export class DatabaseStorage implements IStorage {
               gameNumber: bracketSlot.homeSource.gameNumber,
               round: bracketSlot.homeSource.round
             } as any;
+          } else if (bracketSlot.homeSource.type === 'seed') {
+            newGame.team1Source = {
+              type: 'seed',
+              rank: bracketSlot.homeSource.rank,
+              label: bracketSlot.homeSource.label
+            } as any;
           }
+          
           if (bracketSlot.awaySource.type === 'winner') {
             newGame.team2Source = {
               type: 'winner',
               gameNumber: bracketSlot.awaySource.gameNumber,
               round: bracketSlot.awaySource.round
+            } as any;
+          } else if (bracketSlot.awaySource.type === 'seed') {
+            newGame.team2Source = {
+              type: 'seed',
+              rank: bracketSlot.awaySource.rank,
+              label: bracketSlot.awaySource.label
             } as any;
           }
 
