@@ -1,0 +1,116 @@
+Iteration 34: Fix the playoff-slots API (The "Missing Key" Fix)
+This is the highest priority. We must fix this backend API.
+
+Goal: Modify your POST /api/tournaments/:tournamentId/divisions/:ageDivisionId/playoff-slots API to correctly parse the slot keys (e.g., "r1-g1") and save the playoffRound and playoffGameNumber to the database.
+
+Your Mandate (Backend):
+
+Find the API Endpoint: Open your backend code for POST .../playoff-slots.
+
+Find the Logic: It receives the slots object from the PlayoffSlotManager.
+
+The Fix: You must modify the loop to parse the key and save the round/game numbers.
+
+Your Current (Broken) Logic (in pseudocode):
+
+TypeScript
+
+const slots = req.body.slots; // e.g., { "r1-g1": { ... } }
+
+for (const [slotKey, slotData] of Object.entries(slots)) {
+  // It's probably doing this:
+  db.upsert(games, {
+    where: { ... }, // This "where" clause is probably wrong
+    create: {
+      ...slotData,
+      // THE BUG: IT'S NOT SAVING THESE!
+      // playoffRound: ???, 
+      // playoffGameNumber: ???
+    }
+  });
+}
+The Fix (The New Logic):
+
+TypeScript
+
+const slots = req.body.slots;
+
+for (const [slotKey, slotData] of Object.entries(slots)) {
+  // --- THIS IS THE FIX ---
+  // 1. Parse the slotKey
+  const keyParts = slotKey.replace('r', '').split('-g'); // "r1-g1" -> ["1", "1"]
+  const roundNum = parseInt(keyParts[0], 10);
+  const gameNum = parseInt(keyParts[1], 10);
+
+  // 2. Check if parsing failed
+  if (isNaN(roundNum) || isNaN(gameNum)) {
+    console.warn(`Skipping invalid slotKey: ${slotKey}`);
+    continue; // Skip this loop iteration
+  }
+  // --- END FIX ---
+
+  // 3. Now, save *all* the data using an explicit upsert
+  // This is the most robust way to do this.
+  await db.insert(games)
+    .values({
+      tournamentId: tournamentId,
+      ageDivisionId: ageDivisionId,
+      isPlayoff: true,
+      date: slotData.date || null,
+      time: slotData.time || null,
+      diamondId: slotData.diamondId || null,
+      playoffRound: roundNum, // <-- SAVE THE KEY
+      playoffGameNumber: gameNum, // <-- SAVE THE KEY
+    })
+    .onConflict((target) => 
+      // If a game with this round/game# already exists, UPDATE it
+      db.target(games.tournamentId, games.ageDivisionId, games.playoffRound, games.playoffGameNumber)
+    )
+    .doUpdateSet({
+      date: slotData.date || null,
+      time: slotData.time || null,
+      diamondId: slotData.diamondId || null,
+    });
+}
+🚀 Iteration 35: Fix the Standings UI Bug
+This is your Bug 2 ("Playoff" and "Unassigned" pools). This is a separate, simple frontend bug.
+
+Goal: Filter the system-level pools from the public Standings page.
+
+Your Mandate (Frontend):
+
+Find the UI Component: Open the file that renders your public "Pool Standings" page.
+
+Find the useQuery: It's fetching the list of pools.
+
+The Fix: Add a useMemo hook after the query to filter out the pools you don't want to see.
+
+JavaScript
+
+import { useMemo } from 'react'; // Make sure to import useMemo
+
+// 1. Fetches ALL pools (same as before)
+const { data: allPools = [] } = useQuery({ 
+  queryKey: ['/api/tournaments', tournamentId, 'pools']
+});
+
+// 2. Filter the pools *before* rendering
+const filteredPools = useMemo(() => {
+  return allPools.filter(pool => 
+    // This is a robust filter. It only shows pools
+    // that are *not* system pools and *have* an Age Division.
+    !!pool.ageDivisionId && 
+    pool.name !== 'Unassigned' && 
+    pool.name !== 'Playoff' &&
+    !pool.id.includes('_pool_temp_')
+  );
+}, [allPools]);
+
+// 3. Renders *only* the filtered pools
+return (
+  <div>
+    {filteredPools.map(pool => (
+      <PoolStandingsTable key={pool.id} pool={pool} />
+    ))}
+  </div>
+);
