@@ -1,0 +1,64 @@
+2. Step-by-Step: Implement the Navigation
+
+Import useNavigate: At the top of your PoolAssignment.tsx file, add the import for useNavigate.
+
+JavaScript
+
+import { useNavigate } from 'react-router-dom';
+import { useMutation, ... } from '@tanstack/react-query';
+// ... other imports
+Initialize the Hook: Inside your component function, initialize the hook.
+
+JavaScript
+
+export function PoolAssignment({ tournamentId, ... }: PoolAssignmentProps) {
+  const { toast } = useToast();
+  const navigate = useNavigate(); // <-- ADD THIS
+  const [activeTeam, setActiveTeam] = useState<Team | null>(null);
+  // ...
+Update the onSuccess Handler: Go to your generateMutation's onSuccess handler. We will add the Maps command after the invalidateQueries and toast calls.
+
+Replace your current onSuccess block:
+
+JavaScript
+
+    onSuccess: (data) => {
+      // These lines are still CRITICAL. They ensure the
+      // 'Schedule' tab will fetch fresh data.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      toast({
+        title: "Schedule Reset",
+        description: `New matchups are ready.`,
+      });
+    },
+...with this new, complete version:
+
+JavaScript
+
+    onSuccess: (data) => {
+      // 1. Invalidate queries. This is ESSENTIAL.
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups', divisionId] 
+      });
+
+      // 2. Show the toast message.
+      toast({
+        title: "Matchups Created!",
+        description: `Taking you to the scheduler...`,
+      });
+
+      // 3. --- THIS IS THE FIX ---
+      // Navigate the user to the next step.
+      // (Update this URL to match your app's routing)
+      navigate(`/admin/tournament/${tournamentId}/schedule`);
+    },
+(Note: You must adjust the URL in Maps() to match your app's specific admin routing structure.)
