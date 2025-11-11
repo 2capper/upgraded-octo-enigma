@@ -63,13 +63,17 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
   }
 
   // Group playoff games by division
-  // Note: Games don't have ageDivisionId, we need to join through pools
+  // Playoff games are assigned to special "playoff" pools that link to age divisions
   const gamesByDivision = ageDivisions.map(division => {
-    const divisionPoolIds = new Set(
-      pools.filter(p => p.ageDivisionId === division.id).map(p => p.id)
+    // Find the playoff pool(s) for this division
+    const divisionPlayoffPools = pools.filter(p => 
+      p.ageDivisionId === division.id && 
+      p.name.toLowerCase().includes('playoff')
     );
+    const playoffPoolIds = new Set(divisionPlayoffPools.map(p => p.id));
+    
     const divisionGames = playoffGames.filter(g => 
-      divisionPoolIds.has(g.poolId)
+      playoffPoolIds.has(g.poolId)
     );
     return { division, games: divisionGames };
   }).filter(({ games }) => games.length > 0);
