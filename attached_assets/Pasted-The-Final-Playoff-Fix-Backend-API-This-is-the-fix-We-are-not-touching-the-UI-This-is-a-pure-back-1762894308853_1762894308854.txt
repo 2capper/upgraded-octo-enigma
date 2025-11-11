@@ -1,0 +1,106 @@
+The Final Playoff Fix (Backend API)
+This is the fix. We are not touching the UI. This is a pure backend logic fix.
+
+Goal: Modify your POST /.../playoff-slots API to correctly parse the slot keys (e.g., "r1-g1") and save the playoffRound and playoffGameNumber to the database.
+
+Your Mandate (Backend):
+
+Find the API Endpoint: Open your backend code for POST /api/tournaments/:tournamentId/divisions/:ageDivisionId/playoff-slots.
+
+Find the Logic: It receives the slots object from the PlayoffSlotManager.
+
+Modify the Loop: Your code is looping through this object. It needs to be fixed.
+
+Your Current (Broken) Logic (in pseudocode):
+
+JavaScript
+
+const slots = req.body.slots; // e.g., { "r1-g1": { ... }, "r2-g1": { ... } }
+
+for (const [slotKey, slotData] of Object.entries(slots)) {
+  // It's probably doing this:
+  db.upsert(games, {
+    where: { ... },
+    create: {
+      date: slotData.date,
+      time: slotData.time,
+      diamondId: slotData.diamondId,
+      // THE BUG: IT'S NOT SAVING THESE!
+      // playoffRound: ???, 
+      // playoffGameNumber: ???
+    }
+  });
+}
+The Fix (The New Logic):
+
+JavaScript
+
+const slots = req.body.slots;
+
+for (const [slotKey, slotData] of Object.entries(slots)) {
+  // --- THIS IS THE FIX ---
+  // 1. Parse the slotKey
+  const keyParts = slotKey.replace('r', '').split('-g'); // "r1-g1" -> ["1", "1"]
+  const roundNum = parseInt(keyParts[0], 10);
+  const gameNum = parseInt(keyParts[1], 10);
+
+  // 2. Check if parsing failed
+  if (isNaN(roundNum) || isNaN(gameNum)) {
+    console.warn(`Skipping invalid slotKey: ${slotKey}`);
+    continue; // Skip this loop iteration
+  }
+  // --- END FIX ---
+
+  // 3. Now, save *all* the data
+  db.upsert(games, {
+    where: { 
+      tournamentId: tournamentId,
+      ageDivisionId: ageDivisionId,
+      playoffRound: roundNum,
+      playoffGameNumber: gameNum,
+    },
+    create: {
+      tournamentId: tournamentId,
+      ageDivisionId: ageDivisionId,
+      isPlayoff: true,
+      date: slotData.date,
+      time: slotData.time,
+      diamondId: slotData.diamondId,
+      playoffRound: roundNum, // <-- SAVE THE KEY
+      playoffGameNumber: gameNum, // <-- SAVE THE KEY
+    },
+    update: {
+      date: slotData.date,
+      time: slotData.time,
+      diamondId: slotData.diamondId,
+    }
+  });
+}
+Post-Check: The Full Validation
+After you deploy this backend fix:
+
+Test 1 (Blank Slots):
+
+Go to the PlayoffSlotManager (Step 1).
+
+Set the date, time, and diamond for "Quarterfinal 1" (r1-g1).
+
+Click "Save."
+
+Hard-refresh the page (F5).
+
+Confirm: The PlayoffSlotManager reloads, and your saved data for "Quarterfinal 1" is now visible. (This proves the useEffect hook is now working).
+
+Test 2 (TBD Teams):
+
+Now, scroll down to the PlayoffBracketGenerator (Step 2).
+
+Click "Generate Playoff Bracket."
+
+Confirm: The 400 error is gone (you fixed that).
+
+Confirm: The PlayoffSlotManager (at the top) still shows your saved date, time, and diamond.
+
+Confirm (The Final Fix): The PlayoffBracketGenerator component now shows the actual seeded teams (e.g., "Pool A #1 vs. Pool D #2") instead of "TBD".
+
+This single backend fix to your playoff-slots API will solve both bugs at the same time. This is the root cause.
