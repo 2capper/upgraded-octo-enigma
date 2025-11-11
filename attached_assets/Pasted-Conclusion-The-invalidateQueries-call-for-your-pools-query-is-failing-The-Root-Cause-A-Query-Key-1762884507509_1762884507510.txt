@@ -1,0 +1,70 @@
+Conclusion: The invalidateQueries call for your pools query is failing.
+
+The Root Cause: A Query Key Mismatch
+This is a classic, frustrating react-query bug. I know exactly why it's failing. The queryKey you are invalidating in PoolAssignment.tsx does not exactly match the queryKey you are fetching in DragScheduleBuilder.tsx.
+
+Fetching Key (in DragScheduleBuilder.tsx line 472):
+
+JavaScript
+
+queryKey: ["/api/tournaments", tournamentId, "pools"]
+(This is an array of three strings.)
+
+Invalidating Key (My "Sledgehammer" fix in PoolAssignment.tsx):
+
+JavaScript
+
+queryKey: [`/api/tournaments/${tournamentId}/pools`]
+(This is an array of one string.)
+
+react-query sees these as two completely different queries. It invalidates the wrong key, so the scheduler's useQuery never refetches. It just keeps using its stale data (the "Unassigned" pool).
+
+We are going to fix this, once and for all.
+
+🚀 Iteration 27: The "Exact Key Match" Fix
+Goal: Fix the stale cache bug by making the invalidateQueries key in PoolAssignment.tsx an exact match for the useQuery key in DragScheduleBuilder.tsx.
+
+Your Mandate: You are in src/components/PoolAssignment.tsx.
+
+1. Step-by-Step: Fix the generateMutation.onSuccess Handler
+
+Go to your generateMutation (line 304).
+
+Replace the entire onSuccess handler with this final, correct version. The only change is the queryKey for pools, but we will use the full, correct block to be safe.
+
+JavaScript
+
+    onSuccess: (data) => {
+      // We invalidate all three keys the scheduler depends on.
+      
+      // 1. Invalidate Matchups
+      queryClient.invalidateQueries({
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
+      
+      // 2. Invalidate Games
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games']
+      });
+      
+      // 3. --- THIS IS THE FIX ---
+      // This key now EXACTLY matches the key in DragScheduleBuilder.tsx
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'pools']
+      });
+      // --- END FIX ---
+
+      // 4. We can also invalidate Age Divisions, just to be safe.
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/tournaments/${tournamentId}/age-divisions`]
+      });
+
+      toast({
+        title: "Matchups Created!",
+        description: `Scroll down to see the schedule builder.`,
+      });
+      
+      if (onMatchupsGenerated) {
+        onMatchupsGenerated();
+      }
+    },
