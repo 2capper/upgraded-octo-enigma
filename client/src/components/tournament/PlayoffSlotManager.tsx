@@ -48,6 +48,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
 
   // 3. Stabilize the select function using useCallback
   const selectPlayoffGames = useCallback((allGames: Game[]) => {
+    if (!allGames) return [];
     return allGames.filter(g => 
       g.isPlayoff && 
       g.ageDivisionId === ageDivision.id
