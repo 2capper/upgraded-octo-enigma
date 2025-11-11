@@ -32,11 +32,24 @@ export default function AdminPortal() {
   const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
   const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('tournaments');
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  // Read tab from URL query parameter, default to 'tournaments'
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabFromUrl = urlParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'tournaments');
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
+  
+  // Update activeTab when URL changes (for programmatic navigation)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [window.location.search]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
