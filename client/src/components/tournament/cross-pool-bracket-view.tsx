@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Trophy, Medal, ChevronDown, ArrowRight } from 'lucide-react';
-import { Game, Team } from '@shared/schema';
+import { Game, Team, Diamond } from '@shared/schema';
 import {
   Accordion,
   AccordionContent,
@@ -11,6 +11,7 @@ import {
 interface CrossPoolBracketViewProps {
   playoffGames: Game[];
   teams: Team[];
+  diamonds?: Diamond[];
   playoffTeams: Array<{
     id: string;
     name: string;
@@ -46,11 +47,17 @@ interface PoolStandings {
 export function CrossPoolBracketView({
   playoffGames,
   teams,
+  diamonds = [],
   playoffTeams,
   onGameClick,
   primaryColor = '#1f2937',
   secondaryColor = '#ca8a04',
 }: CrossPoolBracketViewProps) {
+  // Memoize diamond lookup map for performance
+  const diamondMap = useMemo(() => {
+    return new Map(diamonds.map(d => [d.id, d.name]));
+  }, [diamonds]);
+
   // Group playoff teams by pool
   const poolStandings = useMemo<PoolStandings>(() => {
     const standings: PoolStandings = {};
@@ -214,7 +221,16 @@ export function CrossPoolBracketView({
         {/* Game Info */}
         <div className="px-4 pb-3 pt-2 border-t border-white/20">
           <div className="text-xs text-white/70">
-            {game.date} • {game.time} • {game.location}
+            {game.date && game.time ? (
+              <>
+                {game.date} • {game.time}
+                {game.diamondId && (
+                  <> • {diamondMap.get(game.diamondId) || 'Diamond TBD'}</>
+                )}
+              </>
+            ) : (
+              'TBD'
+            )}
           </div>
         </div>
       </div>

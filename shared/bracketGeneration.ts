@@ -275,22 +275,7 @@ function handleCrossPoolSeeding(
   playoffFormat: string,
   numberOfPools: number
 ): Array<{ teamId: string; seed: number; teamName?: string; poolName?: string; poolRank?: number }> {
-  // Determine how many teams advance per pool
-  let teamsPerPool = 0;
-  if (playoffFormat === 'top_8' || playoffFormat === 'top_8_four_pools') {
-    teamsPerPool = numberOfPools === 4 ? 2 : numberOfPools === 2 ? 4 : 0;
-  } else if (playoffFormat === 'top_6') {
-    teamsPerPool = numberOfPools === 3 ? 2 : numberOfPools === 2 ? 3 : 0;
-  } else if (playoffFormat === 'top_4') {
-    teamsPerPool = numberOfPools === 2 ? 2 : 0;
-  }
-  
-  if (teamsPerPool === 0) {
-    console.warn(`Cross-pool seeding not supported for ${playoffFormat} with ${numberOfPools} pools`);
-    return [];
-  }
-  
-  // Group teams by pool
+  // Group teams by pool first to count only pools with teams
   const teamsByPool = new Map<string, Array<{ teamId: string; rank: number; poolId?: string; poolName?: string }>>();
   standings.forEach(team => {
     const poolKey = team.poolName || team.poolId || 'unknown';
@@ -300,8 +285,27 @@ function handleCrossPoolSeeding(
     teamsByPool.get(poolKey)!.push(team);
   });
   
-  // Sort pools alphabetically (A, B, C, D)
-  const poolsArray = Array.from(teamsByPool.entries())
+  // Filter out empty pools and count only pools with teams
+  const poolsWithTeams = Array.from(teamsByPool.entries()).filter(([_, teams]) => teams.length > 0);
+  const actualPoolCount = poolsWithTeams.length;
+  
+  // Determine how many teams advance per pool based on ACTUAL pool count
+  let teamsPerPool = 0;
+  if (playoffFormat === 'top_8' || playoffFormat === 'top_8_four_pools') {
+    teamsPerPool = actualPoolCount === 4 ? 2 : actualPoolCount === 2 ? 4 : 0;
+  } else if (playoffFormat === 'top_6') {
+    teamsPerPool = actualPoolCount === 3 ? 2 : actualPoolCount === 2 ? 3 : 0;
+  } else if (playoffFormat === 'top_4') {
+    teamsPerPool = actualPoolCount === 2 ? 2 : 0;
+  }
+  
+  if (teamsPerPool === 0) {
+    console.warn(`Cross-pool seeding not supported for ${playoffFormat} with ${actualPoolCount} pools (${numberOfPools} total pools including empty ones)`);
+    return [];
+  }
+  
+  // Sort pools alphabetically (A, B, C, D) - only use filtered pools with teams
+  const poolsArray = poolsWithTeams
     .sort(([poolKeyA], [poolKeyB]) => poolKeyA.localeCompare(poolKeyB))
     .map(([poolKey, teams]) => {
       // Sort teams within each pool by their global rank (lower is better)

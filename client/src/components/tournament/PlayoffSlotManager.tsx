@@ -102,7 +102,8 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
             };
           }
         } else {
-          // 4. No game exists for this slot, initialize an empty object
+          // 4. No game exists for this slot OR game exists without date/time
+          // Preserve diamondId if a game was pre-scheduled with just a diamond
           initialState[slotKey] = {
             date: '',
             time: '',

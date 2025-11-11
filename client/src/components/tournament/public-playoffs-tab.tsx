@@ -126,6 +126,7 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
                 playoffGames={divisionGames}
                 teams={divisionTeams}
                 playoffTeams={playoffTeams}
+                diamonds={diamonds}
                 onGameClick={() => {}} // No-op for public view
                 primaryColor={tournament.primaryColor || undefined}
                 secondaryColor={tournament.secondaryColor || undefined}
