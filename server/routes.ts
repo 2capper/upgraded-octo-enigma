@@ -2221,9 +2221,11 @@ Waterdown 10U AA
       
       console.log(`Saved ${savedMatchups.length} matchups to database`);
       
+      // Return both matchups and pools for atomic cache update on frontend
       res.status(200).json({
         message: `Generated ${matchupResult.metadata.totalMatchups} unplaced matchups`,
         matchups: savedMatchups,
+        pools: pools, // Include pools to enable atomic cache synchronization
         metadata: matchupResult.metadata
       });
     } catch (error: any) {
