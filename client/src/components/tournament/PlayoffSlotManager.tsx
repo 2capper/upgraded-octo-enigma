@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,73 +33,74 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
 
   const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
 
+  // Memoize the select function to prevent re-creating on every render
+  const selectPlayoffGames = useCallback((allGames: Game[]) => {
+    return allGames.filter(g => 
+      g.isPlayoff && 
+      g.ageDivisionId === ageDivision.id
+    );
+  }, [ageDivision.id]);
+
   const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
     queryKey: ['/api/tournaments', tournament.id, 'games'],
-    select: (allGames) => {
-      return allGames.filter(g => 
-        g.isPlayoff && 
-        g.ageDivisionId === ageDivision.id
-      );
-    }
+    select: selectPlayoffGames,
   });
 
   useEffect(() => {
-    if (timezone) {
+    // Wait for all data + timezone to be loaded
+    if (slots.length > 0 && existingGames && timezone) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const initialState: Record<string, SlotScheduleData> = {};
-      
-      // Initialize ALL slots with empty values first
+
+      // 1. Create a quick-lookup map of existing games
+      const gameMap = new Map<string, Game>();
+      existingGames.forEach(game => {
+        if (game.playoffRound !== null && game.playoffGameNumber !== null) {
+          const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
+          gameMap.set(slotKey, game);
+        }
+      });
+
+      // 2. Loop through the *slots* from getBracketStructure (the source of truth)
       slots.forEach(slot => {
         const slotKey = `r${slot.round}-g${slot.gameNumber}`;
-        initialState[slotKey] = {
-          date: '',
-          time: '',
-          diamondId: '',
-        };
-      });
-      
-      // Then overlay saved values from existing games
-      if (existingGames) {
-        existingGames.forEach(game => {
-          const slotKey = `r${game.playoffRound}-g${game.playoffGameNumber}`;
-          
-          // Convert stored tournament-timezone values to browser local for display
-          if (game.date && game.time) {
-            try {
-              // Parse stored values as tournament timezone
-              const tournamentDateTime = `${game.date}T${game.time}`;
-              const utcDate = fromZonedTime(tournamentDateTime, timezone);
-              
-              // Format to browser local for input display
-              const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
-              const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
-              
-              initialState[slotKey] = {
-                date: localDate,
-                time: localTime,
-                diamondId: game.diamondId || '',
-              };
-            } catch (error) {
-              console.error(`Error converting game ${slotKey} timezone:`, error);
-              // Fallback: show tournament times directly
-              initialState[slotKey] = {
-                date: game.date || '',
-                time: game.time || '',
-                diamondId: game.diamondId || '',
-              };
-            }
-          } else {
+        const game = gameMap.get(slotKey);
+
+        if (game && game.date && game.time) {
+          // 3. We have a game with a date/time, convert it for display
+          try {
+            const tournamentDateTime = `${game.date}T${game.time}`;
+            const utcDate = fromZonedTime(tournamentDateTime, timezone);
+            
+            const localDate = formatTz(utcDate, 'yyyy-MM-dd', { timeZone: browserTz });
+            const localTime = formatTz(utcDate, 'HH:mm', { timeZone: browserTz });
+            
             initialState[slotKey] = {
-              date: '',
-              time: '',
+              date: localDate,
+              time: localTime,
+              diamondId: game.diamondId || '',
+            };
+          } catch (error) {
+            console.error(`Error converting game ${slotKey} timezone:`, error);
+            initialState[slotKey] = {
+              date: game.date || '',
+              time: game.time || '',
               diamondId: game.diamondId || '',
             };
           }
-        });
-      }
+        } else {
+          // 4. No game exists for this slot, initialize an empty object
+          initialState[slotKey] = {
+            date: '',
+            time: '',
+            diamondId: game?.diamondId || '',
+          };
+        }
+      });
+      
       setFormState(initialState);
     }
-  }, [existingGames, timezone, slots]);
+  }, [slots, existingGames, timezone]);
 
   const saveSlotsMutation = useMutation({
     mutationFn: async (data: Record<string, SlotScheduleData>) => {
