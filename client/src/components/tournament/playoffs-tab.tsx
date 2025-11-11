@@ -304,3 +304,38 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
     </Card>
   );
 }
+
+interface PlayoffsTabProps {
+  teams: any[];
+  games: any[];
+  pools: any[];
+  ageDivisions: AgeDivision[];
+  tournamentId: string;
+  tournament: Tournament;
+  diamonds: Diamond[];
+}
+
+export function PlayoffsTab({ tournament, ageDivisions, diamonds }: PlayoffsTabProps) {
+  if (ageDivisions.length === 0) {
+    return (
+      <Alert>
+        <AlertDescription>
+          No age divisions found for this tournament.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {ageDivisions.map(division => (
+        <PlayoffSlotManager
+          key={division.id}
+          tournament={tournament}
+          ageDivision={division}
+          diamonds={diamonds}
+        />
+      ))}
+    </div>
+  );
+}
