@@ -1,0 +1,190 @@
+Iteration 27: Fix the PlayoffSlotManager UI
+Part B: Add the "Bulk Set" Feature
+Goal: Add a new UI section that allows an admin to apply a date, time, and diamond to all games of a specific round (e.g., "All Quarterfinals") with a single click.
+
+Your Mandate (Frontend):
+
+Find the File: Open PlayoffSlotManager.tsx.
+
+Add New State:
+
+At the top of your PlayoffSlotManager component (around line 41), we need to add state to manage this new "bulk" form.
+
+TypeScript
+
+export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: PlayoffSlotManagerProps) {
+  const { toast } = useToast();
+  const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
+  const { timezone, isLoading: timezoneLoading } = useTournamentTimezone(tournament.id);
+
+  // --- ADD THIS NEW STATE FOR THE BULK FORM ---
+  const [bulkTarget, setBulkTarget] = useState<string>(''); // e.g., "all_qf"
+  const [bulkDate, setBulkDate] = useState<string>('');
+  const [bulkTime, setBulkTime] = useState<string>('');
+  const [bulkDiamond, setBulkDiamond] = useState<string>('');
+  // --- END NEW STATE ---
+
+  const slots = useMemo(() => { // ... (your existing useMemo)
+Add the "Bulk Apply" Logic:
+
+We need the function that will run when the "Apply" button is clicked. This function will find all the target slots (e.g., all Quarterfinals) and update the formState for them.
+
+Paste this new handler function inside your component (around line 128, after handleSubmit).
+
+TypeScript
+
+  const handleSlotChange = (slotKey: string, field: keyof SlotScheduleData, value: string) => {
+    // ... (your existing handleSlotChange function)
+  };
+
+  // --- ADD THIS NEW HANDLER ---
+  const handleBulkApply = () => {
+    if (!bulkTarget || (!bulkDate && !bulkTime && !bulkDiamond)) {
+      toast({
+        title: "Incomplete Selection",
+        description: "Please select a round and at least one field (date, time, or diamond) to apply.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Find all the slotKeys that match the target
+    const targetSlots = slots.filter(slot => {
+      if (bulkTarget === 'all') return true;
+      return slot.name.toLowerCase().includes(bulkTarget); // e.g., "quarter-final"
+    }).map(slot => `r${slot.round}-g${slot.gameNumber}`);
+
+    if (targetSlots.length === 0) {
+      toast({ title: "No slots found to update." });
+      return;
+    }
+
+    // Update the formState for all target slots
+    setFormState(prev => {
+      const newState = { ...prev };
+      targetSlots.forEach(slotKey => {
+        const currentSlot = newState[slotKey] || { date: '', time: '', diamondId: '' };
+        newState[slotKey] = {
+          date: bulkDate || currentSlot.date, // Only update if a new value is provided
+          time: bulkTime || currentSlot.time,
+          diamondId: bulkDiamond || currentSlot.diamondId,
+        };
+      });
+      return newState;
+    });
+
+    toast({
+      title: "Slots Updated",
+      description: `Applied settings to ${targetSlots.length} game${targetSlots.length > 1 ? 's' : ''}.`,
+    });
+  };
+  // --- END NEW HANDLER ---
+
+  const handleSubmit = (e: React.FormEvent) => {
+    // ... (your existing handleSubmit function)
+Add the "Bulk Set" UI:
+
+Inside your component's JSX, find the </CardContent> tag (around line 320) that closes the main content.
+
+We will add this new "Bulk Set" form inside the <CardContent>, right before the main <form>.
+
+JavaScript
+
+    <CardContent>
+
+      {/* --- ADD THIS NEW UI BLOCK --- */}
+      <Card className="mb-6 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Bulk Schedule Slots</CardTitle>
+          <CardDescription className="text-sm">
+            Quickly set the same date, time, or diamond for multiple games at once.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            {/* 1. Target Selector */}
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="bulk-target">Apply to:</Label>
+              <Select value={bulkTarget} onValueChange={setBulkTarget}>
+                <SelectTrigger id="bulk-target" data-testid="bulk-select-target">
+                  <SelectValue placeholder="Select games..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quarter">All Quarter-Finals</SelectItem>
+                  <SelectItem value="semi">All Semi-Finals</SelectItem>
+                  <SelectItem value="final">The Final</SelectItem>
+                  <SelectItem value="all">All Playoff Games</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Inputs (leave empty to ignore) */}
+            <div className="space-y-2">
+              <Label htmlFor="bulk-date">Date</Label>
+              <Input id="bulk-date" type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-time">Time</Label>
+              <Select value={bulkTime} onValueChange={setBulkTime}>
+                <SelectTrigger id="bulk-time">
+                  <SelectValue placeholder="Select a time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {FIFTEEN_MINUTE_SLOTS.map(timeSlot => (
+        _           <SelectItem key={timeSlot} value={timeSlot}>{timeSlot}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-diamond">Diamond</Label>
+              <Select value={bulkDiamond} onValueChange={setBulkDiamond}>
+                <SelectTrigger id="bulk-diamond">
+                  <SelectValue placeholder="Select a diamond" />
+                </SelectTrigger>
+          _       <SelectContent>
+                  {diamonds.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-4">
+            <Button type="button" onClick={handleBulkApply} data-testid="button-bulk-apply">Apply to Slots</Button>
+          </div>
+        </CardContent>
+      </Card>
+      {/* --- END NEW UI BLOCK --- */}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ... your existing form ... */}
+5. Post-Check (Part B):
+Reload your PlayoffSlotManager page.
+
+Confirm: The new "Bulk Schedule Slots" form is visible at the top.
+
+Action:
+
+In the "Apply to:" dropdown, select "All Quarter-Finals".
+
+In the "Date" input, select a date (e.g., "2025-11-16").
+
+In the "Time" dropdown, select "10:00".
+
+Leave "Diamond" blank.
+
+Click the "Apply to Slots" button.
+
+Confirm: A toast "Slots Updated" appears.
+
+Confirm: All four of your "Quarter-Final" slots (QF1, QF2, QF3, QF4) in the form below instantly populate with the date "2025-11-16" and the time "10:00".
+
+Confirm: Their "Diamond" inputs remain unchanged (since you left it blank).
+
+Confirm: The "Semi-Final" and "Final" slots are untouched.
+
+This fixes the "many clicks" problem by turning 12 clicks (4 dates, 4 times, 4 diamonds) into 4. This is a massive win for your admin.
+
+Let me know when you've got this implemented.
