@@ -28,7 +28,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
     type: 'pool_play' as const,
     numberOfTeams: 8,
     numberOfPools: 2,
-    numberOfPlayoffTeams: 6, // DEPRECATED - for backwards compatibility
     playoffFormat: null as PlayoffFormat | null,
     seedingPattern: null as SeedingPattern | null,
     showTiebreakers: true,
@@ -125,7 +124,6 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
         type: 'pool_play' as const,
         numberOfTeams: 8,
         numberOfPools: 2,
-        numberOfPlayoffTeams: 6,
         playoffFormat: null,
         seedingPattern: null,
         showTiebreakers: true,

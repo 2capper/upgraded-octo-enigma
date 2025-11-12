@@ -49,7 +49,6 @@ interface Tournament {
   type?: string;
   numberOfTeams?: number | null;
   numberOfPools?: number | null;
-  numberOfPlayoffTeams?: number | null;
   playoffFormat?: string | null;
   seedingPattern?: string | null;
   showTiebreakers?: boolean;
@@ -152,7 +151,6 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
       type: 'pool_play',
       numberOfTeams: 8,
       numberOfPools: 2,
-      numberOfPlayoffTeams: 6,
       playoffFormat: null,
       seedingPattern: null,
       showTiebreakers: true,
@@ -173,7 +171,6 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
       type: tournament.type || 'pool_play',
       numberOfTeams: tournament.numberOfTeams || 8,
       numberOfPools: tournament.numberOfPools || 2,
-      numberOfPlayoffTeams: tournament.numberOfPlayoffTeams || 6,
       playoffFormat: (tournament.playoffFormat as PlayoffFormat) || null,
       seedingPattern: (tournament.seedingPattern as SeedingPattern) || null,
       showTiebreakers: tournament.showTiebreakers ?? true,
@@ -378,28 +375,6 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
                         <Input 
                           type="number" 
                           value={field.value ?? 2}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          ref={field.ref}
-                          disabled={field.disabled}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="numberOfPlayoffTeams"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Playoff Teams (Deprecated)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          value={field.value ?? 6}
                           onChange={(e) => field.onChange(parseInt(e.target.value))}
                           onBlur={field.onBlur}
                           name={field.name}
