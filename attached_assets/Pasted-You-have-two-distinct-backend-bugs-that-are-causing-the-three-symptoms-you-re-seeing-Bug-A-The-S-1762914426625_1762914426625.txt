@@ -1,0 +1,56 @@
+You have two distinct backend bugs that are causing the three symptoms you're seeing.
+
+Bug A: The "Slots" API is Broken. This is causing your "Diamond TBD" and "Blank Slots" bugs.
+
+Bug B: The "Advance Winner" Logic is Broken. This is causing your "Winners Not Advancing" bug.
+
+Let's trace them one by one.
+
+1. The "Diamond TBD" & "Blank Slots" Bug
+This is the exact same bug we diagnosed in Iteration 36. Your test just 100% confirms it.
+
+Your Report: The PlayoffSlotManager form is blank on reload (from your last message), and the public bracket shows "Diamond TBD."
+
+The Root Cause: These are the same bug with two different symptoms.
+
+What's Happening:
+
+You use the PlayoffSlotManager to set the date, time, and diamondId for all 7 playoff slots.
+
+You click "Save."
+
+Your backend POST /.../playoff-slots API is failing to save the playoffRound and playoffGameNumber for those games. It's only saving the date, time, and diamond, creating 7 "orphaned" game records that aren't tied to a bracket position.
+
+Why This Causes Both Symptoms:
+
+"Blank Slots": When you reload the admin page, the PlayoffSlotManager looks for games with playoffRound: 1, playoffGameNumber: 1, etc. It finds zero matches, so it (correctly) renders a blank form.
+
+"Diamond TBD": When the public bracket page loads, it fetches the real playoff games (which were created by the "Generate Bracket" button). These games do have playoffRound: 1, but they don't have a diamondId (because your "Save Slots" API failed to update them). The UI (correctly) renders "Diamond TBD."
+
+The Fix (Iteration 36): You must fix your backend POST /.../playoff-slots API. It needs to parse the slot key (e.g., "r1-g1") and use an upsert command to save the playoffRound: 1 and playoffGameNumber: 1 along with the date, time, and diamondId. This will fix both of these bugs at once.
+
+2. The "Winners Not Advancing" Bug
+This is a separate bug, and your diagnosis is perfect.
+
+Your Report: The Quarterfinal games are final, but the Semifinal slots still say "Winner of R1G1" instead of the actual team name.
+
+The Root Cause: Your PUT /api/games/:gameId (the "submit score" API) has logic to auto-advance winners. This logic is failing.
+
+What's Happening:
+
+You submit the score for "QF1". The API saves the score and identifies a winnerId.
+
+The API then tries to find the next game in the bracket (e.g., "SF1") by looking for a game where team1Source or team2Source is "Winner of R1G1".
+
+The Failure: Your "Generate Bracket" API (as we diagnosed in Iteration 37) is not saving this metadata. The team1SourceLabel for the Semifinal game is probably null. The "advance winner" logic can't find the next game, so it fails silently, and the homeTeamId for the Semifinal is never updated.
+
+The Fix (Iteration 37): You must fix your backend POST /.../generate-bracket API. When it creates the playoff games, it must save the teamSource and teamSourceLabel (e.g., team1SourceLabel: 'Winner of QF1') to the database. This gives the "advance winner" logic a key to find the next game.
+
+Your Action Plan
+This is a backend problem. You have to fix your APIs.
+
+Priority 1 (Fix Iteration 36): Fix your POST /playoff-slots API to correctly save playoffRound and playoffGameNumber. This will make your PlayoffSlotManager work, and the "Diamond TBD" bug will disappear.
+
+Priority 2 (Fix Iteration 37): Fix your POST /generate-bracket API to correctly save the teamSource and teamSourceLabel metadata (e.g., "Winner of QF1"). This will fix the "Winners Not Advancing" bug.
+
+I recommend you fix Priority 1 first. You can't test the "advance winner" logic if your slots aren't even saving correctly.
