@@ -129,9 +129,9 @@ export function generateTop8Matchups(
       ];
 
     case 'cross_pool_4':
-      // A1 vs C2, B1 vs D2, A2 vs C1, B2 vs D1
-      // Assumes seeds are ordered: A1, A2, B1, B2, C1, C2, D1, D2
-      // Remap to: 1=A1, 2=A2, 3=B1, 4=B2, 5=C1, 6=C2, 7=D1, 8=D2
+      // Cross-pool matchups: A1 vs C2, B1 vs D2, C1 vs A2, D1 vs B2
+      // Seeds ordered: A1, B1, C1, D1, A2, C2, D2, B2
+      // Mapping: 1=A1, 2=B1, 3=C1, 4=D1, 5=A2, 6=C2, 7=D2, 8=B2
       return [
         { 
           team1Seed: 1, 
@@ -141,25 +141,25 @@ export function generateTop8Matchups(
           description: 'A1 vs C2'
         },
         { 
-          team1Seed: 3, 
-          team2Seed: 8,
+          team1Seed: 2, 
+          team2Seed: 7,
           team1PoolInfo: { poolName: 'B', rank: 1 },
           team2PoolInfo: { poolName: 'D', rank: 2 },
           description: 'B1 vs D2'
         },
         { 
-          team1Seed: 2, 
+          team1Seed: 3, 
           team2Seed: 5,
-          team1PoolInfo: { poolName: 'A', rank: 2 },
-          team2PoolInfo: { poolName: 'C', rank: 1 },
-          description: 'A2 vs C1'
+          team1PoolInfo: { poolName: 'C', rank: 1 },
+          team2PoolInfo: { poolName: 'A', rank: 2 },
+          description: 'C1 vs A2'
         },
         { 
           team1Seed: 4, 
-          team2Seed: 7,
-          team1PoolInfo: { poolName: 'B', rank: 2 },
-          team2PoolInfo: { poolName: 'D', rank: 1 },
-          description: 'B2 vs D1'
+          team2Seed: 8,
+          team1PoolInfo: { poolName: 'D', rank: 1 },
+          team2PoolInfo: { poolName: 'B', rank: 2 },
+          description: 'D1 vs B2'
         },
       ];
 

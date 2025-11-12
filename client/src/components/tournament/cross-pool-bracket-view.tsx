@@ -285,7 +285,7 @@ export function CrossPoolBracketView({
           {poolNames.map(poolName => (
             <div key={poolName} className="border-2 rounded-lg p-4" style={{ borderColor: primaryColor }}>
               <h5 className="text-base md:text-lg font-bold mb-3 text-center" style={{ color: primaryColor }}>
-                Pool {poolName}
+                {poolName}
               </h5>
               <div className="space-y-2">
                 {poolStandings[poolName].slice(0, 2).map((team, index) => (

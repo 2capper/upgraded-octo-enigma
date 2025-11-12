@@ -137,23 +137,23 @@ export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
         {
           round: 1,
           gameNumber: 2,
-          name: 'Quarter-Final 2 (A2 vs C1)',
+          name: 'Quarter-Final 2 (B1 vs D2)',
           homeSource: { type: 'seed', rank: 2 },
-          awaySource: { type: 'seed', rank: 5 }
+          awaySource: { type: 'seed', rank: 7 }
         },
         {
           round: 1,
           gameNumber: 3,
-          name: 'Quarter-Final 3 (B1 vs D2)',
+          name: 'Quarter-Final 3 (C1 vs A2)',
           homeSource: { type: 'seed', rank: 3 },
-          awaySource: { type: 'seed', rank: 8 }
+          awaySource: { type: 'seed', rank: 5 }
         },
         {
           round: 1,
           gameNumber: 4,
-          name: 'Quarter-Final 4 (B2 vs D1)',
+          name: 'Quarter-Final 4 (D1 vs B2)',
           homeSource: { type: 'seed', rank: 4 },
-          awaySource: { type: 'seed', rank: 7 }
+          awaySource: { type: 'seed', rank: 8 }
         },
         {
           round: 2,

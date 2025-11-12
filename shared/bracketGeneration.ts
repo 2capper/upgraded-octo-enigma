@@ -268,7 +268,8 @@ function generatePoolPlayBracket(options: BracketGenerationOptions): GeneratedPl
 
 /**
  * Handle cross-pool seeding for pool play tournaments
- * Seeds teams by pool ranking: A1, A2, B1, B2, C1, C2, D1, D2 (for 4 pools)
+ * For 4 pools: Seeds teams as A1, B1, C1, D1, A2, C2, D2, B2
+ * This creates matchups: A1 vs C2, B1 vs D2, C1 vs A2, D1 vs B2
  */
 function handleCrossPoolSeeding(
   standings: Array<{ teamId: string; rank: number; poolId?: string; poolName?: string }>,
@@ -304,27 +305,73 @@ function handleCrossPoolSeeding(
     return [];
   }
   
-  // Sort pools alphabetically (A, B, C, D) - only use filtered pools with teams
+  // Helper function to extract pool letter for proper sorting
+  const extractPoolLetter = (poolKey: string): string => {
+    // Try to extract just the letter from pool names like "Pool A", "A", etc.
+    const match = poolKey.match(/\b([A-Z])\b/);
+    return match ? match[1] : poolKey;
+  };
+  
+  // Sort pools alphabetically (A, B, C, D) using normalized pool letters
   const poolsArray = poolsWithTeams
-    .sort(([poolKeyA], [poolKeyB]) => poolKeyA.localeCompare(poolKeyB))
+    .sort(([poolKeyA], [poolKeyB]) => {
+      const letterA = extractPoolLetter(poolKeyA);
+      const letterB = extractPoolLetter(poolKeyB);
+      return letterA.localeCompare(letterB);
+    })
     .map(([poolKey, teams]) => {
       // Sort teams within each pool by their global rank (lower is better)
       const sortedTeams = teams.sort((a, b) => a.rank - b.rank).slice(0, teamsPerPool);
       return { poolKey, teams: sortedTeams };
     });
   
-  // Assign seeds: Pool A (1st, 2nd, ...) = seeds 1,2,..., Pool B (1st, 2nd, ...) = seeds n+1, n+2, ...
+  // For cross_pool_4: Assign seeds in rank-first order to create proper cross-pool matchups
+  // Seed order: A1, B1, C1, D1, A2, C2, D2, B2
+  // This creates: QF1: A1 vs C2, QF2: B1 vs D2, QF3: C1 vs A2, QF4: D1 vs B2
   const playoffTeams: Array<{ teamId: string; seed: number; teamName?: string; poolName?: string; poolRank?: number }> = [];
-  poolsArray.forEach(({ poolKey, teams: poolTeams }) => {
-    poolTeams.forEach((team, index) => {
-      playoffTeams.push({
-        teamId: team.teamId,
-        seed: playoffTeams.length + 1,
-        poolName: poolKey,
-        poolRank: index + 1, // 1st, 2nd, etc. in their pool
+  
+  if (actualPoolCount === 4 && teamsPerPool === 2) {
+    // Special seeding order for 4-pool cross-pool format
+    // First, all 1st place teams in order: A1, B1, C1, D1
+    poolsArray.forEach(({ poolKey, teams: poolTeams }) => {
+      const firstPlaceTeam = poolTeams[0];
+      if (firstPlaceTeam) {
+        playoffTeams.push({
+          teamId: firstPlaceTeam.teamId,
+          seed: playoffTeams.length + 1,
+          poolName: poolKey,
+          poolRank: 1,
+        });
+      }
+    });
+    
+    // Then, 2nd place teams in specific order: A2, C2, D2, B2
+    const poolOrder = [0, 2, 3, 1]; // A, C, D, B
+    poolOrder.forEach(poolIndex => {
+      const pool = poolsArray[poolIndex];
+      if (pool && pool.teams[1]) {
+        const secondPlaceTeam = pool.teams[1];
+        playoffTeams.push({
+          teamId: secondPlaceTeam.teamId,
+          seed: playoffTeams.length + 1,
+          poolName: pool.poolKey,
+          poolRank: 2,
+        });
+      }
+    });
+  } else {
+    // Standard pool-by-pool seeding for other formats
+    poolsArray.forEach(({ poolKey, teams: poolTeams }) => {
+      poolTeams.forEach((team, index) => {
+        playoffTeams.push({
+          teamId: team.teamId,
+          seed: playoffTeams.length + 1,
+          poolName: poolKey,
+          poolRank: index + 1,
+        });
       });
     });
-  });
+  }
   
   return playoffTeams;
 }
