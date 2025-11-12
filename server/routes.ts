@@ -2881,7 +2881,8 @@ Waterdown 10U AA
       }
       
       // Get the specified division
-      const division = await storage.getAgeDivision(divisionId);
+      const divisions = await storage.getAgeDivisions(tournamentId);
+      const division = divisions.find(d => d.id === divisionId);
       if (!division || division.tournamentId !== tournamentId) {
         return res.status(404).json({ 
           error: "Division not found or does not belong to this tournament" 
