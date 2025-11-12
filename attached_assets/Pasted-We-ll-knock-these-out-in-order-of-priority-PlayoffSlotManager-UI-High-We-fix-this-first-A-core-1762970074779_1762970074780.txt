@@ -1,0 +1,108 @@
+We'll knock these out in order of priority.
+
+PlayoffSlotManager UI (High): We fix this first. A core workflow component that is clunky and broken is a "showstopper" bug.
+
+Org Settings Accordion (Medium): This is a fast, high-impact UI polish. We'll do it second.
+
+Reporting (Low): This is a refactor. It's important for data accuracy, but it's not blocking the admin from running the tournament. We do this last.
+
+Let's get to work.
+
+🚀 Iteration 27: Fix the PlayoffSlotManager UI
+Goal: Fix the clunky UI by (A) replacing the broken time-picker and (B) adding a "Bulk Set" feature to reduce clicks.
+
+This is a two-part fix. We'll fix the time-picker first because the "Bulk Set" feature will need to use it.
+
+Part A: Replace the Broken Time-Picker
+Your diagnosis is 100% correct. The native <Input type="time"> is unreliable. The step="900" (15-min) attribute only works for keyboard input; the clock "picker" UI ignores it. This is a known bug in HTML, and we're not going to live with it.
+
+The pragmatic fix is to rip it out and replace it with a simple <Select> dropdown that only shows 15-minute increments.
+
+Your Mandate (Frontend):
+
+Find the File: Open PlayoffSlotManager.tsx.
+
+Add this Helper Function:
+
+We need a function to generate our time slots. You can paste this utility function inside your PlayoffSlotManager.tsx file (but outside the component function itself, near the top with your imports).
+
+TypeScript
+
+/**
+ * Generates an array of 15-minute time slots for a 24-hour day.
+ * e.g., ["08:00", "08:15", "08:30", "08:45", ...]
+ */
+function generateTimeSlots(): string[] {
+  const slots: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hour = String(h).padStart(2, '0');
+      const minute = String(m).padStart(2, '0');
+      slots.push(`${hour}:${minute}`);
+    }
+  }
+  return slots;
+}
+
+// --- You can pre-calculate this once, so it doesn't run on every render
+const FIFTEEN_MINUTE_SLOTS = generateTimeSlots();
+Replace the <Input />:
+
+Inside your component's JSX, find the Time input (around line 287).
+
+Replace that entire div block with this new Select block. We'll use the shadcn/ui components you're already using.
+
+Replace This (Broken):
+
+JavaScript
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-time`} className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> Time
+                      </Label>
+                      <Input
+                        id={`${slotKey}-time`}
+                        type="time"
+                        value={value.time}
+                        onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
+                        data-testid={`input-${slotKey}-time`}
+                        step="900"
+                      />
+                    </div>
+...With This (Correct & Reliable):
+
+JavaScript
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`${slotKey}-time`} className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> Time
+                      </Label>
+                      <Select
+                        value={value.time}
+                        onValueChange={(val) => handleSlotChange(slotKey, 'time', val)}
+                      >
+                        <SelectTrigger id={`${slotKey}-time`} data-testid={`select-${slotKey}-time`}>
+                          <SelectValue placeholder="Select a time" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {FIFTEEN_MINUTE_SLOTS.map(timeSlot => (
+                            <SelectItem key={timeSlot} value={timeSlot}>
+                              {timeSlot}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+      _                 </Select>
+                    </div>
+4. Post-Check (Part A):
+
+Go back to the PlayoffSlotManager page.
+
+Confirm: The ugly <input type="time"> is gone.
+
+Confirm: You now have a clean dropdown.
+
+Confirm: When you click it, the list only shows 15-minute increments (08:00, 08:15, 08:30...).
+
+Confirm: Selecting a time works, and saving the form works.
+
+Once you've confirmed the new time-picker is in place and working, let me know. We'll move on to Part B: Designing the "Bulk Set" UI that will use this new component.
