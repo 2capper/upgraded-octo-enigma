@@ -50,6 +50,12 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
   const { timezone, isLoading: timezoneLoading } = useTournamentTimezone(tournament.id);
 
+  // Bulk form state for applying settings to multiple slots at once
+  const [bulkTarget, setBulkTarget] = useState<string>('');
+  const [bulkDate, setBulkDate] = useState<string>('');
+  const [bulkTime, setBulkTime] = useState<string>('');
+  const [bulkDiamond, setBulkDiamond] = useState<string>('');
+
   // CRITICAL FIX: Memoize slots, queryKey, and select function to prevent infinite re-renders.
   
   // 1. Stabilize the slots array using useMemo
@@ -170,6 +176,62 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
     }));
   };
 
+  const handleBulkApply = () => {
+    if (!bulkTarget || (!bulkDate && !bulkTime && !bulkDiamond)) {
+      toast({
+        title: "Incomplete Selection",
+        description: "Please select a round and at least one field (date, time, or diamond) to apply.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Find all the slotKeys that match the target using deterministic round-based filtering
+    const targetSlots = slots.filter(slot => {
+      if (bulkTarget === 'all') return true;
+      
+      // Match based on slot name patterns from getBracketStructure
+      const slotName = slot.name.toLowerCase();
+      
+      if (bulkTarget === 'quarter') {
+        // Match "Quarter-Final 1", "Quarter-Final 2 (A1 vs C2)", etc.
+        return slotName.startsWith('quarter');
+      } else if (bulkTarget === 'semi') {
+        // Match "Semi-Final 1", "Semi-Final 2"
+        return slotName.startsWith('semi');
+      } else if (bulkTarget === 'final') {
+        // Match only "Final" (championship game), not "Semi-Final" or "Quarter-Final"
+        return slotName === 'final';
+      }
+      
+      return false;
+    }).map(slot => `r${slot.round}-g${slot.gameNumber}`);
+
+    if (targetSlots.length === 0) {
+      toast({ title: "No slots found to update." });
+      return;
+    }
+
+    // Update the formState for all target slots
+    setFormState(prev => {
+      const newState = { ...prev };
+      targetSlots.forEach(slotKey => {
+        const currentSlot = newState[slotKey] || { date: '', time: '', diamondId: '' };
+        newState[slotKey] = {
+          date: bulkDate || currentSlot.date,
+          time: bulkTime || currentSlot.time,
+          diamondId: bulkDiamond || currentSlot.diamondId,
+        };
+      });
+      return newState;
+    });
+
+    toast({
+      title: "Slots Updated",
+      description: `Applied settings to ${targetSlots.length} game${targetSlots.length > 1 ? 's' : ''}.`,
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -258,6 +320,94 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
         </CardDescription>
       </CardHeader>
       <CardContent>
+        
+        {/* Bulk Schedule Slots UI */}
+        <Card className="mb-6 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base">Bulk Schedule Slots</CardTitle>
+            <CardDescription className="text-sm">
+              Quickly set the same date, time, or diamond for multiple games at once.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              {/* 1. Target Selector */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="bulk-target">Apply to:</Label>
+                <Select value={bulkTarget} onValueChange={setBulkTarget}>
+                  <SelectTrigger id="bulk-target" data-testid="bulk-select-target">
+                    <SelectValue placeholder="Select games..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quarter">All Quarter-Finals</SelectItem>
+                    <SelectItem value="semi">All Semi-Finals</SelectItem>
+                    <SelectItem value="final">The Final</SelectItem>
+                    <SelectItem value="all">All Playoff Games</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 2. Date Input */}
+              <div className="space-y-2">
+                <Label htmlFor="bulk-date">Date</Label>
+                <Input 
+                  id="bulk-date" 
+                  type="date" 
+                  value={bulkDate} 
+                  onChange={(e) => setBulkDate(e.target.value)}
+                  min={tournament.startDate}
+                  max={tournament.endDate}
+                  data-testid="input-bulk-date"
+                />
+              </div>
+
+              {/* 3. Time Input */}
+              <div className="space-y-2">
+                <Label htmlFor="bulk-time">Time</Label>
+                <Select value={bulkTime} onValueChange={setBulkTime}>
+                  <SelectTrigger id="bulk-time" data-testid="select-bulk-time">
+                    <SelectValue placeholder="Select a time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {FIFTEEN_MINUTE_SLOTS.map(timeSlot => (
+                      <SelectItem key={timeSlot} value={timeSlot}>
+                        {timeSlot}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 4. Diamond Input */}
+              <div className="space-y-2">
+                <Label htmlFor="bulk-diamond">Diamond</Label>
+                <Select value={bulkDiamond} onValueChange={setBulkDiamond}>
+                  <SelectTrigger id="bulk-diamond" data-testid="select-bulk-diamond">
+                    <SelectValue placeholder="Select a diamond" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diamonds.map(d => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <Button 
+                type="button" 
+                onClick={handleBulkApply} 
+                data-testid="button-bulk-apply"
+              >
+                Apply to Slots
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             {slots.map((slot) => {
