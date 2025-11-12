@@ -613,44 +613,42 @@ export class DatabaseStorage implements IStorage {
                 sql`${games.isPlayoff} = true`
               ));
             
-            // Convert to the format expected by updateBracketProgression
-            const bracketGames = allPlayoffGames.map(({ game: g }) => ({
-              tournamentId: g.tournamentId,
-              divisionId: divisionId,
-              round: g.playoffRound || 1,
-              gameNumber: g.playoffGameNumber || 1,
-              bracket: (g.playoffBracket || 'winners') as 'winners' | 'losers' | 'championship',
-              team1Id: g.homeTeamId,
-              team2Id: g.awayTeamId,
-              team1Source: g.team1Source as any,
-              team2Source: g.team2Source as any,
-            }));
-            
-            // Update bracket progression
-            const updatedBracketGames = updateBracketProgression(
-              bracketGames,
-              updatedGame.playoffGameNumber,
-              winnerId,
-              loserId
-            );
-            
-            // Update affected games in database
-            for (const bracketGame of updatedBracketGames) {
-              const gameToUpdate = allPlayoffGames.find(
-                ({ game: g }) => g.playoffRound === bracketGame.round && 
-                                 g.playoffGameNumber === bracketGame.gameNumber
-              );
+            // Find and update next bracket games that depend on this game's winner
+            for (const { game: nextGame } of allPlayoffGames) {
+              let shouldUpdate = false;
+              let newHomeTeamId = nextGame.homeTeamId;
+              let newAwayTeamId = nextGame.awayTeamId;
               
-              if (gameToUpdate && (
-                gameToUpdate.game.homeTeamId !== bracketGame.team1Id || 
-                gameToUpdate.game.awayTeamId !== bracketGame.team2Id
-              )) {
+              // Check if home team comes from the completed game
+              if (nextGame.team1Source) {
+                const source = nextGame.team1Source as any;
+                if (source.type === 'winner' && 
+                    source.gameNumber === updatedGame.playoffGameNumber && 
+                    source.round === updatedGame.playoffRound) {
+                  newHomeTeamId = winnerId;
+                  shouldUpdate = true;
+                }
+              }
+              
+              // Check if away team comes from the completed game
+              if (nextGame.team2Source) {
+                const source = nextGame.team2Source as any;
+                if (source.type === 'winner' && 
+                    source.gameNumber === updatedGame.playoffGameNumber && 
+                    source.round === updatedGame.playoffRound) {
+                  newAwayTeamId = winnerId;
+                  shouldUpdate = true;
+                }
+              }
+              
+              // Update the next game if needed
+              if (shouldUpdate) {
                 await tx.update(games)
                   .set({
-                    homeTeamId: bracketGame.team1Id,
-                    awayTeamId: bracketGame.team2Id
+                    homeTeamId: newHomeTeamId,
+                    awayTeamId: newAwayTeamId
                   })
-                  .where(eq(games.id, gameToUpdate.game.id));
+                  .where(eq(games.id, nextGame.id));
               }
             }
           }
@@ -1353,13 +1351,15 @@ export class DatabaseStorage implements IStorage {
         const existingGame = existingGameMap.get(slotKey);
 
         if (existingGame) {
-          // Update existing game (preserve team source metadata)
+          // Update existing game (preserve team source metadata AND playoff bracket position)
           const updatePayload: any = {
             date,
             time,
             diamondId,
             location: diamond.location,
             subVenue: diamond.name,
+            playoffRound: round,
+            playoffGameNumber: gameNumber,
           };
           
           // Add team source metadata from bracket structure
