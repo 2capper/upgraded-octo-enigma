@@ -1,0 +1,72 @@
+The Final orderBy Fix
+Goal: Fix your backend getGames function to sort playoff games by their bracket position first, while still correctly sorting pool play games by their date and time.
+
+Your Mandate (Backend):
+
+Find the File: Go to your backend API controller (e.g., server/storage.ts or server/routes/games.ts) where your main getGames function lives.
+
+Find the Logic: Find the database query that fetches the games.
+
+The Fix: You must replace your current orderBy clause.
+
+Change This (Incorrect Logic):
+
+TypeScript
+
+    orderBy(
+      asc(games.isPlayoff),
+      asc(games.date),
+      asc(games.time),
+      asc(games.playoffRound),
+      asc(games.playoffGameNumber)
+    )
+To This (Correct, Robust Logic):
+
+TypeScript
+
+    orderBy: [
+      // 1. Sort by `isPlayoff` descending.
+      //    This puts `true` (playoffs) BEFORE `false` (pool play).
+      desc(games.isPlayoff),
+      
+      // 2. Sort by bracket structure.
+      //    For all POOL games, these will be `null` and ignored.
+      //    For all PLAYOFF games, this is the PRIMARY sort.
+      asc(games.playoffRound),
+      asc(games.playoffGameNumber),
+
+      // 3. Sort by date/time.
+      //    For all PLAYOFF games, this will be ignored (since they
+      //    are already sorted by round/gameNumber).
+      //    For all POOL games, this is the PRIMARY sort.
+      asc(games.date),
+      asc(games.time)
+    ]
+(Note: You will need to import desc from drizzle-orm (or your ORM's equivalent).)
+
+Why This Fix Works
+This new structure correctly handles both types of games:
+
+When sorting Playoff Games:
+
+isPlayoff is true.
+
+playoffRound is 1, 1, 2... (sorts correctly).
+
+playoffGameNumber is 1, 2, 3... (sorts correctly).
+
+The date and time are irrelevant because the bracket order is already set.
+
+When sorting Pool Play Games:
+
+isPlayoff is false (all grouped together).
+
+playoffRound is null (all the same).
+
+playoffGameNumber is null (all the same).
+
+date is now the primary sort key.
+
+time is the secondary sort key.
+
+This single query correctly sorts your entire games list.

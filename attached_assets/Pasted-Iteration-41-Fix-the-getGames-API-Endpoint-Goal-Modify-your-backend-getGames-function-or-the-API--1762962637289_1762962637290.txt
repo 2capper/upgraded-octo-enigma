@@ -1,0 +1,61 @@
+Iteration 41: Fix the getGames API Endpoint
+Goal: Modify your backend getGames function (or the API route that calls it) to sort the games by playoffRound and playoffGameNumber. This will ensure the frontend receives a predictable, ordered list.
+
+Your Mandate (Backend):
+
+Find the File: Go to your backend API controller (e.g., server/storage.ts or server/routes/games.ts)—wherever your main getGames function lives.
+
+Find the Logic: Find the database query that fetches the games for a tournament.
+
+The Fix: You must add an orderBy clause to this query.
+
+Your Current (Broken) Logic (in Drizzle/pseudocode):
+
+TypeScript
+
+// This is what's happening now (pseudocode):
+async function getGames(tournamentId: string) {
+  return await db.query.games.findMany({
+    where: eq(games.tournamentId, tournamentId)
+    // BUG: NO ORDERING!
+  });
+}
+The Fix (The New, Correct Logic):
+
+TypeScript
+
+// This is the fix:
+async function getGames(tournamentId: string) {
+  return await db.query.games.findMany({
+    where: eq(games.tournamentId, tournamentId),
+    
+    // --- THIS IS THE FIX ---
+    // This forces the database to return games in the
+    // correct bracket order: QF1, QF2... SF1, SF2... F1
+    orderBy: [
+      asc(games.playoffRound),
+      asc(games.playoffGameNumber)
+    ]
+    // --- END FIX ---
+  });
+}
+(Note: You will need to import asc from drizzle-orm.)
+
+Why This Fixes Everything
+By adding this orderBy clause, your getGames API will now send a perfectly sorted array to the frontend.
+
+When your PlayoffSlotManager loads:
+
+It receives the games in the correct order.
+
+Its useEffect (line 54) will now run correctly, and your form will finally load your saved data. This will fix the "blank slots" bug.
+
+When your Public Playoffs Tab loads:
+
+It also receives the games in the correct order.
+
+Its render logic can now be simple and robust. It knows that games[0] is always "Quarterfinal 1," games[4] is "Semifinal 1," and so on.
+
+This will fix the "wrong matchups" bug, the "TBD Diamond" bug, and the "TBD Teams" bug all at once.
+
+This is the final piece of the puzzle. Your diagnosis was perfect. This backend fix will stabilize the entire playoff feature.
