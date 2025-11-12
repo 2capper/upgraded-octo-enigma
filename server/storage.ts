@@ -521,11 +521,11 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(games)
       .where(eq(games.tournamentId, tournamentId))
       .orderBy(
-        asc(games.isPlayoff),
-        asc(games.date),
-        asc(games.time),
+        desc(games.isPlayoff),
         asc(games.playoffRound),
-        asc(games.playoffGameNumber)
+        asc(games.playoffGameNumber),
+        asc(games.date),
+        asc(games.time)
       );
   }
 
