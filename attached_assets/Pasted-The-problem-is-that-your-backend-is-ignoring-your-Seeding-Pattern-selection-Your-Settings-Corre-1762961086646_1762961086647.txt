@@ -1,0 +1,126 @@
+The problem is that your backend is ignoring your "Seeding Pattern" selection.
+
+Your Settings (Correct):
+
+Playoff Format: "Top 8 Teams"
+
+Seeding Pattern: "Cross-Pool (Four Pools)"
+
+Your Code (shared/bracketStructure.ts):
+
+case 'top_8': (line 88) has the wrong generic bracket (1v8, 2v7, 3v6, 4v5).
+
+case 'cross_pool_4': (line 144) has the correct cross-pool bracket (1v6, 2v7, 3v5, 4v8).
+
+The Bug (In your generatePlayoffBracket API):
+
+Your backend API is being called.
+
+It looks at the tournament settings. It only reads the playoffFormat ("Top 8 Teams").
+
+It completely ignores the seedingPattern ("Cross-Pool (Four Pools)").
+
+It then calls getBracketStructure('top_8').
+
+This, of course, returns the wrong, generic bracket, and you get same-pool rematches.
+
+The "Seeding Pattern" dropdown is a placebo. It's not connected to the logic. We are going to fix this, and your bracketStructure.ts file is already 99% correct. We just need to make the API smarter.
+
+🚀 Iteration 40: Fix the Seeding Logic
+Goal: Modify the generatePlayoffBracket API to pass both the format and the pattern to getBracketStructure, and update getBracketStructure to use these two fields to make the correct decision.
+
+Your Mandate (Part 1: Backend API)
+
+Find the File: Go to your backend controller/storage file that contains the generatePlayoffBracket function.
+
+Find the Logic: Inside that function, find the line where it calls getBracketStructure.
+
+It currently looks like this (Incorrect):
+
+TypeScript
+
+// It's only passing one variable
+const slots = getBracketStructure(tournament.playoffFormat); 
+The Fix: You must pass the seedingPattern as a second argument.
+
+Change it to this:
+
+TypeScript
+
+// Pass BOTH variables
+const slots = getBracketStructure(tournament.playoffFormat, tournament.seedingPattern); 
+Your Mandate (Part 2: The "Instruction Manual")
+
+Now, we update the "instruction manual" (getBracketStructure) to accept and use this new argument.
+
+Find the File: Open shared/bracketStructure.ts.
+
+Find the Function (Line 10):
+
+Change the function signature to accept the new argument.
+
+Change This:
+
+TypeScript
+
+export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
+To This:
+
+TypeScript
+
+export function getBracketStructure(playoffFormat: string, seedingPattern?: string): PlayoffSlot[] {
+Find the switch statement (Line 11):
+
+We are going to delete the case 'cross_pool_4': block (line 144-190).
+
+We are going to move that logic inside the case 'top_8': block, behind an if statement.
+
+Replace your entire switch statement (lines 11-197) with this new, smarter version:
+
+TypeScript
+
+  switch (playoffFormat) {
+    case 'top_4':
+      return [
+        // ... (your existing 'top_4' logic, which is fine)
+      ];
+
+    case 'top_6':
+      return [
+        // ... (your existing 'top_6' logic, which is fine)
+      ];
+
+    case 'top_8':
+      // --- THIS IS THE NEW LOGIC ---
+      // Check if the special seeding pattern is used
+      if (seedingPattern === 'cross_pool_4') {
+        // This is your CORRECT logic from the old 'cross_pool_4' case
+        return [
+          { round: 1, gameNumber: 1, name: 'Quarter-Final 1 (A1 vs C2)', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 6 } },
+          { round: 1, gameNumber: 2, name: 'Quarter-Final 2 (B1 vs D2)', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 7 } },
+          { round: 1, gameNumber: 3, name: 'Quarter-Final 3 (C1 vs A2)', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 5 } },
+          { round: 1, gameNumber: 4, name: 'Quarter-Final 4 (D1 vs B2)', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 8 } },
+          { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'winner', gameNumber: 1, round: 1 }, awaySource: { type: 'winner', gameNumber: 2, round: 1 } },
+          { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'winner', gameNumber: 3, round: 1 }, awaySource: { type: 'winner', gameNumber: 4, round: 1 } },
+          { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 2 } }
+        ];
+      } 
+      
+      // This is the DEFAULT "Top 8" logic if no special pattern is used
+      return [
+        { round: 1, gameNumber: 1, name: 'Quarter-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 8 } },
+        { round: 1, gameNumber: 2, name: 'Quarter-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 7 } },
+        { round: 1, gameNumber: 3, name: 'Quarter-Final 3', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 6 } }, // The C1 vs C2 bug
+        { round: 1, gameNumber: 4, name: 'Quarter-Final 4', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 5 } }, // The D1 vs A2 bug
+        { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'winner', gameNumber: 1, round: 1 }, awaySource: { type: 'winner', gameNumber: 4, round: 1 } },
+        { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'winner', gameNumber: 2, round: 1 }, awaySource: { type: 'winner', gameNumber: 3, round: 1 } },
+        { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 2 } }
+      ];
+      // --- END OF NEW LOGIC ---
+
+    // We no longer need the 'cross_pool_4' case
+    // default:
+    //   return [];
+  }
+}
+(Note: You may need to fix the semifinal pairings in your cross_pool_4 logic (lines 177-182) to match the new QF game numbers, as I did in Iteration 39. Your version SF1 = QF1 vs QF2 and SF2 = QF3 vs QF4 is fine.)
