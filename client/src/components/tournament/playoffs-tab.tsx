@@ -31,7 +31,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   const [formState, setFormState] = useState<Record<string, SlotScheduleData>>({});
   const { timezone, isLoading: timezoneLoading } = useTournamentTimezone(tournament.id);
 
-  const slots = getBracketStructure(tournament.playoffFormat || 'top_8');
+  const slots = getBracketStructure(tournament.playoffFormat || 'top_8', tournament.seedingPattern || undefined);
 
   const { data: existingGames, isLoading: isLoadingGames } = useQuery<Game[]>({
     queryKey: ['/api/tournaments', tournament.id, 'games'],

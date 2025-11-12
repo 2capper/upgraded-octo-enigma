@@ -36,8 +36,8 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   // 1. Stabilize the slots array using useMemo
   // getBracketStructure returns a new array on every call, triggering useEffect
   const slots = useMemo(() => 
-    getBracketStructure(tournament.playoffFormat || 'top_8'),
-    [tournament.playoffFormat]
+    getBracketStructure(tournament.playoffFormat || 'top_8', tournament.seedingPattern || undefined),
+    [tournament.playoffFormat, tournament.seedingPattern]
   );
   
   // 2. Stabilize the queryKey using useMemo

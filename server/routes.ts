@@ -1863,7 +1863,7 @@ Waterdown 10U AA
     tournamentId: string,
     ageDivisionId: string
   ) {
-    const bracketStructure = getBracketStructure(playoffFormat);
+    const bracketStructure = getBracketStructure(playoffFormat, seedingPattern);
     
     const games = bracketStructure.map(slot => {
       const game: any = {

@@ -6,7 +6,7 @@ export interface PlayoffSlot {
   awaySource: { type: 'seed'; rank: number } | { type: 'winner'; gameNumber: number; round: number };
 }
 
-export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
+export function getBracketStructure(playoffFormat: string, seedingPattern?: string): PlayoffSlot[] {
   switch (playoffFormat) {
     case 'top_4':
       return [
@@ -73,6 +73,60 @@ export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
       ];
 
     case 'top_8':
+      if (seedingPattern === 'cross_pool_4') {
+        return [
+          {
+            round: 1,
+            gameNumber: 1,
+            name: 'Quarter-Final 1 (A1 vs C2)',
+            homeSource: { type: 'seed', rank: 1 },
+            awaySource: { type: 'seed', rank: 6 }
+          },
+          {
+            round: 1,
+            gameNumber: 2,
+            name: 'Quarter-Final 2 (B1 vs D2)',
+            homeSource: { type: 'seed', rank: 2 },
+            awaySource: { type: 'seed', rank: 7 }
+          },
+          {
+            round: 1,
+            gameNumber: 3,
+            name: 'Quarter-Final 3 (C1 vs A2)',
+            homeSource: { type: 'seed', rank: 3 },
+            awaySource: { type: 'seed', rank: 5 }
+          },
+          {
+            round: 1,
+            gameNumber: 4,
+            name: 'Quarter-Final 4 (D1 vs B2)',
+            homeSource: { type: 'seed', rank: 4 },
+            awaySource: { type: 'seed', rank: 8 }
+          },
+          {
+            round: 2,
+            gameNumber: 1,
+            name: 'Semi-Final 1',
+            homeSource: { type: 'winner', gameNumber: 1, round: 1 },
+            awaySource: { type: 'winner', gameNumber: 2, round: 1 }
+          },
+          {
+            round: 2,
+            gameNumber: 2,
+            name: 'Semi-Final 2',
+            homeSource: { type: 'winner', gameNumber: 3, round: 1 },
+            awaySource: { type: 'winner', gameNumber: 4, round: 1 }
+          },
+          {
+            round: 3,
+            gameNumber: 1,
+            name: 'Final',
+            homeSource: { type: 'winner', gameNumber: 1, round: 2 },
+            awaySource: { type: 'winner', gameNumber: 2, round: 2 }
+          }
+        ];
+      }
+      
       return [
         {
           round: 1,
@@ -115,59 +169,6 @@ export function getBracketStructure(playoffFormat: string): PlayoffSlot[] {
           name: 'Semi-Final 2',
           homeSource: { type: 'winner', gameNumber: 2, round: 1 },
           awaySource: { type: 'winner', gameNumber: 3, round: 1 }
-        },
-        {
-          round: 3,
-          gameNumber: 1,
-          name: 'Final',
-          homeSource: { type: 'winner', gameNumber: 1, round: 2 },
-          awaySource: { type: 'winner', gameNumber: 2, round: 2 }
-        }
-      ];
-
-    case 'cross_pool_4':
-      return [
-        {
-          round: 1,
-          gameNumber: 1,
-          name: 'Quarter-Final 1 (A1 vs C2)',
-          homeSource: { type: 'seed', rank: 1 },
-          awaySource: { type: 'seed', rank: 6 }
-        },
-        {
-          round: 1,
-          gameNumber: 2,
-          name: 'Quarter-Final 2 (B1 vs D2)',
-          homeSource: { type: 'seed', rank: 2 },
-          awaySource: { type: 'seed', rank: 7 }
-        },
-        {
-          round: 1,
-          gameNumber: 3,
-          name: 'Quarter-Final 3 (C1 vs A2)',
-          homeSource: { type: 'seed', rank: 3 },
-          awaySource: { type: 'seed', rank: 5 }
-        },
-        {
-          round: 1,
-          gameNumber: 4,
-          name: 'Quarter-Final 4 (D1 vs B2)',
-          homeSource: { type: 'seed', rank: 4 },
-          awaySource: { type: 'seed', rank: 8 }
-        },
-        {
-          round: 2,
-          gameNumber: 1,
-          name: 'Semi-Final 1',
-          homeSource: { type: 'winner', gameNumber: 1, round: 1 },
-          awaySource: { type: 'winner', gameNumber: 2, round: 1 }
-        },
-        {
-          round: 2,
-          gameNumber: 2,
-          name: 'Semi-Final 2',
-          homeSource: { type: 'winner', gameNumber: 3, round: 1 },
-          awaySource: { type: 'winner', gameNumber: 4, round: 1 }
         },
         {
           round: 3,
