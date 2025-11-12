@@ -1,0 +1,84 @@
+Iteration 43: Fix the Score Entry Labels
+Goal: Refactor the score entry form (hierarchical-score-input.tsx) to use dynamic team names (e.g., "Leamington Score") as labels instead of the ambiguous "Home Score" and "Away Score".
+
+Your Mandate (Frontend):
+
+I need you to open the file that renders your score input form. Based on your previous error logs, it's this one: File: hierarchical-score-input.tsx
+
+1. Pre-Check: Identify the Component & Data
+
+Open hierarchical-score-input.tsx.
+
+At the top of the component, find the props. You are almost certainly passing in a game object.
+
+Confirm: This game object must contain the team names (e.g., game.homeTeam.name and game.awayTeam.name). If it doesn't, you will first need to adjust the useQuery that fetches the game to join or include the team data. I'll assume for now you have this data.
+
+2. Step-by-Step: Change the Labels
+
+This is a simple, low-risk UI change. We are only changing the <Label> component text, not the Input's onChange handler.
+
+Find the JSX for the "Home Score" input (around line 49 in your screenshot, but likely later in the file).
+
+Change This (Ambiguous):
+
+JavaScript
+
+<div>
+  <Label htmlFor="homeScore">Home Score</Label>
+  <Input
+    id="homeScore"
+    value={homeScore}
+    onChange={(e) => setHomeScore(e.target.value)}
+    // ...
+  />
+</div>
+To This (Clear & Dynamic):
+
+JavaScript
+
+<div>
+  {/* --- THIS IS THE FIX --- */}
+  <Label htmlFor="homeScore">
+    {game.homeTeam?.name || 'Home'} Score
+  </Label>
+  {/* --- END FIX --- */}
+  <Input
+    id="homeScore"
+    value={homeScore}
+    onChange={(e) => setHomeScore(e.target.value)}
+    // ...
+  />
+</div>
+Now, find the JSX for the "Away Score" input (around line 52).
+
+Change This (Ambiguous):
+
+JavaScript
+
+<div>
+  <Label htmlFor="awayScore">Away Score</Label>
+  <Input
+    id="awayScore"
+    value={awayScore}
+    onChange={(e) => setAwayScore(e.target.value)}
+    // ...
+  />
+</div>
+To This (Clear & Dynamic):
+
+JavaScript
+
+<div>
+  {/* --- THIS IS THE FIX --- */}
+  <Label htmlFor="awayScore">
+    {game.awayTeam?.name || 'Away'} Score
+  </Label>
+  {/* --- END FIX --- */}
+  <Input
+    id="awayScore"
+    value={awayScore}
+    onChange={(e) => setAwayScore(e.target.value)}
+    // ...
+  />
+</div>
+(Note: We do the same for the "Innings Batted" labels as well, replacing "Home Innings Batted" with {game.homeTeam?.name || 'Home'} Innings Batted.)
