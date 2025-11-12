@@ -1,0 +1,79 @@
+Iteration 28: Fix the Org Settings UI
+Now we can move on to the next priority you set: polishing the Org Settings page.
+
+Your diagnosis was perfect: it's a "really long scroll" that makes the page feel cheap and hard to use. We'll fix this by wrapping each organization's settings in an <Accordion> component. This will create a clean, "one-at-a-time" view.
+
+Your Mandate (Frontend):
+
+I need you to find the file that renders the list of organization settings. It's probably something like OrganizationSettingsPage.tsx or AdminOrgs.tsx.
+
+Pre-Check: Verify the Current State
+
+Open your Org Settings page in the app.
+
+Confirm: You see a long list of organizations, with all of their settings (forms, inputs, etc.) visible at once, forcing you to scroll.
+
+Step-by-Step: Implement the <Accordion>
+
+Find the file that renders this list (e.g., OrganizationSettingsPage.tsx).
+
+You'll need to import the Accordion components from shadcn/ui:
+
+JavaScript
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+Find the .map() loop that renders each organization.
+
+Your Current (Broken) Logic probably looks like this:
+
+JavaScript
+
+// ... fetching organizations ...
+
+return (
+  <div className="space-y-6">
+    {organizations.map(org => (
+      <Card key={org.id}>
+        <CardHeader>
+          <CardTitle>{org.name}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* A HUGE FORM with all the org settings is in here */}
+          <OrganizationSettingsForm org={org} />
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+Replace that entire block with this new, Accordion-based logic:
+
+JavaScript
+
+// ... fetching organizations ...
+
+return (
+  <Accordion type="single" collapsible className="w-full space-y-4">
+    {organizations.map(org => (
+      <AccordionItem key={org.id} value={org.id} className="border-none">
+        <Card className="overflow-hidden">
+          <AccordionTrigger className="flex w-full items-center justify-between p-6 hover:no-underline hover:bg-gray-50 dark:hover:bg-gray-800">
+            {/* This is the "header" that is always visible */}
+            <CardTitle>{org.name}</CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            {/* This is the "body" that is hidden until clicked */}
+            <CardContent className="pt-0">
+              {/* The full settings form goes here */}
+              <OrganizationSettingsForm org={org} />
+            </CardContent>
+          </AccordionContent>
+        </Card>
+      </AccordionItem>
+    ))}
+  </Accordion>
+);
