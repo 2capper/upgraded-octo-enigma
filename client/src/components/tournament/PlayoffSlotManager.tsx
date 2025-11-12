@@ -14,6 +14,25 @@ import { getBracketStructure } from '@shared/bracketStructure';
 import { useTournamentTimezone } from '@/hooks/useTournamentTimezone';
 import { fromZonedTime, toZonedTime, format as formatTz } from 'date-fns-tz';
 
+/**
+ * Generates an array of 15-minute time slots for a 24-hour day.
+ * e.g., ["08:00", "08:15", "08:30", "08:45", ...]
+ */
+function generateTimeSlots(): string[] {
+  const slots: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hour = String(h).padStart(2, '0');
+      const minute = String(m).padStart(2, '0');
+      slots.push(`${hour}:${minute}`);
+    }
+  }
+  return slots;
+}
+
+// Pre-calculate time slots once to avoid regenerating on every render
+const FIFTEEN_MINUTE_SLOTS = generateTimeSlots();
+
 interface SlotScheduleData {
   date: string;
   time: string;
@@ -269,14 +288,21 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
                       <Label htmlFor={`${slotKey}-time`} className="flex items-center gap-1">
                         <Clock className="w-4 h-4" /> Time
                       </Label>
-                      <Input
-                        id={`${slotKey}-time`}
-                        type="time"
+                      <Select
                         value={value.time}
-                        onChange={(e) => handleSlotChange(slotKey, 'time', e.target.value)}
-                        data-testid={`input-${slotKey}-time`}
-                        step="900"
-                      />
+                        onValueChange={(val) => handleSlotChange(slotKey, 'time', val)}
+                      >
+                        <SelectTrigger id={`${slotKey}-time`} data-testid={`select-${slotKey}-time`}>
+                          <SelectValue placeholder="Select a time" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {FIFTEEN_MINUTE_SLOTS.map(timeSlot => (
+                            <SelectItem key={timeSlot} value={timeSlot}>
+                              {timeSlot}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`${slotKey}-diamond`} className="flex items-center gap-1">
