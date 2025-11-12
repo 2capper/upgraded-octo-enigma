@@ -7,6 +7,7 @@ import type { Tournament, Diamond, AgeDivision, Game, Team, Pool } from '@shared
 import { CrossPoolBracketView } from './cross-pool-bracket-view';
 import { PlayoffBracketPreview } from './playoff-bracket-preview';
 import { getTeamSourceLabel } from '@shared/seedLabels';
+import { calculateStats, resolveTie } from '@shared/standings';
 import { format } from 'date-fns';
 
 interface PublicPlayoffsTabProps {
@@ -115,19 +116,71 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
           })
         );
         
-        const playoffTeams = divisionTeams
-          .filter(t => playoffTeamIds.has(t.id))
-          .map(t => ({
+        // Calculate stats for all division teams (including non-playoff teams for accurate stats)
+        const allDivisionTeamsWithStats = divisionTeams.map(t => {
+          const stats = calculateStats(t.id, games);
+          const points = (stats.wins * 2) + (stats.ties * 1);
+          return {
             id: t.id,
             name: t.name,
             poolName: teamPoolMap.get(t.id),
-            poolRank: undefined, // Not stored on teams table
-            wins: 0,
-            losses: 0,
-            ties: 0,
-            points: 0,
-            runsFor: 0,
-            runsAgainst: 0,
+            poolId: t.poolId,
+            wins: stats.wins,
+            losses: stats.losses,
+            ties: stats.ties,
+            points,
+            runsFor: stats.runsFor,
+            runsAgainst: stats.runsAgainst,
+            offensiveInnings: stats.offensiveInnings,
+            defensiveInnings: stats.defensiveInnings,
+            forfeitLosses: stats.forfeitLosses,
+            runsForPerInning: stats.offensiveInnings > 0 ? stats.runsFor / stats.offensiveInnings : 0,
+            runsAgainstPerInning: stats.defensiveInnings > 0 ? stats.runsAgainst / stats.defensiveInnings : 0,
+          };
+        });
+
+        // Calculate pool rankings using tie-breaker logic
+        const poolRankings = new Map<string, number>();
+        const divisionPools = poolsForStandings.filter(p => p.ageDivisionId === division.id);
+        
+        divisionPools.forEach(pool => {
+          const poolTeams = allDivisionTeamsWithStats.filter(t => t.poolId === pool.id);
+          
+          // Group teams by points for tie-breaking
+          const groups = poolTeams.reduce((acc, team) => {
+            const pts = team.points;
+            if (!acc[pts]) acc[pts] = [];
+            acc[pts].push(team);
+            return acc;
+          }, {} as Record<number, typeof allDivisionTeamsWithStats>);
+          
+          // Sort and resolve ties
+          const rankedTeams: typeof allDivisionTeamsWithStats = [];
+          Object.keys(groups)
+            .map(Number)
+            .sort((a, b) => b - a)
+            .forEach(pts => {
+              const tied = groups[pts];
+              if (tied.length === 1) {
+                rankedTeams.push(tied[0]);
+              } else {
+                const resolved = resolveTie(tied, games);
+                rankedTeams.push(...resolved);
+              }
+            });
+          
+          // Assign pool ranks
+          rankedTeams.forEach((team, index) => {
+            poolRankings.set(team.id, index + 1);
+          });
+        });
+
+        // Filter to only playoff teams and add pool rank
+        const playoffTeams = allDivisionTeamsWithStats
+          .filter(t => playoffTeamIds.has(t.id))
+          .map(t => ({
+            ...t,
+            poolRank: poolRankings.get(t.id),
           }));
 
         // Check if this is a cross-pool bracket

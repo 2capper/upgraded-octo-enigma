@@ -24,6 +24,8 @@ interface CrossPoolBracketViewProps {
     points: number;
     runsFor: number;
     runsAgainst: number;
+    runsForPerInning?: number;
+    runsAgainstPerInning?: number;
   }>;
   onGameClick: (game: Game) => void;
   primaryColor?: string;
@@ -44,6 +46,8 @@ interface PoolStandings {
     points: number;
     runsFor: number;
     runsAgainst: number;
+    runsForPerInning?: number;
+    runsAgainstPerInning?: number;
   }>;
 }
 
@@ -295,6 +299,12 @@ export function CrossPoolBracketView({
                       <span>RF: {team.runsFor}</span>
                       <span>RA: {team.runsAgainst}</span>
                     </div>
+                    {(team.runsForPerInning !== undefined || team.runsAgainstPerInning !== undefined) && (
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>RF/IN: {team.runsForPerInning?.toFixed(2) || '0.00'}</span>
+                        <span>RA/IN: {team.runsAgainstPerInning?.toFixed(2) || '0.00'}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
