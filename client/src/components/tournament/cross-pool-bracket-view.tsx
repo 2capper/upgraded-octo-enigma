@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Trophy, Medal, ChevronDown, ArrowRight } from 'lucide-react';
+import { Trophy, Medal, ChevronDown, ArrowRight, MapPin } from 'lucide-react';
 import { Game, Team, Diamond } from '@shared/schema';
 import { getTeamSourceLabel } from '@shared/seedLabels';
 import {
@@ -249,12 +249,22 @@ export function CrossPoolBracketView({
 
         {/* Game Info */}
         <div className="px-4 pb-3 pt-2 border-t border-white/20">
-          <div className="text-xs text-white/70">
+          <div className="text-xs text-white/70 space-y-1">
             {game.date && game.time ? (
               <>
-                {game.date} • {game.time}
-                {game.diamondId && (
-                  <> • {diamondMap.get(game.diamondId) || 'Diamond TBD'}</>
+                <div>{game.date} • {game.time}</div>
+                {(game.subVenue || game.location || game.diamondId) && (
+                  <div className="flex items-start gap-1">
+                    <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span>
+                      {game.subVenue && <span className="font-semibold">{game.subVenue}</span>}
+                      {!game.subVenue && game.diamondId && (
+                        <span className="font-semibold">{diamondMap.get(game.diamondId) || 'Diamond'}</span>
+                      )}
+                      {(game.subVenue || game.diamondId) && game.location && <span> - </span>}
+                      {game.location}
+                    </span>
+                  </div>
                 )}
               </>
             ) : (

@@ -291,10 +291,25 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
                         </SelectTrigger>
                         <SelectContent>
                           {diamonds.map(d => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                            <SelectItem key={d.id} value={d.id}>
+                              <div className="flex flex-col">
+                                <span className="font-semibold">{d.name}</span>
+                                {d.location && (
+                                  <span className="text-xs text-muted-foreground">{d.location}</span>
+                                )}
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {value.diamondId && (() => {
+                        const selectedDiamond = diamonds.find(d => d.id === value.diamondId);
+                        return selectedDiamond?.location ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {selectedDiamond.location}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>

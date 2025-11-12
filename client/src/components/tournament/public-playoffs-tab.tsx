@@ -262,10 +262,17 @@ export function PublicPlayoffsTab({ tournamentId, tournament, ageDivisions, team
                                   <Clock className="w-4 h-4" />
                                   {game.time || 'TBD'}
                                 </div>
-                                {diamond && (
-                                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <MapPin className="w-4 h-4" />
-                                    {diamond.name}
+                                {(game.subVenue || game.location || diamond) && (
+                                  <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    <span>
+                                      {game.subVenue && <span className="font-semibold">{game.subVenue}</span>}
+                                      {!game.subVenue && diamond && (
+                                        <span className="font-semibold">{diamond.name}</span>
+                                      )}
+                                      {(game.subVenue || diamond) && game.location && <span> - </span>}
+                                      {game.location}
+                                    </span>
                                   </div>
                                 )}
                               </div>
