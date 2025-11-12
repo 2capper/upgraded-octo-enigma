@@ -1273,7 +1273,9 @@ export class DatabaseStorage implements IStorage {
     const diamondMap = new Map(orgDiamonds.map(d => [d.id, d]));
 
     // Pre-validation: Get bracket structure
-    const bracketStructure = getBracketStructure(tournament.playoffFormat || 'top_8');
+    // Use seedingPattern if it's a special cross-pool format, otherwise use playoffFormat
+    const format = tournament.seedingPattern === 'cross_pool_4' ? 'cross_pool_4' : (tournament.playoffFormat || 'top_8');
+    const bracketStructure = getBracketStructure(format);
     if (bracketStructure.length === 0) {
       throw new ValidationError(`Unsupported playoff format: ${tournament.playoffFormat}`);
     }
