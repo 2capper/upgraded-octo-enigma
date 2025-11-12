@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useForm } from 'react-hook-form';
@@ -2162,105 +2163,109 @@ export function OrganizationSettings() {
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-6">
+      <Accordion type="single" collapsible className="w-full space-y-4">
         {organizations.map((org) => (
-          <Card key={org.id} className="border-2" data-testid={`card-org-${org.slug}`}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 flex-1">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Building2 className="w-5 h-5" />
-                    {org.name}
-                  </CardTitle>
-                  <CardDescription className="text-base">
-                    {org.description || 'No description provided'}
-                  </CardDescription>
-                </div>
-                <EditOrganizationDialog
-                  organization={org}
-                  onSuccess={() => {
-                    // Callback after successful update
-                  }}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Timezone Display */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      Timezone
-                    </div>
-                    <p className="text-sm font-mono" data-testid={`text-timezone-${org.slug}`}>
-                      {org.timezone || 'America/Toronto'}
-                    </p>
-                  </div>
-
-                  {/* Colors Display */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Palette className="w-4 h-4" />
-                      Default Colors
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <div
-                        className="w-8 h-8 rounded border"
-                        style={{ backgroundColor: org.defaultPrimaryColor || '#22c55e' }}
-                        title="Primary"
-                        data-testid={`color-primary-${org.slug}`}
-                      />
-                      <div
-                        className="w-8 h-8 rounded border"
-                        style={{ backgroundColor: org.defaultSecondaryColor || '#ffffff' }}
-                        title="Secondary"
-                        data-testid={`color-secondary-${org.slug}`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Playoff Format Display */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Trophy className="w-4 h-4" />
-                      Default Playoff Format
-                    </div>
-                    <p className="text-sm" data-testid={`text-playoff-format-${org.slug}`}>
-                      {poolPlayFormats.find(f => f.value === org.defaultPlayoffFormat)?.label || 'Top 6 Teams'}
-                    </p>
+          <AccordionItem key={org.id} value={String(org.id)} className="border-none">
+            <Card className="overflow-hidden" data-testid={`card-org-${org.slug}`}>
+              <AccordionTrigger className="flex w-full items-center justify-between p-6 hover:no-underline hover:bg-gray-50 dark:hover:bg-gray-800">
+                <div className="flex items-center gap-3 flex-1">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <div className="space-y-1 text-left">
+                    <CardTitle className="text-xl">{org.name}</CardTitle>
+                    <CardDescription className="text-base">
+                      {org.description || 'No description provided'}
+                    </CardDescription>
                   </div>
                 </div>
-
-                {/* Diamonds Management Section */}
-                <div className="pt-4 border-t">
-                  <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
+                <div onClick={(e) => e.stopPropagation()} className="ml-4">
+                  <EditOrganizationDialog
+                    organization={org}
+                    onSuccess={() => {
+                      // Callback after successful update
+                    }}
+                  />
                 </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CardContent className="pt-0 pb-6">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Timezone Display */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          Timezone
+                        </div>
+                        <p className="text-sm font-mono" data-testid={`text-timezone-${org.slug}`}>
+                          {org.timezone || 'America/Toronto'}
+                        </p>
+                      </div>
 
-                {/* Coordinators Management Section */}
-                <div className="pt-4 border-t">
-                  <CoordinatorsManagement organizationId={org.id} />
-                </div>
+                      {/* Colors Display */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <Palette className="w-4 h-4" />
+                          Default Colors
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <div
+                            className="w-8 h-8 rounded border"
+                            style={{ backgroundColor: org.defaultPrimaryColor || '#22c55e' }}
+                            title="Primary"
+                            data-testid={`color-primary-${org.slug}`}
+                          />
+                          <div
+                            className="w-8 h-8 rounded border"
+                            style={{ backgroundColor: org.defaultSecondaryColor || '#ffffff' }}
+                            title="Secondary"
+                            data-testid={`color-secondary-${org.slug}`}
+                          />
+                        </div>
+                      </div>
 
-                {/* Coach Invitations Management Section */}
-                <div className="pt-4 border-t">
-                  <CoachInvitationsManagement organizationId={org.id} />
-                </div>
+                      {/* Playoff Format Display */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <Trophy className="w-4 h-4" />
+                          Default Playoff Format
+                        </div>
+                        <p className="text-sm" data-testid={`text-playoff-format-${org.slug}`}>
+                          {poolPlayFormats.find(f => f.value === org.defaultPlayoffFormat)?.label || 'Top 6 Teams'}
+                        </p>
+                      </div>
+                    </div>
 
-                {/* iCal Feeds Management Section */}
-                <div className="pt-4 border-t">
-                  <ICalFeedManagement organizationId={org.id} />
-                </div>
+                    {/* Diamonds Management Section */}
+                    <div className="pt-4 border-t">
+                      <DiamondManagement organizationId={org.id} organizationSlug={org.slug} />
+                    </div>
 
-                {/* Diamond Restrictions Management Section */}
-                <div className="pt-4 border-t">
-                  <DiamondRestrictionManagement organizationId={org.id} organizationSlug={org.slug} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    {/* Coordinators Management Section */}
+                    <div className="pt-4 border-t">
+                      <CoordinatorsManagement organizationId={org.id} />
+                    </div>
+
+                    {/* Coach Invitations Management Section */}
+                    <div className="pt-4 border-t">
+                      <CoachInvitationsManagement organizationId={org.id} />
+                    </div>
+
+                    {/* iCal Feeds Management Section */}
+                    <div className="pt-4 border-t">
+                      <ICalFeedManagement organizationId={org.id} />
+                    </div>
+
+                    {/* Diamond Restrictions Management Section */}
+                    <div className="pt-4 border-t">
+                      <DiamondRestrictionManagement organizationId={org.id} organizationSlug={org.slug} />
+                    </div>
+                  </div>
+                </CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
         ))}
-      </div>
+      </Accordion>
     </div>
   );
 }
