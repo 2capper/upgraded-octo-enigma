@@ -1222,13 +1222,21 @@ export class DatabaseStorage implements IStorage {
         // Note: type === 'winner' will be resolved as games complete (not handled here)
       }
 
-      // Update the game with team assignments (preserve all other metadata including source fields)
+      // Update the game with team assignments (preserve all other metadata including source fields and scheduling)
       const [updatedGame] = await db.update(games)
         .set({
           homeTeamId: newHomeTeamId,
           awayTeamId: newAwayTeamId,
           team1Source: slot.team1Source,
           team2Source: slot.team2Source,
+          // Explicitly preserve scheduling fields to ensure they're not lost
+          date: slot.date,
+          time: slot.time,
+          diamondId: slot.diamondId,
+          location: slot.location,
+          subVenue: slot.subVenue,
+          playoffRound: slot.playoffRound,
+          playoffGameNumber: slot.playoffGameNumber,
         })
         .where(eq(games.id, slot.id))
         .returning();
