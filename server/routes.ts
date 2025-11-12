@@ -2855,6 +2855,153 @@ Waterdown 10U AA
     }
   });
 
+  // End of Pool Play standings report (division-scoped to ensure seeding parity)
+  app.get("/api/tournaments/:tournamentId/standings-report", requireAdmin, async (req, res) => {
+    try {
+      const tournamentId = req.params.tournamentId;
+      const divisionId = req.query.divisionId as string;
+      
+      if (!divisionId) {
+        return res.status(400).json({ 
+          error: "Division ID is required. Please specify divisionId query parameter." 
+        });
+      }
+      
+      // Fetch all necessary data
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      // Check for playoff configuration
+      if (!tournament.playoffFormat || !tournament.seedingPattern) {
+        return res.status(400).json({ 
+          error: "Tournament playoff format or seeding pattern not configured. Please configure these settings first." 
+        });
+      }
+      
+      // Get the specified division
+      const division = await storage.getAgeDivision(divisionId);
+      if (!division || division.tournamentId !== tournamentId) {
+        return res.status(404).json({ 
+          error: "Division not found or does not belong to this tournament" 
+        });
+      }
+      
+      // Get all pools in this division (same scoping as generatePlayoffBracket)
+      const allPools = await storage.getPools(tournamentId);
+      const divisionPools = allPools.filter(p => p.ageDivisionId === division.id);
+      const regularPools = divisionPools.filter(p => !p.name.toLowerCase().includes('playoff'));
+      
+      if (regularPools.length === 0) {
+        return res.status(400).json({ 
+          error: "No regular pools found for standings calculation" 
+        });
+      }
+      
+      // Get teams in this division
+      const allTeams = await storage.getTeams(tournamentId);
+      const regularPoolIds = regularPools.map(p => p.id);
+      const divisionTeams = allTeams.filter(t => regularPoolIds.includes(t.poolId));
+      
+      if (divisionTeams.length === 0) {
+        return res.status(400).json({ 
+          error: "No teams found in division" 
+        });
+      }
+      
+      // Get only completed pool play games for this division (same as generatePlayoffBracket)
+      const allGames = await storage.getGames(tournamentId);
+      const teamIds = divisionTeams.map(t => t.id);
+      const poolPlayGames = allGames.filter(g => 
+        g.status === 'completed' &&
+        g.isPlayoff === false && 
+        teamIds.includes(g.homeTeamId) && teamIds.includes(g.awayTeamId)
+      );
+      
+      // Step 1: Calculate standings within each pool using shared helper
+      const poolStandingsData = regularPools.map(pool => {
+        const poolTeams = divisionTeams.filter(t => t.poolId === pool.id);
+        const poolTeamIds = poolTeams.map(t => t.id);
+        
+        // Filter games to only include those where BOTH teams are in this pool
+        const poolGames = poolPlayGames.filter(g => 
+          poolTeamIds.includes(g.homeTeamId) && poolTeamIds.includes(g.awayTeamId)
+        );
+        
+        const standings = calculateStandingsWithTiebreaking(poolTeams, poolGames);
+        return {
+          pool,
+          standings,
+        };
+      });
+      
+      // Step 2: Prepare standings for global seeding (pool-specific ranks)
+      const standingsForSeeding = poolStandingsData.flatMap(({ pool, standings }) =>
+        standings.map(s => ({
+          teamId: s.teamId,
+          rank: s.rank, // Pool-specific rank
+          poolId: s.poolId,
+          poolName: pool.name,
+        }))
+      );
+      
+      // Step 3: Get globally seeded teams using actual playoff seeding logic
+      // Pass the count of non-playoff division pools (EXACTLY as generatePlayoffBracket does)
+      const seededTeams = getPlayoffTeamsFromStandings(
+        standingsForSeeding,
+        tournament.playoffFormat,
+        tournament.seedingPattern as any,
+        divisionPools.filter(p => !p.name.toLowerCase().includes('playoff')).length
+      );
+      
+      if (seededTeams.length === 0) {
+        return res.status(400).json({ 
+          error: "No playoff teams could be determined from current standings" 
+        });
+      }
+      
+      // Step 4: Build lookup map for efficient stat retrieval
+      const statsMap = new Map();
+      poolStandingsData.forEach(({ standings }) => {
+        standings.forEach(standing => {
+          statsMap.set(standing.teamId, standing);
+        });
+      });
+      
+      // Step 5: Enrich seeded teams with full stats and format for display
+      const standingsReport = seededTeams.map((seededTeam) => {
+        const stats = statsMap.get(seededTeam.teamId);
+        if (!stats) {
+          console.warn(`No stats found for team ${seededTeam.teamId}`);
+          return null;
+        }
+        
+        return {
+          rank: seededTeam.seed, // Global playoff seed
+          teamName: stats.teamName,
+          poolName: seededTeam.poolName || stats.poolId,
+          poolRank: seededTeam.poolRank || stats.rank,
+          record: `${stats.wins}-${stats.losses}-${stats.ties}`,
+          points: stats.points,
+          runsFor: stats.runsFor,
+          runsAgainst: stats.runsAgainst,
+          runDifferential: stats.runsFor - stats.runsAgainst,
+          tieBreaker_RunsAgainstPerInning: stats.defensiveInnings > 0 
+            ? (stats.runsAgainst / stats.defensiveInnings).toFixed(2) 
+            : 'N/A',
+          offensiveInnings: stats.offensiveInnings,
+          defensiveInnings: stats.defensiveInnings,
+        };
+      }).filter(Boolean); // Remove any null entries
+      
+      res.json(standingsReport);
+    } catch (error) {
+      console.error("Error generating standings report:", error);
+      res.status(500).json({ error: "Failed to generate standings report" });
+    }
+  });
+
   // Playoff bracket generation
   app.post("/api/tournaments/:tournamentId/divisions/:divisionId/generate-bracket", requireAdmin, async (req, res) => {
     try {

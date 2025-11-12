@@ -23,6 +23,7 @@ import { FeatureManagement } from '@/components/admin/feature-management';
 import { OrganizationSettings } from '@/components/admin/organization-settings';
 import { OrganizationAdminManagement } from '@/components/admin/organization-admin-management';
 import { OrganizationCreationForm } from '@/components/admin/organization-creation-form';
+import { EndOfPoolPlayReport } from '@/components/tournament/end-of-pool-play-report';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { isUnauthorizedError } from '@/lib/authUtils';
@@ -640,6 +641,11 @@ export default function AdminPortal() {
                   
                   <div className="border-t pt-6">
                     <h4 className="font-semibold mb-4" style={{ color: 'var(--deep-navy)' }}>Tournament Reports</h4>
+                    
+                    {/* End of Pool Play Report */}
+                    <div className="mb-6">
+                      <EndOfPoolPlayReport tournamentId={currentTournamentId} />
+                    </div>
                     
                     {/* Post-Pool Play Report */}
                     <div className="bg-white border border-[var(--card-border)] p-4 rounded mb-4">

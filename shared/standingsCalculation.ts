@@ -1,4 +1,5 @@
 import type { Team, Game } from './schema';
+import { calculateStats, resolveTie } from './standings';
 
 interface TeamStats {
   wins: number;
@@ -9,6 +10,24 @@ interface TeamStats {
   offensiveInnings: number;
   defensiveInnings: number;
   forfeitLosses: number;
+}
+
+export interface TeamStandingWithStats {
+  teamId: string;
+  teamName: string;
+  poolId: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  points: number;
+  runsFor: number;
+  runsAgainst: number;
+  offensiveInnings: number;
+  defensiveInnings: number;
+  runsAgainstPerInning: number;
+  runsForPerInning: number;
+  forfeitLosses: number;
+  rank: number;
 }
 
 interface TeamStanding {
@@ -109,4 +128,54 @@ export function calculateStandings(teams: Team[], games: Game[]): TeamStanding[]
   });
 
   return teamsWithStats;
+}
+
+export function calculateStandingsWithTiebreaking(teams: Team[], games: Game[]): TeamStandingWithStats[] {
+  // Calculate stats for each team
+  const teamStats = teams.map(team => {
+    const stats = calculateStats(team.id, games);
+    return {
+      id: team.id,
+      name: team.name,
+      poolId: team.poolId,
+      ...stats,
+      points: (stats.wins * 2) + (stats.ties * 1),
+      // Use Infinity for runsAgainstPerInning when no defensive innings (worst rank)
+      runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : Infinity,
+      // Use 0 for runsForPerInning when no offensive innings (worst rank)
+      runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
+    };
+  });
+
+  // Group teams by points for tie-breaking
+  const groups: Record<number, any[]> = {};
+  teamStats.forEach(team => {
+    const points = team.points;
+    if (!groups[points]) groups[points] = [];
+    groups[points].push(team);
+  });
+
+  // Sort groups by points descending, then resolve ties within each group using SP11.2
+  const sortedStandings = Object.keys(groups)
+    .sort((a, b) => Number(b) - Number(a))
+    .flatMap(points => resolveTie(groups[Number(points)], games));
+
+  // Assign ranks and convert to output format
+  return sortedStandings.map((team, index) => ({
+    teamId: team.id,
+    teamName: team.name,
+    poolId: team.poolId,
+    wins: team.wins,
+    losses: team.losses,
+    ties: team.ties,
+    points: team.points,
+    runsFor: team.runsFor,
+    runsAgainst: team.runsAgainst,
+    offensiveInnings: team.offensiveInnings,
+    defensiveInnings: team.defensiveInnings,
+    runsAgainstPerInning: team.runsAgainstPerInning,
+    runsForPerInning: team.runsForPerInning,
+    forfeitLosses: team.forfeitLosses,
+    rank: index + 1,
+  }));
 }

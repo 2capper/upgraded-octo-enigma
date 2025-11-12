@@ -72,6 +72,7 @@ import { db } from "./db";
 import { eq, and, sql, inArray, desc, asc } from "drizzle-orm";
 import { generateBracketGames, getPlayoffTeamsFromStandings, updateBracketProgression } from "@shared/bracketGeneration";
 import { calculateStats, resolveTie } from "@shared/standings";
+import { calculateStandingsWithTiebreaking } from "@shared/standingsCalculation";
 import { withRetry } from "./dbRetry";
 
 export interface IStorage {
@@ -1063,45 +1064,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(games).where(eq(games.tournamentId, tournamentId));
   }
 
-  // Helper function to calculate standings using SP11.2 tie-breaking rules
-  private calculateStandingsWithTiebreaking(teams: Team[], games: Game[]): Array<{ teamId: string; teamName: string; poolId: string; rank: number }> {
-    // Calculate stats for each team
-    const teamStats = teams.map(team => {
-      const stats = calculateStats(team.id, games);
-      return {
-        id: team.id,
-        name: team.name,
-        poolId: team.poolId,
-        ...stats,
-        points: (stats.wins * 2) + (stats.ties * 1),
-        // Use Infinity for runsAgainstPerInning when no defensive innings (worst rank)
-        runsAgainstPerInning: stats.defensiveInnings > 0 ? (stats.runsAgainst / stats.defensiveInnings) : Infinity,
-        // Use 0 for runsForPerInning when no offensive innings (worst rank)
-        runsForPerInning: stats.offensiveInnings > 0 ? (stats.runsFor / stats.offensiveInnings) : 0,
-      };
-    });
-
-    // Group teams by points for tie-breaking
-    const groups: Record<number, any[]> = {};
-    teamStats.forEach(team => {
-      const points = team.points;
-      if (!groups[points]) groups[points] = [];
-      groups[points].push(team);
-    });
-
-    // Sort groups by points descending, then resolve ties within each group
-    const sortedStandings = Object.keys(groups)
-      .sort((a, b) => Number(b) - Number(a))
-      .flatMap(points => resolveTie(groups[Number(points)], games));
-
-    // Assign ranks
-    return sortedStandings.map((team, index) => ({
-      teamId: team.id,
-      teamName: team.name,
-      poolId: team.poolId,
-      rank: index + 1,
-    }));
-  }
 
   async generatePlayoffBracket(tournamentId: string, divisionId: string): Promise<Game[]> {
     // Get tournament info
@@ -1152,9 +1114,16 @@ export class DatabaseStorage implements IStorage {
         poolMap.get(team.poolId)!.push(team);
       });
       
-      // Calculate standings for each pool independently using new helper
+      // Calculate standings for each pool independently using shared helper
       poolMap.forEach((poolTeams, poolId) => {
-        const poolStandings = this.calculateStandingsWithTiebreaking(poolTeams, poolGames);
+        const poolTeamIds = poolTeams.map(t => t.id);
+        
+        // Filter games to only include those where BOTH teams are in this pool
+        const poolScopedGames = poolGames.filter(g => 
+          poolTeamIds.includes(g.homeTeamId) && poolTeamIds.includes(g.awayTeamId)
+        );
+        
+        const poolStandings = calculateStandingsWithTiebreaking(poolTeams, poolScopedGames);
         poolStandings.forEach(standing => {
           standingsForSeeding.push({
             teamId: standing.teamId,
@@ -1165,7 +1134,7 @@ export class DatabaseStorage implements IStorage {
       });
     } else {
       // For other formats, use global standings with SP11.2 tie-breaking
-      const standings = this.calculateStandingsWithTiebreaking(divisionTeams, poolGames);
+      const standings = calculateStandingsWithTiebreaking(divisionTeams, poolGames);
       standingsForSeeding = standings.map(s => ({ teamId: s.teamId, rank: s.rank, poolId: s.poolId }));
     }
     
