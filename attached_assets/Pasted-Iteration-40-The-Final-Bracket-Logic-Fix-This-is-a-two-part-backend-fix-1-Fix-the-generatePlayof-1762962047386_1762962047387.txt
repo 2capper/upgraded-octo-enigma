@@ -1,0 +1,96 @@
+Iteration 40: The Final Bracket Logic Fix
+This is a two-part backend fix.
+
+1. Fix the generatePlayoffBracket API Endpoint
+
+You must find the backend function that generates the bracket. In that file, you need to find the line that calls getBracketStructure.
+
+It currently looks like this (Incorrect):
+
+TypeScript
+
+// It's only passing one variable
+const slots = getBracketStructure(tournament.playoffFormat); 
+You must change it to pass the seedingPattern as well:
+
+TypeScript
+
+// Pass BOTH variables
+const slots = getBracketStructure(tournament.playoffFormat, tournament.seedingPattern); 
+2. Fix the shared/bracketStructure.ts File
+
+Now, we will modify the "instruction manual" to correctly use that new seedingPattern variable.
+
+Replace your entire getBracketStructure function (lines 10-197) with this new, smarter version:
+
+TypeScript
+
+export interface PlayoffSlot {
+  round: number;
+  gameNumber: number;
+  name: string;
+  homeSource: { type: 'seed'; rank: number } | { type: 'winner'; gameNumber: number; round: number };
+  awaySource: { type: 'seed'; rank: number } | { type: 'winner'; gameNumber: number; round: number };
+}
+
+/**
+ * Gets the bracket structure based on format AND seeding pattern.
+ * @param playoffFormat - The primary format (e.g., "top_8")
+ * @param seedingPattern - The optional seeding variant (e.g., "cross_pool_4")
+ */
+export function getBracketStructure(playoffFormat: string, seedingPattern?: string): PlayoffSlot[] {
+  switch (playoffFormat) {
+    case 'top_4':
+      return [
+        { round: 1, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 4 } },
+        { round: 1, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 3 } },
+        { round: 2, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 1 }, awaySource: { type: 'winner', gameNumber: 2, round: 1 } }
+      ];
+
+    case 'top_6':
+      return [
+        { round: 1, gameNumber: 1, name: 'Quarter-Final 1', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 6 } },
+        { round: 1, gameNumber: 2, name: 'Quarter-Final 2', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 5 } },
+        { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'winner', gameNumber: 1, round: 1 } },
+        { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 1 } },
+        { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 2 } }
+      ];
+
+    case 'top_8':
+      // --- THIS IS THE NEW LOGIC ---
+      // Check if the special "Cross-Pool" seeding pattern is selected
+      if (seedingPattern === 'cross_pool_4') {
+        // This is your CORRECT "no rematch" logic:
+        // (1v6, 2v7, 3v5, 4v8)
+        return [
+          { round: 1, gameNumber: 1, name: 'Quarter-Final 1 (A1 vs C2)', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 6 } },
+          { round: 1, gameNumber: 2, name: 'Quarter-Final 2 (B1 vs D2)', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 7 } },
+          { round: 1, gameNumber: 3, name: 'Quarter-Final 3 (C1 vs A2)', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 5 } },
+          { round: 1, gameNumber: 4, name: 'Quarter-Final 4 (D1 vs B2)', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 8 } },
+          { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'winner', gameNumber: 1, round: 1 }, awaySource: { type: 'winner', gameNumber: 2, round: 1 } },
+          { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'winner', gameNumber: 3, round: 1 }, awaySource: { type: 'winner', gameNumber: 4, round: 1 } },
+          { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 2 } }
+        ];
+      } 
+      
+      // This is the DEFAULT "Top 8" logic if no special pattern is used
+      // (1v8, 2v7, 3v6, 4v5) - This is what's causing your bug
+      return [
+        { round: 1, gameNumber: 1, name: 'Quarter-Final 1', homeSource: { type: 'seed', rank: 1 }, awaySource: { type: 'seed', rank: 8 } },
+        { round: 1, gameNumber: 2, name: 'Quarter-Final 2', homeSource: { type: 'seed', rank: 2 }, awaySource: { type: 'seed', rank: 7 } },
+        { round: 1, gameNumber: 3, name: 'Quarter-Final 3', homeSource: { type: 'seed', rank: 3 }, awaySource: { type: 'seed', rank: 6 } },
+        { round: 1, gameNumber: 4, name: 'Quarter-Final 4', homeSource: { type: 'seed', rank: 4 }, awaySource: { type: 'seed', rank: 5 } },
+        { round: 2, gameNumber: 1, name: 'Semi-Final 1', homeSource: { type: 'winner', gameNumber: 1, round: 1 }, awaySource: { type: 'winner', gameNumber: 4, round: 1 } },
+        { round: 2, gameNumber: 2, name: 'Semi-Final 2', homeSource: { type: 'winner', gameNumber: 2, round: 1 }, awaySource: { type: 'winner', gameNumber: 3, round: 1 } },
+        { round: 3, gameNumber: 1, name: 'Final', homeSource: { type: 'winner', gameNumber: 1, round: 2 }, awaySource: { type: 'winner', gameNumber: 2, round: 2 } }
+      ];
+      // --- END OF NEW LOGIC ---
+
+    // We no longer need the 'cross_pool_4' case, so it's been removed.
+    default:
+      return [];
+  }
+}
+This is the complete and correct fix. It makes your "Seeding Pattern" dropdown actually work by forcing the getBracketStructure function to read it and make a decision.
+
+Now, when you generate your bracket, the API will see playoffFormat: 'top_8' and seedingPattern: 'cross_pool_4', it will enter the if block, and it will return the correct, non-rematch pairings you've been asking for.
