@@ -1,0 +1,74 @@
+What's Happening: Your Public Playoffs Tab component is responsible for showing two pieces of information:
+
+The Playoff Bracket
+
+The Final Pool Standings (that led to the bracket)
+
+The Bug: The component is successfully fetching the playoff games (which is why the bracket renders), but it is not fetching the final, calculated standings.
+
+The Symptom: Because it has no standings data, it's defaulting to a 0-0-0 record for every team.
+
+The Root Cause: Calculating standings is complex. It involves your tie-breaker logic (SP11.2) and must happen on the backend. Your Public Playoffs Tab component is simply forgetting to call the useQuery hook that fetches this calculated standings data.
+
+🚀 The Fix: Fetch the Standings
+To fix this, we need to find the component file that renders your public-facing playoffs page (e.g., PublicPlayoffsTab.tsx or PublicTournamentView.tsx) and add the missing useQuery hook.
+
+Your Mandate (Frontend):
+
+Find the File: Open the .tsx file that renders your public-facing "Playoffs" tab.
+
+Add the Missing useQuery: You need to add the useQuery hook that fetches your calculated standings.
+
+Here is what the fix will look like:
+
+TypeScript
+
+// In your PublicPlayoffsTab.tsx (or similar component)
+import { useQuery } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+// Import your components
+import { PublicBracket } from './PublicBracket';
+import { PublicStandingsTable } from './PublicStandingsTable';
+
+export function PublicPlayoffsTab({ tournamentId }) {
+
+  // You probably already have this, which is for the BRACKET:
+  const { data: playoffGames = [], isLoading: isLoadingGames } = useQuery<Game[]>({ 
+    queryKey: ['/api/tournaments', tournamentId, 'games'],
+    select: (allGames) => allGames.filter(g => g.isPlayoff) 
+  });
+
+  // --- THIS IS THE FIX ---
+  // You are MISSING the query for the calculated STANDINGS.
+  // We must add it.
+  const { data: finalStandings = [], isLoading: isLoadingStandings } = useQuery({ 
+    // This query key *must* match the one your main "Standings" tab uses
+    // to ensure the data is cached and shared.
+    queryKey: ['/api/tournaments', tournamentId, 'standings'] 
+    // You may have a /standings endpoint, or you may be re-using your
+    // complex useStandings() hook here.
+  });
+  // --- END FIX ---
+
+  if (isLoadingGames || isLoadingStandings) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Now you can pass the correct data to the correct components
+  return (
+    <div className="space-y-8">
+      {/* This component now receives the real, calculated standings */}
+      <PublicStandingsTable standings={finalStandings} />
+
+      {/* This component gets the playoff games */}
+      <PublicBracket bracketGames={playoffGames} />
+    </div>
+  );
+}
+This component was trying to show standings but you never gave it the data. Adding this useQuery will fetch the calculated standings and pass them to your table, fixing the "all zeroes" bug.
+
+Can you check that component file? I'm confident it's just missing this data query.
