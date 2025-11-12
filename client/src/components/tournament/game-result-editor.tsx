@@ -273,7 +273,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                           <h4 className="text-sm font-semibold text-gray-700">Score Information</h4>
                         </div>
                         <div>
-                          <Label>Home Score</Label>
+                          <Label>{getTeamName(game.homeTeamId)} Score</Label>
                           <Input
                             type="number"
                             value={editForm.homeScore}
@@ -284,7 +284,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                           />
                         </div>
                         <div>
-                          <Label>Away Score</Label>
+                          <Label>{getTeamName(game.awayTeamId)} Score</Label>
                           <Input
                             type="number"
                             value={editForm.awayScore}
@@ -295,7 +295,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                           />
                         </div>
                         <div>
-                          <Label>Home Innings Batted</Label>
+                          <Label>{getTeamName(game.homeTeamId)} Innings Batted</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -307,7 +307,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
                           />
                         </div>
                         <div>
-                          <Label>Away Innings Batted</Label>
+                          <Label>{getTeamName(game.awayTeamId)} Innings Batted</Label>
                           <Input
                             type="number"
                             step="0.1"
