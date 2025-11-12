@@ -1,0 +1,138 @@
+Iteration 29: Build the "End of Pool Play" Report
+The Problem: Your current standings data (if it exists) is probably just a simple ranked list. It doesn't include the tie-breaker data an admin needs to validate the results.
+
+The Fix: We must create a new, dedicated backend endpoint that does all the complex tie-breaker calculations and returns a rich data object. The frontend component will then just be a "dumb" (but clean) renderer of that data.
+
+Part 1: The Backend (The "Engine")
+This is the most important part. We need to create a new API endpoint.
+
+Your Mandate (Backend):
+
+Create a new API endpoint: GET /api/tournaments/:tournamentId/standings-report
+
+This endpoint's job is to run your full, complex tie-breaker logic (SP11.2, etc.) for all pools in the tournament.
+
+It must not just return a simple list. It must return an array of rich objects, one for each team, that includes all the data for the report.
+
+Required Data from this API: Your API must return an array of objects that look like this:
+
+JSON
+
+[
+  {
+    "rank": 1,
+    "teamName": "Windsor Stars",
+    "poolName": "Pool A",
+    "poolRank": 1,
+    "record": "3-0-0",
+    "points": 9,
+    "runsFor": 25,
+    "runsAgainst": 5,
+    "runDifferential": 20,
+    "H2H_Wins": 0,
+    "tieBreaker_RunsAgainstPerInning": 0.83 
+  },
+  {
+    "rank": 2,
+    "teamName": "LaSalle Titans",
+    "poolName": "Pool B",
+    "poolRank": 1,
+    "record": "2-1-0",
+    "points": 6,
+    "runsFor": 18,
+    "runsAgainst": 7,
+    "runDifferential": 11,
+    "H2H_Wins": 0,
+    "tieBreaker_RunsAgainstPerInning": 1.16
+  },
+  {
+    "rank": 3,
+    "teamName": "Tecumseh Thunder",
+    "poolName": "Pool A",
+    "poolRank": 2,
+    "record": "2-1-0",
+    "points": 6,
+    "runsFor": 22,
+    "runsAgainst": 10,
+    "runDifferential": 12,
+    "H2H_Wins": 0,
+    "tieBreaker_RunsAgainstInning": 1.67
+  }
+]
+This is the data that provides "transparency."
+
+Part 2: The Frontend (The "Display")
+Now we can build the report component. It's just a "dumb" table that renders this rich data.
+
+Your Mandate (Frontend):
+
+Create the File: Create a new component file, EndofPoolPlayReport.tsx.
+
+Fetch the Data: Inside the component, you'll have one useQuery hook that calls your new endpoint.
+
+JavaScript
+
+import { useQuery } from '@tanstack/react-query';
+
+// ... inside your component
+const { data: standingsData, isLoading } = useQuery({
+  queryKey: ['/api/tournaments', tournamentId, 'standings-report'],
+  // ...
+});
+Render the Table: The JSX will be a detailed table. This is how you provide "at-a-glance" validation.
+
+JavaScript
+
+<Card>
+  <CardHeader>
+    <CardTitle>End of Pool Play Report</CardTitle>
+    <CardDescription>
+      Official tournament seeding based on all completed pool play games and tie-breaker rules.
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Seed</TableHead>
+          <TableHead>Team</TableHead>
+          <TableHead>Pool</TableHead>
+          <TableHead>Pool Rank</TableHead>
+          <TableHead>Record (W-L-T)</TableHead>
+          <TableHead>PTS</TableHead>
+          <TableHead>RF</TableHead>
+          <TableHead>RA</TableHead>
+          <TableHead>Run Diff</TableHead>
+          <TableHead>Tie-Breaker (RA/Inn)</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isLoading && <TableRow><TableCell colSpan={10}>Loading...</TableCell></TableRow>}
+        {standingsData?.map(team => (
+          <TableRow key={team.rank}>
+            <TableCell className="font-bold">{team.rank}</TableCell>
+            <TableCell>{team.teamName}</TableCell>
+            <TableCell>{team.poolName}</TableCell>
+            <TableCell>{team.poolRank}</TableCell>
+            <TableCell>{team.record}</TableCell>
+            <TableCell>{team.points}</TableCell>
+            <TableCell className="text-green-600">{team.runsFor}</TableCell>
+            <TableCell className="text-red-600">{team.runsAgainst}</TableCell>
+            <TableCell>{team.runDifferential}</TableCell>
+            <TableCell className="font-mono">{team.tieBreaker_RunsAgainstPerInning}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </CardContent>
+</Card>
+The Result
+Now, when that angry parent asks, "Why is Tecumseh #3 when they have a better run differential than LaSalle?", you can point to this report:
+
+Tecumseh (Seed #3): Run Diff: 12, Tie-Breaker: 1.67
+
+LaSalle (Seed #2): Run Diff: 11, Tie-Breaker: 1.16
+
+The report clearly shows that the deciding factor wasn't "Run Differential" (which Tecumseh won), but the "Runs Against Per Inning" tie-breaker (which LaSalle won).
+
+This is what "transparency" means. It's not just showing the result; it's showing the work.
