@@ -69,7 +69,7 @@ import {
   type InsertCoachInvitation,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql, inArray, desc } from "drizzle-orm";
+import { eq, and, sql, inArray, desc, asc } from "drizzle-orm";
 import { generateBracketGames, getPlayoffTeamsFromStandings, updateBracketProgression } from "@shared/bracketGeneration";
 import { calculateStats, resolveTie } from "@shared/standings";
 import { withRetry } from "./dbRetry";
@@ -518,7 +518,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGames(tournamentId: string): Promise<Game[]> {
-    return await db.select().from(games).where(eq(games.tournamentId, tournamentId));
+    return await db.select().from(games)
+      .where(eq(games.tournamentId, tournamentId))
+      .orderBy(
+        asc(games.isPlayoff),
+        asc(games.date),
+        asc(games.time),
+        asc(games.playoffRound),
+        asc(games.playoffGameNumber)
+      );
   }
 
   async createGame(game: InsertGame): Promise<Game> {
