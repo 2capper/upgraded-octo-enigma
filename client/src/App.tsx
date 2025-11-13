@@ -27,6 +27,7 @@ import BookingReportsPage from "@/pages/booking/booking-reports-page";
 import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import OrganizationSelector from "@/pages/organization-selector";
+import { WelcomePage } from "@/pages/welcome";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -88,6 +89,11 @@ function Router() {
       
       {/* Invitation acceptance - public route */}
       <Route path="/invite/:token" component={InviteAcceptance} />
+      
+      {/* Welcome page for new users without an organization */}
+      <Route path="/welcome">
+        {() => <RequireAuth component={WelcomePage} />}
+      </Route>
       
       {/* Organization selector - protected */}
       <Route path="/select-organization">
