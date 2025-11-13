@@ -18,6 +18,7 @@ import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
 import { calculateStats, resolveTie } from "@shared/standings";
+import { calculateStandingsWithTiebreaking } from "@shared/standingsCalculation";
 import { getBracketStructure } from "@shared/bracketStructure";
 import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
