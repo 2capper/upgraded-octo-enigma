@@ -18,6 +18,12 @@ export default function Home() {
     queryKey: ['/api/organizations'],
   });
 
+  // Fetch user's personal organizations (ones they're admin of)
+  const { data: userOrganizations, isLoading: userOrgsLoading } = useQuery<Organization[]>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: isAuthenticated && !!user,
+  });
+
   const { data: allTournaments, isLoading: tournamentsLoading } = useQuery<Tournament[]>({
     queryKey: ['/api/tournaments'],
   });
@@ -334,15 +340,49 @@ export default function Home() {
             })}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Organizations Yet
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Organizations and tournaments will appear here once they're created.
-            </p>
-          </div>
+          <>
+            {/* Get Started Card - Only show if user has no personal organizations */}
+            {!userOrgsLoading && userOrganizations && userOrganizations.length === 0 && (
+              <Card className="max-w-2xl mx-auto mb-12 border-2" style={{ borderColor: 'var(--field-green)', backgroundColor: 'white' }}>
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold text-center" style={{ color: 'var(--deep-navy)' }}>
+                    Welcome to Dugout Desk!
+                  </CardTitle>
+                  <CardDescription className="text-center text-base">
+                    Get started by creating your organization and first tournament
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-center" style={{ color: 'var(--text-secondary)' }}>
+                    You currently don't have any organizations set up. Create one to start managing tournaments, tracking scores, and running your baseball events.
+                  </p>
+                  <div className="flex justify-center">
+                    <Link href="/welcome">
+                      <Button 
+                        size="lg"
+                        className="text-white hover:opacity-90"
+                        style={{ backgroundColor: 'var(--field-green)' }}
+                        data-testid="button-get-started"
+                      >
+                        <Building2 className="w-5 h-5 mr-2" />
+                        Get Started
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            <div className="text-center py-12">
+              <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No Organizations Yet
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Organizations and tournaments will appear here once they're created.
+              </p>
+            </div>
+          </>
         )}
 
         {/* Unassigned Tournaments */}

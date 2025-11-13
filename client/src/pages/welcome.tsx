@@ -1,13 +1,13 @@
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Trophy } from 'lucide-react';
 
 export function WelcomePage() {
-  const [, navigate] = useNavigate();
+  const [, setLocation] = useLocation();
 
   const handleCreateOrg = () => {
-    navigate('/admin/org-settings');
+    setLocation('/admin/org-settings');
   };
 
   return (
