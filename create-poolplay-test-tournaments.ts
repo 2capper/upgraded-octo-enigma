@@ -25,6 +25,8 @@ interface GameScore {
   awayScore: number;
   homeInningScores: number[];
   awayInningScores: number[];
+  homeInningsBatted: string;  // Decimal format (e.g., "6.0" for 6 complete innings)
+  awayInningsBatted: string;  // Decimal format (e.g., "6.0" for 6 complete innings)
 }
 
 const generateInningScores = (finalScore: number): number[] => {
@@ -53,11 +55,20 @@ const generateDefenseScores = (offenseScores: number[]): number[] => {
 };
 
 const createGameScore = (homeScore: number, awayScore: number): GameScore => {
+  const homeInningScores = generateInningScores(homeScore);
+  const awayInningScores = generateInningScores(awayScore);
+  
+  // Calculate innings batted (6 complete innings for standard games)
+  const homeInningsBatted = homeInningScores.length.toString() + '.0';
+  const awayInningsBatted = awayInningScores.length.toString() + '.0';
+  
   return {
     homeScore,
     awayScore,
-    homeInningScores: generateInningScores(homeScore),
-    awayInningScores: generateInningScores(awayScore),
+    homeInningScores,
+    awayInningScores,
+    homeInningsBatted,
+    awayInningsBatted,
   };
 };
 
