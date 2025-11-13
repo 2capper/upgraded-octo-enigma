@@ -1,0 +1,562 @@
+Post-Pool Play Report
+Natasha Nice
+
+Print Report
+Pool play is not complete. These results are preliminary and may change as games are completed.
+Tournament Summary
+Tournament Type
+
+pool play
+
+Teams
+
+16
+
+Pools
+
+6
+
+Total Games
+
+52
+
+Unassigned - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+Pool B - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+1	DKMB U18 select	3-0-0	6	20	13	+7	0.650	1.000
+2	Rays	1-2-0	2	9	12	-3	0.632	0.474
+3	Brewers	1-2-0	2	14	15	-1	0.750	0.700
+4	Guelph Royals	1-2-0	2	18	21	-3	1.105	0.947
+#1 DKMB U18 select - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Brewers	W	6-5	7	7
+Guelph Royals	W	10-7	6	6
+Rays	W	4-1	7	7
+Totals:	3-0-0	20-13	20	20
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+DKMB U18 select: 6 points (3W, 0L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+DKMB U18 select: 0.650 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+DKMB U18 select: 1.000 RF/OI
+
+#2 Rays - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Guelph Royals	L	4-6	6	6
+DKMB U18 select	L	1-4	7	7
+Brewers	W	4-2	6	6
+Totals:	1-2-0	9-12	19	19
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Rays: 2 points (1W, 2L, 0T)
+
+Rule #2: Head-to-Head (Skipped)
+
+Head-to-head is only used when exactly 2 teams are tied. With 3+ teams tied, we skip to Rule #3
+
+Rays: 3 teams tied - head-to-head skipped
+
+Rule #3: Runs Against per Defensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the lowest RA/DIP is ranked higher
+
+Rays: 0.632 RA/DIP
+
+Brewers: 0.750
+
+Guelph Royals: 1.105
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Rays: 0.632 RA/DIP
+
+Rule #5: Runs For per Offensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the highest RF/OI is ranked higher
+
+Rays: 0.474 RF/OI
+
+Brewers: 0.700
+
+Guelph Royals: 0.947
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Rays: 0.474 RF/OI
+
+#3 Brewers - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+DKMB U18 select	L	5-6	7	7
+Guelph Royals	W	7-5	7	7
+Rays	L	2-4	6	6
+Totals:	1-2-0	14-15	20	20
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Brewers: 2 points (1W, 2L, 0T)
+
+Rule #2: Head-to-Head (Skipped)
+
+Head-to-head is only used when exactly 2 teams are tied. With 3+ teams tied, we skip to Rule #3
+
+Brewers: 3 teams tied - head-to-head skipped
+
+Rule #3: Runs Against per Defensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the lowest RA/DIP is ranked higher
+
+Brewers: 0.750 RA/DIP
+
+Rays: 0.632
+
+Guelph Royals: 1.105
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Brewers: 0.750 RA/DIP
+
+Rule #5: Runs For per Offensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the highest RF/OI is ranked higher
+
+Brewers: 0.700 RF/OI
+
+Rays: 0.474
+
+Guelph Royals: 0.947
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Brewers: 0.700 RF/OI
+
+#4 Guelph Royals - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Rays	W	6-4	6	6
+DKMB U18 select	L	7-10	6	6
+Brewers	L	5-7	7	7
+Totals:	1-2-0	18-21	19	19
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Guelph Royals: 2 points (1W, 2L, 0T)
+
+Rule #2: Head-to-Head (Skipped)
+
+Head-to-head is only used when exactly 2 teams are tied. With 3+ teams tied, we skip to Rule #3
+
+Guelph Royals: 3 teams tied - head-to-head skipped
+
+Rule #3: Runs Against per Defensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the lowest RA/DIP is ranked higher
+
+Guelph Royals: 1.105 RA/DIP
+
+Rays: 0.632
+
+Brewers: 0.750
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Guelph Royals: 1.105 RA/DIP
+
+Rule #5: Runs For per Offensive Inning (Tied Teams Only)
+
+Among tied teams, the team with the highest RF/OI is ranked higher
+
+Guelph Royals: 0.947 RF/OI
+
+Rays: 0.474
+
+Brewers: 0.700
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Guelph Royals: 0.947 RF/OI
+
+Pool C - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+1	Falcons	3-0-0	6	24	9	+15	0.474	1.263
+2	West Mountain Cougars	1-1-1	3	19	14	+5	0.700	0.950
+3	Blenheim Bees	1-2-0	2	23	34	-11	2.000	1.353
+4	Tincaps	0-2-1	1	12	21	-9	1.050	0.600
+#1 Falcons - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+West Mountain Cougars	W	5-3	7	7
+Blenheim Bees	W	15-5	5	5
+Tincaps	W	4-1	7	7
+Totals:	3-0-0	24-9	19	19
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Falcons: 6 points (3W, 0L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Falcons: 0.474 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Falcons: 1.263 RF/OI
+
+#2 West Mountain Cougars - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Falcons	L	3-5	7	7
+Blenheim Bees	W	12-5	6	6
+Tincaps	T	4-4	7	7
+Totals:	1-1-1	19-14	20	20
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+West Mountain Cougars: 3 points (1W, 1L, 1T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+West Mountain Cougars: 0.700 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+West Mountain Cougars: 0.950 RF/OI
+
+#3 Blenheim Bees - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Tincaps	W	13-7	6	6
+West Mountain Cougars	L	5-12	6	6
+Falcons	L	5-15	5	5
+Totals:	1-2-0	23-34	17	17
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Blenheim Bees: 2 points (1W, 2L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Blenheim Bees: 2.000 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Blenheim Bees: 1.353 RF/OI
+
+#4 Tincaps - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Blenheim Bees	L	7-13	6	6
+West Mountain Cougars	T	4-4	7	7
+Falcons	L	1-4	7	7
+Totals:	0-2-1	12-21	20	20
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Tincaps: 1 points (0W, 2L, 1T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Tincaps: 1.050 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Tincaps: 0.600 RF/OI
+
+Pool D - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+1	Royal York Cardinals	3-0-0	6	27	10	+17	0.588	1.588
+2	London Nationals	2-1-0	4	33	18	+15	1.059	1.941
+3	Jays	1-2-0	2	20	26	-6	1.444	1.111
+4	Twins	0-3-0	0	12	38	-26	2.375	0.750
+#1 Royal York Cardinals - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Twins	W	12-2	5	5
+Jays	W	6-2	6	6
+London Nationals	W	9-6	6	6
+Totals:	3-0-0	27-10	17	17
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Royal York Cardinals: 6 points (3W, 0L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Royal York Cardinals: 0.588 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Royal York Cardinals: 1.588 RF/OI
+
+#2 London Nationals - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Jays	W	12-7	6	6
+Twins	W	15-2	5	5
+Royal York Cardinals	L	6-9	6	6
+Totals:	2-1-0	33-18	17	17
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+London Nationals: 4 points (2W, 1L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+London Nationals: 1.059 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+London Nationals: 1.941 RF/OI
+
+#3 Jays - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+London Nationals	L	7-12	6	6
+Royal York Cardinals	L	2-6	6	6
+Twins	W	11-8	6	6
+Totals:	1-2-0	20-26	18	18
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Jays: 2 points (1W, 2L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Jays: 1.444 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Jays: 1.111 RF/OI
+
+#4 Twins - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Royal York Cardinals	L	2-12	5	5
+London Nationals	L	2-15	5	5
+Jays	L	8-11	6	6
+Totals:	0-3-0	12-38	16	16
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Twins: 0 points (0W, 3L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Twins: 2.375 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Twins: 0.750 RF/OI
+
+Pool A - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+1	Cubs 18U DS	3-0-0	6	19	8	+11	0.421	1.000
+2	Tigers	2-1-0	4	9	7	+2	0.350	0.450
+3	Gaurdians	1-2-0	2	13	6	+7	0.316	0.684
+4	Whitby Canadiens	0-3-0	0	9	29	-20	1.611	0.500
+#1 Cubs 18U DS - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Whitby Canadiens	W	12-4	6	6
+Tigers	W	5-3	6	6
+Gaurdians	W	2-1	7	7
+Totals:	3-0-0	19-8	19	19
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Cubs 18U DS: 6 points (3W, 0L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Cubs 18U DS: 0.421 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Cubs 18U DS: 1.000 RF/OI
+
+#2 Tigers - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Cubs 18U DS	L	3-5	6	6
+Whitby Canadiens	W	5-2	7	7
+Gaurdians	W	1-0	7	7
+Totals:	2-1-0	9-7	20	20
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Tigers: 4 points (2W, 1L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Tigers: 0.350 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Tigers: 0.450 RF/OI
+
+#3 Gaurdians - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Whitby Canadiens	W	12-3	5	5
+Cubs 18U DS	L	1-2	7	7
+Tigers	L	0-1	7	7
+Totals:	1-2-0	13-6	19	19
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Gaurdians: 2 points (1W, 2L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Gaurdians: 0.316 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Gaurdians: 0.684 RF/OI
+
+#4 Whitby Canadiens - Detailed Breakdown
+Game Results:
+Opponent	Result	Score	Inn Batted	Inn Pitched
+Cubs 18U DS	L	4-12	6	6
+Gaurdians	L	3-12	5	5
+Tigers	L	2-5	7	7
+Totals:	0-3-0	9-29	18	18
+Tie-Breaker Analysis:
+Rule #1: Points
+
+Teams earn 2 points for a win and 1 point for a tie
+
+Whitby Canadiens: 0 points (0W, 3L, 0T)
+
+Rule #4: Runs Against per Defensive Inning (All Games)
+
+The team with the lowest RA/DIP across all pool games is ranked higher
+
+Whitby Canadiens: 1.611 RA/DIP
+
+Rule #6: Runs For per Offensive Inning (All Games)
+
+The team with the highest RF/OI across all pool games is ranked higher
+
+Whitby Canadiens: 0.500 RF/OI
+
+Playoff - Standings & Tie-Breakers
+Rank	Team	W-L-T	Pts	RF	RA	RD	RA/DIP	RF/OI
+Playoff Seeding
+Seed	Team	Pool	Pool Rank	Explanation
+#	DKMB U18 select	Pool B	1	Pool B #1 receives seed NaN (cross-pool seeding)
+#	Rays	Pool B	2	Pool B #2 receives seed NaN (cross-pool seeding)
+#	Brewers	Pool B	3	Pool B #3 receives seed NaN (cross-pool seeding)
+#	Guelph Royals	Pool B	4	Pool B #4 receives seed NaN (cross-pool seeding)
+#	Falcons	Pool C	1	Pool C #1 receives seed NaN (cross-pool seeding)
+#	West Mountain Cougars	Pool C	2	Pool C #2 receives seed NaN (cross-pool seeding)
+#	Blenheim Bees	Pool C	3	Pool C #3 receives seed NaN (cross-pool seeding)
+#	Tincaps	Pool C	4	Pool C #4 receives seed NaN (cross-pool seeding)
+#	Royal York Cardinals	Pool D	1	Pool D #1 receives seed NaN (cross-pool seeding)
+#	London Nationals	Pool D	2	Pool D #2 receives seed NaN (cross-pool seeding)
+#	Jays	Pool D	3	Pool D #3 receives seed NaN (cross-pool seeding)
+#	Twins	Pool D	4	Pool D #4 receives seed NaN (cross-pool seeding)
+#	Cubs 18U DS	Pool A	1	Pool A #1 receives seed NaN (cross-pool seeding)
+#	Tigers	Pool A	2	Pool A #2 receives seed NaN (cross-pool seeding)
+#	Gaurdians	Pool A	3	Pool A #3 receives seed NaN (cross-pool seeding)
+#	Whitby Canadiens	Pool A	4	Pool A #4 receives seed NaN (cross-pool seeding)
