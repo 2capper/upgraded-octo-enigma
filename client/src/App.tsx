@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useHostnameContext } from "@/hooks/useHostnameContext";
+import { useQuery } from "@tanstack/react-query";
 import Home from "@/pages/home";
 import OrganizationPage from "@/pages/organization";
 import Dashboard from "@/pages/dashboard";
@@ -32,14 +33,51 @@ import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
 function RequireAuth({ component: Component }: { component: any }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  // Fetch user's organizations to check if they need onboarding
+  const { data: organizations, isLoading: orgsLoading, isError: orgsError } = useQuery<any[]>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: isAuthenticated && !!user,
+    retry: false,
+  });
+
+  // Check if user has ever submitted an admin request (indicates they're not brand new)
+  const { data: adminRequest, isLoading: requestLoading, isError: requestError } = useQuery<any>({
+    queryKey: ['/api/admin-requests/my-request'],
+    enabled: isAuthenticated && !!user,
+    retry: false,
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       setLocation("/");
+      return;
     }
-  }, [isLoading, isAuthenticated, setLocation]);
+
+    // Redirect to /welcome ONLY if user is:
+    // 1. Authenticated
+    // 2. Has NO organizations (or orgs query failed - treat as no orgs)
+    // 3. Has NEVER submitted an admin request (brand new user)
+    // This avoids redirecting legacy users or users mid-onboarding
+    
+    // Only proceed with redirect logic if both queries have completed (success or error)
+    const queriesReady = !isLoading && !orgsLoading && !requestLoading;
+    const hasNoOrgs = orgsError || (organizations && organizations.length === 0);
+    const hasNoAdminRequest = requestError || adminRequest === null;
+    
+    if (
+      queriesReady &&
+      isAuthenticated && 
+      user && 
+      hasNoOrgs &&
+      hasNoAdminRequest &&
+      location !== '/welcome'
+    ) {
+      setLocation("/welcome");
+    }
+  }, [isLoading, orgsLoading, requestLoading, orgsError, requestError, isAuthenticated, user, organizations, adminRequest, location, setLocation]);
 
   if (isLoading) {
     return (
