@@ -201,6 +201,10 @@ export const games = pgTable("games", {
   awayScore: integer("away_score"),
   homeInningsBatted: decimal("home_innings_batted"),
   awayInningsBatted: decimal("away_innings_batted"),
+  homeInningScores: integer("home_inning_scores").array(),
+  awayInningScores: integer("away_inning_scores").array(),
+  homeInningsDefense: integer("home_innings_defense").array(),
+  awayInningsDefense: integer("away_innings_defense").array(),
   tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   poolId: text("pool_id").notNull().references(() => pools.id, { onDelete: "cascade" }),
   forfeitStatus: text("forfeit_status").notNull().default("none"), // "none" | "home" | "away"
