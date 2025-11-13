@@ -12,6 +12,41 @@ interface TeamStats {
   forfeitLosses: number;
 }
 
+// Helper function to derive innings from arrays when decimal fields are null
+function deriveInningsFromGame(game: Game, isHome: boolean): { offensive: number; defensive: number } {
+  // Prefer decimal fields if available (legacy data)
+  const offensiveDecimal = isHome ? game.homeInningsBatted : game.awayInningsBatted;
+  const defensiveDecimal = isHome ? game.awayInningsBatted : game.homeInningsBatted;
+  
+  if (offensiveDecimal !== null && offensiveDecimal !== undefined && 
+      defensiveDecimal !== null && defensiveDecimal !== undefined) {
+    return {
+      offensive: Number(offensiveDecimal),
+      defensive: Number(defensiveDecimal)
+    };
+  }
+  
+  // Otherwise derive from inning arrays
+  const offensiveScores = isHome ? game.homeInningScores : game.awayInningScores;
+  const defensiveOuts = isHome ? game.awayInningsDefense : game.homeInningsDefense;
+  
+  let offensive = 0;
+  let defensive = 0;
+  
+  // Calculate offensive innings (number of innings batted)
+  if (offensiveScores && Array.isArray(offensiveScores)) {
+    offensive = offensiveScores.length;
+  }
+  
+  // Calculate defensive innings (sum of outs / 3)
+  if (defensiveOuts && Array.isArray(defensiveOuts)) {
+    const totalOuts = defensiveOuts.reduce((sum, outs) => sum + (outs || 0), 0);
+    defensive = totalOuts / 3;
+  }
+  
+  return { offensive, defensive };
+}
+
 export interface TeamStandingWithStats {
   teamId: string;
   teamName: string;
@@ -66,8 +101,11 @@ function calculateTeamStats(teamId: string, games: Game[]): TeamStats {
     const isHome = g.homeTeamId === teamId;
     stats.runsFor += isHome ? (g.homeScore || 0) : (g.awayScore || 0);
     stats.runsAgainst += isHome ? (g.awayScore || 0) : (g.homeScore || 0);
-    stats.offensiveInnings += isHome ? Number(g.homeInningsBatted || 0) : Number(g.awayInningsBatted || 0);
-    stats.defensiveInnings += isHome ? Number(g.awayInningsBatted || 0) : Number(g.homeInningsBatted || 0);
+    
+    // Derive innings using helper function (supports both decimal fields and arrays)
+    const innings = deriveInningsFromGame(g, isHome);
+    stats.offensiveInnings += innings.offensive;
+    stats.defensiveInnings += innings.defensive;
 
     const forfeited = (isHome && g.forfeitStatus === 'home') || (!isHome && g.forfeitStatus === 'away');
     if (forfeited) { 
