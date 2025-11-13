@@ -2843,9 +2843,20 @@ Waterdown 10U AA
         return res.status(404).json({ error: "Tournament not found" });
       }
       
-      const pools = await storage.getPools(tournamentId);
+      const allPools = await storage.getPools(tournamentId);
       const teams = await storage.getTeams(tournamentId);
       const games = await storage.getGames(tournamentId);
+      
+      // Filter to get only REAL pools (exclude system pools like Playoff, Unassigned, temp)
+      const pools = allPools.filter(pool => {
+        const poolNameLower = pool.name.toLowerCase();
+        return (
+          !!pool.ageDivisionId && // Must be assigned to a division
+          !poolNameLower.includes('unassigned') && 
+          !poolNameLower.includes('playoff') &&
+          !pool.id.includes('_pool_temp_')
+        );
+      });
       
       // Generate validation report
       const report = generateValidationReport(tournament, pools, teams, games, reportType);

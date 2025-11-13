@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tournament, Team, Game, Pool, AgeDivision } from '@shared/schema';
 
@@ -29,7 +30,8 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
     },
   });
 
-  const { data: pools = [], isLoading: poolsLoading, error: poolsError } = useQuery({
+  // Fetch ALL pools (including Playoff, Unassigned, and temp pools)
+  const { data: allPools = [], isLoading: poolsLoading, error: poolsError } = useQuery({
     queryKey: ['/api/tournaments', tournamentId, 'pools'],
     queryFn: async () => {
       const response = await fetch(`/api/tournaments/${tournamentId}/pools`);
@@ -37,6 +39,19 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
       return response.json() as Pool[];
     },
   });
+
+  // Filter to get only REAL pools (exclude system pools)
+  const pools = useMemo(() => {
+    return allPools.filter(pool => {
+      const poolNameLower = pool.name.toLowerCase();
+      return (
+        !!pool.ageDivisionId && // Must be assigned to a division
+        !poolNameLower.includes('unassigned') && 
+        !poolNameLower.includes('playoff') &&
+        !pool.id.includes('_pool_temp_')
+      );
+    });
+  }, [allPools]);
 
   const { data: ageDivisions = [], isLoading: ageDivisionsLoading, error: ageDivisionsError } = useQuery({
     queryKey: ['/api/tournaments', tournamentId, 'age-divisions'],
@@ -56,7 +71,8 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
   return {
     teams,
     games,
-    pools,
+    pools, // Filtered pools (real pools only)
+    allPools, // All pools including system pools (for components that need them)
     tournaments,
     ageDivisions,
     currentTournament,
