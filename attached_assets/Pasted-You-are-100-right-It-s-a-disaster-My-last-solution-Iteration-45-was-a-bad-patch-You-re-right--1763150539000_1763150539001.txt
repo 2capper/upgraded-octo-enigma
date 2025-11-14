@@ -1,0 +1,137 @@
+You are 100% right. It's a disaster.
+
+My last solution (Iteration 45) was a bad patch. You're right, it's a confusing, messy experience. Seeing "Platform Stats" when you don't even have an organization is distracting noise. It violates our #1 mandate: One Job, One Screen.
+
+A new user has one job: get started. We must give them one screen to do it.
+
+My original idea (Iteration 44) was the right one. A new user should not see the dashboard at all. They should be immediately redirected to a clean, full-page "Welcome" screen.
+
+This is the best UX strategy. It's clean, it's focused, and it's impossible to get wrong.
+
+🚀 The Real Fix (Iteration 46): The "Hard Redirect" Welcome Page
+Goal: Provide a "super clear and clean" onboarding experience by forcing all new users (with no org) to a single, dedicated /welcome page.
+
+Your Mandate (Part 1: The Redirect)
+
+This is the most critical part. We must stop new users from ever seeing the main dashboard.
+
+Find your "Auth Loader" Component: This is the top-level component that wraps your entire app, fetches the user, and decides what to show (e.g., App.tsx, Layout.tsx, or AuthProvider.tsx).
+
+Add the Redirect Logic:
+
+JavaScript
+
+import { useAuth } from './hooks/useAuth'; // Your auth hook
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+
+// This is the component that runs right after login
+function AppRouter() {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Fetch the user's orgs
+  const { data: orgs, isLoading: isOrgsLoading } = useQuery({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: !!user, // Only run if the user is loaded
+  });
+
+  if (isAuthLoading || isOrgsLoading) {
+    return <Loader2 className="animate-spin" />;
+  }
+
+  // --- THIS IS THE FIX ---
+  if (user && orgs.length === 0 && location.pathname !== '/welcome') {
+    // We have a new user who is NOT on the welcome page.
+    // Force them there.
+    navigate('/welcome', { replace: true });
+    return null; // Don't render the rest of the app
+  }
+
+  if (user && orgs.length > 0 && location.pathname === '/welcome') {
+    // This user *has* an org but is on the welcome page.
+    // Force them to the dashboard.
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
+  // --- END FIX ---
+
+  // User is good. Render the main app.
+  return <YourMainAppLayout />;
+}
+Your Mandate (Part 2: The "Welcome" Page)
+
+Now, we create the clean, full-screen page they get redirected to.
+
+Create the File: src/pages/Welcome.tsx
+
+Add the UI: This page has one button and no other distractions.
+
+JavaScript
+
+// src/pages/Welcome.tsx
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Plus } from 'lucide-react';
+
+export function WelcomePage() {
+  const navigate = useNavigate();
+
+  const handleCreateOrg = () => {
+    // Navigate to the *existing* page where an admin can create an org.
+    navigate('/admin/org-settings'); 
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <Card className="w-full max-w-lg shadow-2xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold">
+            Welcome to Dugout Desk!
+          </CardTitle>
+          <CardDescription className="text-lg">
+            Let's get you set up.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <p className="mb-8 text-base text-gray-700">
+            You're not part of an organization yet. To use the app,
+            you must first create one for your league or tournament.
+          </p>
+
+          <Button 
+            onClick={handleCreateOrg} 
+            className="w-full text-lg py-8"
+            data-testid="button-create-org"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create Your Organization
+          </Button>
+
+          {/* This is a clean, "One Job" screen. We are intentionally
+            omitting all other links, stats, or navigation.
+          */}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+Post-Check: The New, Clean Flow
+Log out.
+
+Sign up as a brand new user.
+
+Confirm: After login, you are instantly redirected to the full-screen /welcome page. You never see the main dashboard, stats, or "Request Access" buttons.
+
+Confirm: The only clickable action is the "Create Your Organization" button.
+
+Click it.
+
+Confirm: You are taken to /admin/org-settings.
+
+After you create the org, you're navigated back to the dashboard, and this time, the redirect doesn't fire because orgs.length is no longer 0.
+
+This is the clean, foolproof, "no distractions" workflow you were asking for. This is the right way to build it.
