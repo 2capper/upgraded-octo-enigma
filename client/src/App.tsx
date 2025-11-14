@@ -91,6 +91,12 @@ function HostnameAwareHome() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
+  // Fetch user data for authenticated users
+  const { data: user, isLoading: userLoading } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+    enabled: isAuthenticated,
+  });
+
   // Fetch user's organizations for authenticated users
   const { data: userOrgs, isLoading: orgsLoading } = useQuery<Array<any>>({
     queryKey: ['/api/users/me/organizations'],
@@ -99,15 +105,21 @@ function HostnameAwareHome() {
 
   // Hard redirect logic for authenticated users on homepage
   useEffect(() => {
-    if (isAuthenticated && !orgsLoading && userOrgs) {
+    if (isAuthenticated && !userLoading && !orgsLoading && user && userOrgs) {
+      // SUPER ADMIN CHECK - Must come FIRST to prevent redirect loop
+      if (user.email === 'richard.lepage@gmail.com') {
+        // Super admin can access platform home - no redirect
+        return;
+      }
+      
       // New user with no orgs - redirect to /welcome
       if (userOrgs.length === 0) {
         setLocation('/welcome');
       }
     }
-  }, [isAuthenticated, orgsLoading, userOrgs, setLocation]);
+  }, [isAuthenticated, userLoading, orgsLoading, user, userOrgs, setLocation]);
 
-  if (hostnameLoading || (isAuthenticated && orgsLoading)) {
+  if (hostnameLoading || (isAuthenticated && (userLoading || orgsLoading))) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
