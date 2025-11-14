@@ -1,0 +1,93 @@
+You've identified the single biggest "showstopper" for any new user, and it's a perfect example of how our UX strategy should be applied.
+
+The Issue: A new user logs in, the app sees they have no organization, and it presents them with a "Request Admin Access" button.
+
+Why This Fails Our UX Strategy:
+
+It Violates "Prevent the Disaster": This is a "dead end." The user is stranded. They don't know who to request access from, and the button (as you said) just loops them back to the home page. This is the worst possible first impression.
+
+It Violates "One Job, One Screen": The user's job is to "get started." You're presenting them with a confusing, non-functional option that's part of a V2.0 feature we haven't built.
+
+You are 100% correct. We must fix this.
+
+The Best Solution (Iteration 45)
+The best UX solution is the one you already outlined in your UAT script. We are not redirecting to a separate /welcome page (my previous, over-complicated idea). Instead, we will keep the user on the main dashboard and show them a contextual "empty state" that gives them one, clear path forward.
+
+We will rip out the "Request Access" button and replace it with a "Get Started" card.
+
+This is the definitive, pragmatic V1.0 fix.
+
+🚀 Iteration 45: The "New User" Fix (Your UAT Flow)
+Goal: Implement the correct V1.0 onboarding flow by replacing the "Request Access" button with the "Get Started" card that links to the "Create Organization" page.
+
+Your Mandate (Frontend):
+
+Find the File: Open the component file that renders your main dashboard—the page that loads right after login and shows the "Platform Overview" (e.g., DashboardPage.tsx or HomePage.tsx).
+
+Find the Buggy Logic: Find the useQuery that fetches userOrganizations and the if (userOrganizations.length === 0) check.
+
+Implement the Fix: You must replace that entire "Request Access" block with the correct "Get Started" card, exactly as described in your UAT script.
+
+Replace the entire if (userOrganizations.length === 0) block with this new, correct JSX:
+
+JavaScript
+
+// Make sure you've imported:
+// useNavigate, Button, Card, CardHeader, CardTitle, CardContent, CardDescription
+
+// ... inside your component ...
+const navigate = useNavigate();
+const { data: userOrganizations, isLoading } = useQuery({ 
+  queryKey: ['/api/users/me/organizations'] 
+});
+
+if (isLoading) {
+  return <Loader2 className="animate-spin" />;
+}
+
+// --- THIS IS THE BEST SOLUTION ---
+if (userOrganizations.length === 0) {
+  return (
+    <div className="space-y-6">
+      {/* 1. The "Get Started" Card (as you described) */}
+      <Card className="border-2 border-green-600 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl">Welcome to Dugout Desk!</CardTitle>
+          <CardDescription>
+            You currently don't have any organizations set up. Get started by creating one for
+            your league or tournament.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={() => navigate('/admin/org-settings')} // Links to the "Create Org" page
+            className="w-full text-lg py-6 bg-green-600 hover:bg-green-700"
+            data-testid="button-get-started"
+          >
+            Get Started
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 2. The Platform Overview (as you described) */}
+      <PlatformOverviewStats /> 
+
+      {/* 3. The "Empty State" Message */}
+      <Card>
+        <CardHeader><CardTitle>Your Organizations</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-gray-500">No Organizations Yet</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+// --- END FIX ---
+
+// This is the normal view for users who DO have orgs
+return (
+  <div className="space-y-6">
+    <PlatformOverviewStats />
+    <OrganizationList organizations={userOrganizations} />
+  </div>
+);
