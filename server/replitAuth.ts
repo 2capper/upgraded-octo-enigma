@@ -126,9 +126,9 @@ export async function setupAuth(app: Express) {
         }
 
         try {
-          // Redirect all authenticated users to the organization selector
-          // The selector will handle routing based on their organizations
-          return res.redirect("/select-organization");
+          // Redirect all authenticated users to the homepage
+          // The homepage will show the "Get Started" card for new users with no organizations
+          return res.redirect("/");
         } catch (error) {
           console.error("Error during login redirect:", error);
           return res.redirect("/");
