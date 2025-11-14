@@ -634,11 +634,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.user.claims.sub;
         const user = await storage.getUser(userId);
         
-        // Regular admins (not super admins) only see their own tournaments
-        if (user && user.isAdmin && !user.isSuperAdmin) {
-          tournaments = tournaments.filter(t => t.createdBy === userId);
-        }
         // Super admins see all tournaments (no filtering)
+        if (user && user.isSuperAdmin) {
+          // No filtering - super admins see everything
+        }
+        // Regular org admins only see tournaments from their organizations
+        else if (user && user.isAdmin) {
+          const userOrgs = await storage.getUserOrganizations(userId);
+          const userOrgIds = userOrgs.map(org => org.id);
+          tournaments = tournaments.filter(t => userOrgIds.includes(t.organizationId));
+        }
         // Non-admin authenticated users see all tournaments (public viewing)
       }
       // Unauthenticated users see all tournaments (public viewing)
