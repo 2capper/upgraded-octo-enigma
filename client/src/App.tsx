@@ -29,6 +29,7 @@ import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import OrganizationSelector from "@/pages/organization-selector";
 import { WelcomePage } from "@/pages/welcome";
+import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -36,13 +37,38 @@ function RequireAuth({ component: Component }: { component: any }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
+  // Fetch user's organizations to determine if they need onboarding
+  const { data: userOrgs, isLoading: isOrgsLoading } = useQuery<Array<any>>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: isAuthenticated && !!user,
+  });
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       setLocation("/");
     }
   }, [isLoading, isAuthenticated, location, setLocation]);
 
-  if (isLoading) {
+  // Hard redirect logic for new user onboarding
+  useEffect(() => {
+    if (isAuthenticated && !isOrgsLoading && userOrgs) {
+      // Whitelist routes that new users (0 orgs) can access during onboarding
+      const onboardingAllowedRoutes = ['/welcome', '/onboarding'];
+      const isOnOnboardingRoute = onboardingAllowedRoutes.some(route => location.startsWith(route));
+      
+      // New user with no orgs - redirect to /welcome (unless on allowed onboarding route)
+      if (userOrgs.length === 0 && !isOnOnboardingRoute) {
+        setLocation('/welcome');
+      }
+      
+      // User with orgs on /welcome page - redirect to home
+      if (userOrgs.length > 0 && location === '/welcome') {
+        setLocation('/');
+      }
+    }
+  }, [isAuthenticated, isOrgsLoading, userOrgs, location, setLocation]);
+
+  if (isLoading || isOrgsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -61,9 +87,27 @@ function RequireAuth({ component: Component }: { component: any }) {
 }
 
 function HostnameAwareHome() {
-  const { isStorefront, isLoading } = useHostnameContext();
+  const { isStorefront, isLoading: hostnameLoading } = useHostnameContext();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [location, setLocation] = useLocation();
 
-  if (isLoading) {
+  // Fetch user's organizations for authenticated users
+  const { data: userOrgs, isLoading: orgsLoading } = useQuery<Array<any>>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: isAuthenticated,
+  });
+
+  // Hard redirect logic for authenticated users on homepage
+  useEffect(() => {
+    if (isAuthenticated && !orgsLoading && userOrgs) {
+      // New user with no orgs - redirect to /welcome
+      if (userOrgs.length === 0) {
+        setLocation('/welcome');
+      }
+    }
+  }, [isAuthenticated, orgsLoading, userOrgs, setLocation]);
+
+  if (hostnameLoading || (isAuthenticated && orgsLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -91,9 +135,12 @@ function Router() {
       {/* Invitation acceptance - public route */}
       <Route path="/invite/:token" component={InviteAcceptance} />
       
-      {/* Welcome page for new users without an organization */}
+      {/* Onboarding flow for new users without an organization */}
       <Route path="/welcome">
         {() => <RequireAuth component={WelcomePage} />}
+      </Route>
+      <Route path="/onboarding/create-organization">
+        {() => <RequireAuth component={OnboardingCreateOrganization} />}
       </Route>
       
       {/* Organization selector - protected */}

@@ -276,6 +276,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Onboarding endpoint: allows any authenticated user to create their FIRST organization
+  app.post("/api/onboarding/create-organization", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Check if user already has organizations
+      const existingOrgs = await storage.getUserOrganizations(userId);
+      if (existingOrgs.length > 0) {
+        return res.status(403).json({ 
+          error: "You already have an organization. Use the admin portal to manage it." 
+        });
+      }
+
+      // Create the organization
+      const validatedData = insertOrganizationSchema.parse(req.body);
+      const organization = await storage.createOrganization(validatedData);
+
+      // Automatically make the user an admin of their new organization
+      await storage.assignOrganizationAdmin(userId, organization.id, 'admin');
+
+      res.status(201).json(organization);
+    } catch (error) {
+      console.error("Error creating organization during onboarding:", error);
+      res.status(400).json({ error: "Invalid organization data" });
+    }
+  });
+
   app.post("/api/organizations", requireSuperAdmin, async (req, res) => {
     try {
       const validatedData = insertOrganizationSchema.parse(req.body);

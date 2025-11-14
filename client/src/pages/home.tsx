@@ -251,38 +251,6 @@ export default function Home() {
 
       {/* Main Content */}
       <div id="tournaments-section" className="container mx-auto px-4 py-12">
-        {/* Get Started Card - Show if user has no personal organizations */}
-        {!userOrgsLoading && userOrganizations && userOrganizations.length === 0 && (
-          <Card className="max-w-2xl mx-auto mb-12 border-2" style={{ borderColor: 'var(--field-green)', backgroundColor: 'white' }}>
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-center" style={{ color: 'var(--deep-navy)' }}>
-                Welcome to Dugout Desk!
-              </CardTitle>
-              <CardDescription className="text-center text-base">
-                Get started by creating your organization and first tournament
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-center" style={{ color: 'var(--text-secondary)' }}>
-                You currently don't have any organizations set up. Create one to start managing tournaments, tracking scores, and running your baseball events.
-              </p>
-              <div className="flex justify-center">
-                <Link href="/welcome">
-                  <Button 
-                    size="lg"
-                    className="text-white hover:opacity-90"
-                    style={{ backgroundColor: 'var(--field-green)' }}
-                    data-testid="button-get-started"
-                  >
-                    <Building2 className="w-5 h-5 mr-2" />
-                    Get Started
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="text-center">
