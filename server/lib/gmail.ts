@@ -1,9 +1,12 @@
 import { google } from 'googleapis';
 
+const GMAIL_CONNECTION_ID = 'conn_google-mail_01KA4SNTM9Q1SRPTZ8E3PNKQ5T';
+
 let connectionSettings: any;
 
 async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
+  const expiresAt = connectionSettings?.settings?.oauth?.credentials?.expires_at;
+  if (connectionSettings && expiresAt && new Date(expiresAt).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
   
@@ -19,19 +22,19 @@ async function getAccessToken() {
   }
 
   connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
+    `https://${hostname}/api/v2/connection/${GMAIL_CONNECTION_ID}?include_secrets=true`,
     {
       headers: {
         'Accept': 'application/json',
         'X_REPLIT_TOKEN': xReplitToken
       }
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  ).then(res => res.json());
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = connectionSettings?.settings?.access_token;
 
   if (!connectionSettings || !accessToken) {
-    throw new Error('Gmail not connected');
+    throw new Error('Gmail not connected or access token not found');
   }
   return accessToken;
 }
