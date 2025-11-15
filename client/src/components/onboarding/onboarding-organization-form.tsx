@@ -49,12 +49,13 @@ export const OnboardingOrganizationForm = () => {
     mutationFn: async (data: FormSchema) => {
       return apiRequest('POST', '/api/onboarding/create-organization', data);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/organizations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
       setShowSuccess(true);
       setTimeout(() => {
-        setLocation('/');
+        // Redirect to admin portal with auto-open tournament creation
+        setLocation('/admin-portal?firstTime=true');
       }, 2500);
     },
     onError: (error: any) => {
