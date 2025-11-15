@@ -11,7 +11,9 @@ export type NotificationType =
   | 'approved'
   | 'declined'
   | 'uic_notification'
-  | 'cancelled';
+  | 'cancelled'
+  | 'org_welcome'
+  | 'tournament_created';
 
 interface NotificationRecipient {
   userId?: string;
@@ -291,6 +293,101 @@ Forest Glade Baseball Association
         body: smsBody,
       });
     }
+  }
+
+  async sendWelcomeEmail(params: {
+    organizationId: string;
+    organizationName: string;
+    adminName: string;
+    adminEmail: string;
+  }): Promise<void> {
+    const { organizationId, organizationName, adminName, adminEmail } = params;
+
+    const emailBody = `
+Hi ${adminName},
+
+Welcome to Dugout Desk! Your organization "${organizationName}" has been successfully created.
+
+You can now access your admin portal and create your first tournament:
+👉 https://app.dugoutdesk.ca/admin-portal
+
+Need help getting started? Visit our documentation or reply to this email.
+
+Best regards,
+The Dugout Desk Team
+    `.trim();
+
+    await this.sendNotification({
+      organizationId,
+      type: 'org_welcome',
+      channel: 'email',
+      recipient: { email: adminEmail, name: adminName },
+      subject: `Welcome to Dugout Desk - ${organizationName}`,
+      body: emailBody,
+    });
+  }
+
+  async sendTournamentEmail(params: {
+    organizationId: string;
+    organizationName: string;
+    organizationLogoUrl?: string;
+    primaryColor?: string;
+    tournamentId: string;
+    tournamentName: string;
+    startDate: string;
+    endDate: string;
+    adminName: string;
+    adminEmail: string;
+  }): Promise<void> {
+    const { organizationId, organizationName, organizationLogoUrl, primaryColor, tournamentId, tournamentName, startDate, endDate, adminName, adminEmail } = params;
+
+    const logoSection = organizationLogoUrl 
+      ? `<img src="${organizationLogoUrl}" alt="${organizationName}" style="max-width: 200px; height: auto; margin-bottom: 20px;" />`
+      : `<h2 style="color: ${primaryColor || '#22c55e'}; margin-bottom: 20px;">${organizationName}</h2>`;
+
+    const emailBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px;">
+    ${logoSection}
+  </div>
+  
+  <div style="background-color: #f9fafb; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+    <h1 style="color: ${primaryColor || '#22c55e'}; margin-top: 0;">Your Tournament is Ready!</h1>
+    
+    <p>Hi ${adminName},</p>
+    
+    <p>Great news! Your tournament <strong>"${tournamentName}"</strong> is now live and ready.</p>
+    
+    <div style="background-color: white; border-radius: 6px; padding: 20px; margin: 20px 0;">
+      <p style="margin: 10px 0;"><strong>📅 Dates:</strong> ${startDate} - ${endDate}</p>
+      <p style="margin: 10px 0;"><strong>📍 Manage:</strong> <a href="https://app.dugoutdesk.ca/t/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Admin Portal</a></p>
+      <p style="margin: 10px 0;"><strong>🌐 Public View:</strong> <a href="https://www.dugoutdesk.ca/t/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Share Link</a></p>
+    </div>
+    
+    <p>You can now add teams, create schedules, and start managing your tournament.</p>
+  </div>
+  
+  <div style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+    <p>Powered by <strong style="color: ${primaryColor || '#22c55e'};">Dugout Desk</strong> 🏆</p>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    await this.sendNotification({
+      organizationId,
+      type: 'tournament_created',
+      channel: 'email',
+      recipient: { email: adminEmail, name: adminName },
+      subject: `Your Tournament is Ready - ${tournamentName}`,
+      body: emailBody,
+    });
   }
 }
 

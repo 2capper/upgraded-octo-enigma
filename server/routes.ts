@@ -299,6 +299,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Automatically make the user an admin of their new organization
       await storage.assignOrganizationAdmin(userId, organization.id, 'admin');
 
+      // Send welcome email
+      const user = await storage.getUser(userId);
+      if (organization.adminEmail && user) {
+        const adminName = user.firstName 
+          ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+          : user.email || 'Admin';
+        
+        try {
+          await notificationService.sendWelcomeEmail({
+            organizationId: organization.id,
+            organizationName: organization.name,
+            adminName,
+            adminEmail: organization.adminEmail,
+          });
+        } catch (emailError) {
+          console.error("Failed to send welcome email:", emailError);
+        }
+      }
+
       res.status(201).json(organization);
     } catch (error) {
       console.error("Error creating organization during onboarding:", error);
@@ -694,6 +713,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tournament = await storage.createTournament(validatedData);
+
+      // Send tournament creation email
+      if (tournament.organizationId && user) {
+        const organization = await storage.getOrganization(tournament.organizationId);
+        if (organization?.adminEmail) {
+          const adminName = user.firstName 
+            ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+            : user.email || 'Admin';
+          
+          try {
+            await notificationService.sendTournamentEmail({
+              organizationId: organization.id,
+              organizationName: organization.name,
+              organizationLogoUrl: organization.logoUrl || undefined,
+              primaryColor: organization.primaryColor || tournament.primaryColor || '#22c55e',
+              tournamentId: tournament.id,
+              tournamentName: tournament.name,
+              startDate: tournament.startDate,
+              endDate: tournament.endDate,
+              adminName,
+              adminEmail: organization.adminEmail,
+            });
+          } catch (emailError) {
+            console.error("Failed to send tournament email:", emailError);
+          }
+        }
+      }
+
       res.status(201).json(tournament);
     } catch (error) {
       console.error("Error creating tournament:", error);

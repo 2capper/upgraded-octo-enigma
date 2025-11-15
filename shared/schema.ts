@@ -54,6 +54,7 @@ export const organizations = pgTable("organizations", {
   secondaryColor: text("secondary_color").default("#ffffff"),
   websiteUrl: text("website_url"),
   contactEmail: text("contact_email"),
+  adminEmail: text("admin_email"), // Primary admin email for welcome and notification emails
   stripeAccountId: text("stripe_account_id"), // For future payment processing
   timezone: text("timezone").default("America/Toronto"), // IANA timezone identifier
   defaultPrimaryColor: text("default_primary_color").default("#22c55e"), // Default color for new tournaments

@@ -16,6 +16,7 @@ import { insertOrganizationSchema } from '@shared/schema';
 const formSchema = insertOrganizationSchema.extend({
   name: z.string().min(1, 'Name is required'),
   slug: z.string().min(1, 'URL slug is required').regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
+  adminEmail: z.string().email('Valid email required').min(1, 'Admin email is required'),
 });
 
 type FormSchema = z.infer<typeof formSchema>;
@@ -38,6 +39,7 @@ export const OnboardingOrganizationForm = () => {
       secondaryColor: '#ffffff',
       websiteUrl: '',
       contactEmail: '',
+      adminEmail: '',
       timezone: 'America/Toronto',
       defaultPrimaryColor: '#22c55e',
       defaultSecondaryColor: '#ffffff',
@@ -84,7 +86,9 @@ export const OnboardingOrganizationForm = () => {
   const canProceedToStep2 = () => {
     const name = form.getValues('name');
     const slug = form.getValues('slug');
-    return name.length > 0 && slug.length > 0 && !form.formState.errors.name && !form.formState.errors.slug;
+    const adminEmail = form.getValues('adminEmail');
+    return name.length > 0 && slug.length > 0 && adminEmail.length > 0 && 
+           !form.formState.errors.name && !form.formState.errors.slug && !form.formState.errors.adminEmail;
   };
 
   const handleNext = () => {
@@ -191,21 +195,44 @@ export const OnboardingOrganizationForm = () => {
 
               <FormField
                 control={form.control}
-                name="contactEmail"
+                name="adminEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">Contact Email</FormLabel>
+                    <FormLabel className="text-base font-semibold">Admin Email *</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="email"
-                        placeholder="e.g., admin@forestgladebaseball.com"
+                        placeholder="e.g., you@email.com"
+                        className="h-12 text-base"
+                        data-testid="input-admin-email"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Your email address for welcome messages and tournament notifications
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="contactEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">Public Contact Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="email"
+                        placeholder="e.g., info@forestgladebaseball.com"
                         className="h-12 text-base"
                         data-testid="input-contact-email"
                       />
                     </FormControl>
                     <FormDescription>
-                      Main contact email for your organization (optional)
+                      Public contact email displayed on your organization page (optional)
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
