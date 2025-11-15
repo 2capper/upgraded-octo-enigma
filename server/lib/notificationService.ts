@@ -3,6 +3,7 @@ import { getUncachableGmailClient } from './gmail';
 import { db } from '../db';
 import { notificationLog, users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import QRCode from 'qrcode';
 
 export type NotificationChannel = 'email' | 'sms';
 export type NotificationType = 
@@ -341,6 +342,16 @@ The Dugout Desk Team
   }): Promise<void> {
     const { organizationId, organizationName, organizationLogoUrl, primaryColor, tournamentId, tournamentName, startDate, endDate, adminName, adminEmail } = params;
 
+    const publicUrl = `https://www.dugoutdesk.ca/t/${tournamentId}`;
+    const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
+      width: 200,
+      margin: 2,
+      color: {
+        dark: primaryColor || '#22c55e',
+        light: '#ffffff'
+      }
+    });
+
     const logoSection = organizationLogoUrl 
       ? `<img src="${organizationLogoUrl}" alt="${organizationName}" style="max-width: 200px; height: auto; margin-bottom: 20px;" />`
       : `<h2 style="color: ${primaryColor || '#22c55e'}; margin-bottom: 20px;">${organizationName}</h2>`;
@@ -367,7 +378,13 @@ The Dugout Desk Team
     <div style="background-color: white; border-radius: 6px; padding: 20px; margin: 20px 0;">
       <p style="margin: 10px 0;"><strong>📅 Dates:</strong> ${startDate} - ${endDate}</p>
       <p style="margin: 10px 0;"><strong>📍 Manage:</strong> <a href="https://app.dugoutdesk.ca/t/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Admin Portal</a></p>
-      <p style="margin: 10px 0;"><strong>🌐 Public View:</strong> <a href="https://www.dugoutdesk.ca/t/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Share Link</a></p>
+      <p style="margin: 10px 0;"><strong>🌐 Public View:</strong> <a href="${publicUrl}" style="color: ${primaryColor || '#22c55e'};">Share Link</a></p>
+    </div>
+    
+    <div style="text-align: center; margin: 30px 0;">
+      <p style="font-weight: bold; color: #374151; margin-bottom: 15px;">📱 Share via QR Code</p>
+      <img src="${qrCodeDataUrl}" alt="Tournament QR Code" style="width: 200px; height: 200px; border: 2px solid ${primaryColor || '#22c55e'}; border-radius: 8px; padding: 10px; background: white;" />
+      <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">Scan to view tournament standings</p>
     </div>
     
     <p>You can now add teams, create schedules, and start managing your tournament.</p>

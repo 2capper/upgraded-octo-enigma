@@ -10,6 +10,7 @@ import { GamesTab } from '@/components/tournament/games-tab';
 import { TeamsTab } from '@/components/tournament/teams-tab';
 import { PublicPlayoffsTab } from '@/components/tournament/public-playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
+import { QRCodeShare } from '@/components/tournament/qr-code-share';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diamond } from '@shared/schema';
@@ -166,7 +167,7 @@ export default function TournamentDashboard() {
                 </div>
               </div>
             </div>
-            <div>
+            <div className="flex flex-col gap-3 items-end">
               <Badge 
                 variant="outline" 
                 className="text-xs px-2 py-1 w-fit border-current"
@@ -175,6 +176,7 @@ export default function TournamentDashboard() {
               >
                 ID: {tournamentId}
               </Badge>
+              <QRCodeShare tournament={currentTournament} />
             </div>
           </div>
         </div>
