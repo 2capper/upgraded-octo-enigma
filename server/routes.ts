@@ -671,10 +671,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tournaments", requireAdmin, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Validate tournament data
       const validatedData = insertTournamentSchema.parse({
         ...req.body,
         createdBy: userId
       });
+
+      // Authorization check: Verify user is admin for the target organization
+      if (!user?.isSuperAdmin) {
+        // Get user's organizations
+        const userOrgs = await storage.getUserOrganizations(userId);
+        const userOrgIds = userOrgs.map(org => org.id);
+        
+        // Check if user is admin for the target organization
+        if (!userOrgIds.includes(validatedData.organizationId)) {
+          return res.status(403).json({ 
+            error: "You can only create tournaments for organizations you administer" 
+          });
+        }
+      }
+
       const tournament = await storage.createTournament(validatedData);
       res.status(201).json(tournament);
     } catch (error) {

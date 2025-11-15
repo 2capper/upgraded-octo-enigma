@@ -33,13 +33,33 @@ export default function AdminPortal() {
   const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
   const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('tournaments');
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Check for firstTime query parameter (from onboarding)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isFirstTime = urlParams.get('firstTime') === 'true';
+    
+    if (isFirstTime && !showCreateForm) {
+      // Auto-open tournament creation form for new org admins
+      setActiveTab('tournaments');
+      setShowCreateForm(true);
+      toast({
+        title: "Welcome! Let's create your first tournament",
+        description: "Fill out the form below to get started with your first tournament.",
+        duration: 6000,
+      });
+      
+      // Clean up URL by removing the query parameter
+      window.history.replaceState({}, '', '/admin-portal');
+    }
+  }, [toast, showCreateForm]);
 
   // Fetch diamonds for the current tournament's organization
   const { data: diamonds = [] } = useQuery<any[]>({

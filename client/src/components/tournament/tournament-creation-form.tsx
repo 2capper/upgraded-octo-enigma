@@ -48,10 +48,31 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch organizations for selection
-  const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
-    queryKey: ['/api/organizations'],
+  // Fetch current user to check if super admin
+  const { data: user } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
   });
+
+  // Fetch user's admin organizations
+  const { data: userOrgs = [] } = useQuery<any[]>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: !!user,
+  });
+
+  // Fetch all organizations (for super admin dropdown only)
+  const { data: allOrganizations, isLoading: orgsLoading } = useQuery<Organization[]>({
+    queryKey: ['/api/organizations'],
+    enabled: user?.isSuperAdmin === true, // Only fetch for super admins
+  });
+
+  // Use user's orgs for non-super admins, all orgs for super admins
+  const organizations = user?.isSuperAdmin ? allOrganizations : userOrgs;
+
+  // Determine user role
+  const isSuperAdmin = user?.isSuperAdmin || false;
+  const isOrgAdmin = !isSuperAdmin && userOrgs.length > 0;
+  const isSingleOrgAdmin = isOrgAdmin && userOrgs.length === 1;
+  const isMultiOrgAdmin = isOrgAdmin && userOrgs.length > 1;
   
   // Fetch diamonds for the selected organization
   const { data: diamonds, isLoading: diamondsLoading } = useQuery<Diamond[]>({
@@ -63,6 +84,16 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
   useEffect(() => {
     setIsOpen(showForm);
   }, [showForm]);
+
+  // Auto-select organization for single-org admins
+  useEffect(() => {
+    if (isSingleOrgAdmin && !formData.organizationId) {
+      setFormData(prev => ({
+        ...prev,
+        organizationId: userOrgs[0].id,
+      }));
+    }
+  }, [isSingleOrgAdmin, userOrgs, formData.organizationId]);
 
   // Auto-populate form fields with organization defaults when organization is selected for the first time
   useEffect(() => {
@@ -274,7 +305,36 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
               <div className="mt-1 p-2 border rounded-md bg-gray-50 text-gray-500 text-sm">
                 Loading organizations...
               </div>
+            ) : isSingleOrgAdmin ? (
+              // Single-org admins: Show read-only field with their organization
+              <div className="mt-1 p-3 border border-green-200 rounded-md bg-green-50">
+                <p className="font-medium text-gray-900">
+                  {userOrgs.find(org => org.id === formData.organizationId)?.name || 'Loading...'}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  You can only create tournaments for your organization
+                </p>
+              </div>
+            ) : isMultiOrgAdmin ? (
+              // Multi-org admins: Show dropdown limited to their organizations
+              <Select 
+                value={formData.organizationId} 
+                onValueChange={(value) => handleInputChange('organizationId', value)}
+                required
+              >
+                <SelectTrigger className="mt-1" data-testid="select-organization">
+                  <SelectValue placeholder="Select an organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id} data-testid={`option-org-${org.slug}`}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : organizations && organizations.length > 0 ? (
+              // Super admins: Show dropdown to select any organization
               <Select 
                 value={formData.organizationId} 
                 onValueChange={(value) => handleInputChange('organizationId', value)}

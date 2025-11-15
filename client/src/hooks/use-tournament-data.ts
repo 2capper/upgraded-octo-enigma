@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Tournament, Team, Game, Pool, AgeDivision } from '@shared/schema';
 
 export const useTournamentData = (tournamentId: string = 'aug-classic') => {
+  // Fetch tournaments (backend already filters by user's organizations)
   const { data: tournaments = [], isLoading: tournamentsLoading, error: tournamentsError } = useQuery({
     queryKey: ['/api/tournaments'],
     queryFn: async () => {
