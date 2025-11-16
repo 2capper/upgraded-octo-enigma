@@ -51,12 +51,18 @@ export class NotificationService {
       throw new Error('Email recipient address required');
     }
 
-    const message = [
+    const isHTML = payload.body.trim().startsWith('<!DOCTYPE html>') || payload.body.trim().startsWith('<html');
+    
+    const messageParts = [
       `To: ${payload.recipient.email}`,
       `Subject: ${payload.subject || 'Forest Glade Diamond Booking Notification'}`,
+      'MIME-Version: 1.0',
+      isHTML ? 'Content-Type: text/html; charset=utf-8' : 'Content-Type: text/plain; charset=utf-8',
       '',
       payload.body
-    ].join('\n');
+    ];
+
+    const message = messageParts.join('\n');
 
     const encodedMessage = Buffer.from(message)
       .toString('base64')
