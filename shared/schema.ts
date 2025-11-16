@@ -631,6 +631,28 @@ export const coachInvitations = pgTable("coach_invitations", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Admin invitations for adding organization admins
+export const adminInvitations = pgTable("admin_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Invitation details
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("pending"), // "pending" | "accepted" | "revoked"
+  
+  // Acceptance tracking
+  acceptedAt: timestamp("accepted_at"),
+  acceptedByUserId: varchar("accepted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Metadata
+  invitedBy: varchar("invited_by").notNull().references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Diamond access restrictions by division
 export const diamondRestrictions = pgTable("diamond_restrictions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -970,6 +992,12 @@ export const insertCoachInvitationSchema = createInsertSchema(coachInvitations).
   updatedAt: true,
 });
 
+export const insertAdminInvitationSchema = createInsertSchema(adminInvitations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Game update validation schema with strict score validation
 export const gameUpdateSchema = insertGameSchema.partial().extend({
   homeScore: z.number().int().min(0).max(50).optional().nullable(),
@@ -1099,3 +1127,6 @@ export type InsertOrganizationCoordinator = z.infer<typeof insertOrganizationCoo
 
 export type CoachInvitation = typeof coachInvitations.$inferSelect;
 export type InsertCoachInvitation = z.infer<typeof insertCoachInvitationSchema>;
+
+export type AdminInvitation = typeof adminInvitations.$inferSelect;
+export type InsertAdminInvitation = z.infer<typeof insertAdminInvitationSchema>;

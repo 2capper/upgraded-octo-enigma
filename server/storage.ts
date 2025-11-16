@@ -21,6 +21,7 @@ import {
   externalCalendarEvents,
   organizationCoordinators,
   coachInvitations,
+  adminInvitations,
   type User, 
   type InsertUser,
   type UpsertUser,
@@ -67,6 +68,8 @@ import {
   type InsertOrganizationCoordinator,
   type CoachInvitation,
   type InsertCoachInvitation,
+  type AdminInvitation,
+  type InsertAdminInvitation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, inArray, desc, asc } from "drizzle-orm";
@@ -216,6 +219,13 @@ export interface IStorage {
   updateCoachInvitation(id: string, invitation: Partial<InsertCoachInvitation>, organizationId: string): Promise<CoachInvitation>;
   acceptCoachInvitation(token: string, userId: string): Promise<CoachInvitation>;
   revokeCoachInvitation(id: string, organizationId: string): Promise<CoachInvitation>;
+  
+  // Admin Invitation methods
+  getAdminInvitations(organizationId: string, status?: string): Promise<AdminInvitation[]>;
+  getAdminInvitationByToken(token: string): Promise<AdminInvitation | undefined>;
+  createAdminInvitation(invitation: InsertAdminInvitation): Promise<AdminInvitation>;
+  acceptAdminInvitation(token: string, userId: string): Promise<AdminInvitation>;
+  revokeAdminInvitation(id: string, organizationId: string): Promise<AdminInvitation>;
   
   // Organization iCal Feed methods
   getOrganizationIcalFeeds(organizationId: string): Promise<OrganizationIcalFeed[]>;
@@ -1834,6 +1844,56 @@ export class DatabaseStorage implements IStorage {
     }).where(and(
       eq(coachInvitations.id, id),
       eq(coachInvitations.organizationId, organizationId)
+    )).returning();
+    
+    if (!result) {
+      throw new Error("Invitation not found or access denied");
+    }
+    
+    return result;
+  }
+
+  // Admin Invitation methods
+  async getAdminInvitations(organizationId: string, status?: string): Promise<AdminInvitation[]> {
+    const conditions = [eq(adminInvitations.organizationId, organizationId)];
+    if (status) {
+      conditions.push(eq(adminInvitations.status, status));
+    }
+    return await db.select().from(adminInvitations).where(and(...conditions)).orderBy(desc(adminInvitations.createdAt));
+  }
+
+  async getAdminInvitationByToken(token: string): Promise<AdminInvitation | undefined> {
+    const [invitation] = await db.select().from(adminInvitations).where(eq(adminInvitations.token, token));
+    return invitation;
+  }
+
+  async createAdminInvitation(invitation: InsertAdminInvitation): Promise<AdminInvitation> {
+    const [result] = await db.insert(adminInvitations).values(invitation).returning();
+    return result;
+  }
+
+  async acceptAdminInvitation(token: string, userId: string): Promise<AdminInvitation> {
+    const [result] = await db.update(adminInvitations).set({
+      status: 'accepted',
+      acceptedAt: new Date(),
+      acceptedByUserId: userId,
+      updatedAt: new Date(),
+    }).where(eq(adminInvitations.token, token)).returning();
+    
+    if (!result) {
+      throw new Error("Invitation not found");
+    }
+    
+    return result;
+  }
+
+  async revokeAdminInvitation(id: string, organizationId: string): Promise<AdminInvitation> {
+    const [result] = await db.update(adminInvitations).set({
+      status: 'revoked',
+      updatedAt: new Date(),
+    }).where(and(
+      eq(adminInvitations.id, id),
+      eq(adminInvitations.organizationId, organizationId)
     )).returning();
     
     if (!result) {
