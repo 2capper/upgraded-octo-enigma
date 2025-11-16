@@ -14,7 +14,7 @@ export function QRCodeShare({ tournament }: QRCodeShareProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const { toast } = useToast();
-  const publicUrl = `https://www.dugoutdesk.ca/t/${tournament.id}`;
+  const publicUrl = `https://www.dugoutdesk.ca/tournament/${tournament.id}`;
 
   useEffect(() => {
     const generateQRCode = async () => {
