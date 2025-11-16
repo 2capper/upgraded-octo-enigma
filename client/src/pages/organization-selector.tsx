@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 type Organization = {
@@ -55,9 +55,14 @@ export default function OrganizationSelector() {
 
     setIsDeleting(true);
     try {
-      await apiRequest(`/api/organizations/${orgToDelete.id}`, {
+      const response = await fetch(`/api/organizations/${orgToDelete.id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
+
+      if (!response.ok) {
+        throw new Error('Delete failed');
+      }
 
       toast({
         title: "Organization deleted",
