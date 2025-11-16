@@ -2245,10 +2245,12 @@ export function OrganizationSettings() {
                       <CoordinatorsManagement organizationId={org.id} />
                     </div>
 
-                    {/* Coach Invitations Management Section */}
-                    <div className="pt-4 border-t">
-                      <CoachInvitationsManagement organizationId={org.id} />
-                    </div>
+                    {/* Coach Invitations Management Section - Only show if organization has diamond booking enabled */}
+                    {org.hasDiamondBooking && (
+                      <div className="pt-4 border-t">
+                        <CoachInvitationsManagement organizationId={org.id} />
+                      </div>
+                    )}
 
                     {/* iCal Feeds Management Section */}
                     <div className="pt-4 border-t">

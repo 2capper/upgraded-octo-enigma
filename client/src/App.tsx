@@ -27,6 +27,7 @@ import TeamManagementPage from "@/pages/booking/team-management-page";
 import BookingReportsPage from "@/pages/booking/booking-reports-page";
 import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import InviteAcceptance from "@/pages/invite-acceptance";
+import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
 import OrganizationSelector from "@/pages/organization-selector";
 import { WelcomePage } from "@/pages/welcome";
 import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
@@ -152,8 +153,9 @@ function Router() {
       <Route path="/tournament/:tournamentId" component={TournamentDashboard} />
       <Route path="/coach-score-input/:tournamentId" component={CoachScoreInput} />
       
-      {/* Invitation acceptance - public route */}
+      {/* Invitation acceptance - public routes */}
       <Route path="/invite/:token" component={InviteAcceptance} />
+      <Route path="/admin-invite/:token" component={AdminInviteAcceptance} />
       
       {/* Onboarding flow for new users without an organization */}
       <Route path="/welcome">
