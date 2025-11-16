@@ -348,7 +348,7 @@ The Dugout Desk Team
   }): Promise<void> {
     const { organizationId, organizationName, organizationLogoUrl, primaryColor, tournamentId, tournamentName, startDate, endDate, adminName, adminEmail } = params;
 
-    const publicUrl = `https://www.dugoutdesk.ca/t/${tournamentId}`;
+    const publicUrl = `https://www.dugoutdesk.ca/tournament/${tournamentId}`;
     const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
       width: 200,
       margin: 2,
@@ -383,7 +383,7 @@ The Dugout Desk Team
     
     <div style="background-color: white; border-radius: 6px; padding: 20px; margin: 20px 0;">
       <p style="margin: 10px 0;"><strong>📅 Dates:</strong> ${startDate} - ${endDate}</p>
-      <p style="margin: 10px 0;"><strong>📍 Manage:</strong> <a href="https://app.dugoutdesk.ca/t/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Admin Portal</a></p>
+      <p style="margin: 10px 0;"><strong>📍 Manage:</strong> <a href="https://app.dugoutdesk.ca/tournament/${tournamentId}" style="color: ${primaryColor || '#22c55e'};">Admin Portal</a></p>
       <p style="margin: 10px 0;"><strong>🌐 Public View:</strong> <a href="${publicUrl}" style="color: ${primaryColor || '#22c55e'};">Share Link</a></p>
     </div>
     
