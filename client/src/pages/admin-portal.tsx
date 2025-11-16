@@ -29,24 +29,58 @@ import { useAuth } from '@/hooks/useAuth';
 import { isUnauthorizedError } from '@/lib/authUtils';
 
 export default function AdminPortal() {
-  const { tournamentId } = useParams<{ tournamentId: string }>();
-  const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
-  const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
+  const params = useParams<{ tournamentId?: string; orgId?: string }>();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('tournaments');
-
-  const currentTournament = tournaments.find(t => t.id === currentTournamentId);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Extract orgId and tournamentId from URL params
+  const orgId = params.orgId;
+  const tournamentId = params.tournamentId;
+  
+  // Fetch user's organizations to handle legacy route redirects
+  const { data: userOrgs, isLoading: orgsLoading } = useQuery<any[]>({
+    queryKey: ['/api/users/me/organizations'],
+    enabled: isAuthenticated && !orgId, // Only fetch if on legacy route (no orgId)
+  });
+
+  // Legacy route redirect handler - redirect to new org-scoped URLs
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && !orgId && !orgsLoading && userOrgs) {
+      // On legacy route without orgId - redirect to org-scoped URL
+      if (userOrgs.length === 1) {
+        // User has single org - redirect to that org's admin portal
+        const redirectPath = tournamentId 
+          ? `/admin/org/${userOrgs[0].id}/tournament/${tournamentId}`
+          : `/admin/org/${userOrgs[0].id}`;
+        setLocation(redirectPath);
+      } else if (userOrgs.length > 1) {
+        // User has multiple orgs - let them choose
+        setLocation('/select-organization');
+      }
+    }
+  }, [authLoading, isAuthenticated, orgId, orgsLoading, userOrgs, tournamentId, setLocation]);
+
+  // Use fallback tournamentId for backward compatibility
+  const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
+  const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
+  
+  // Filter tournaments to only show those from the selected organization
+  const orgTournaments = orgId 
+    ? tournaments.filter(t => t.organizationId === orgId)
+    : tournaments;
+  
+  const currentTournament = orgTournaments.find(t => t.id === currentTournamentId);
 
   // Check for firstTime query parameter (from onboarding)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isFirstTime = urlParams.get('firstTime') === 'true';
     
-    if (isFirstTime && !showCreateForm) {
+    if (isFirstTime && !showCreateForm && orgId) {
       // Auto-open tournament creation form for new org admins
       setActiveTab('tournaments');
       setShowCreateForm(true);
@@ -57,9 +91,12 @@ export default function AdminPortal() {
       });
       
       // Clean up URL by removing the query parameter
-      window.history.replaceState({}, '', '/admin-portal');
+      const cleanUrl = tournamentId 
+        ? `/admin/org/${orgId}/tournament/${tournamentId}`
+        : `/admin/org/${orgId}`;
+      window.history.replaceState({}, '', cleanUrl);
     }
-  }, [toast, showCreateForm]);
+  }, [toast, showCreateForm, orgId, tournamentId]);
 
   // Fetch diamonds for the current tournament's organization
   const { data: diamonds = [] } = useQuery<any[]>({
@@ -81,6 +118,18 @@ export default function AdminPortal() {
       setLocation("/");
     }
   }, [isAuthenticated, authLoading, setLocation]);
+
+  // Show loading state during legacy route redirect to prevent empty UI flash
+  if (!orgId && orgsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--light-gray)' }}>
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-green-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleNewTournament = () => {
     // Switch to tournaments tab where the creation form is

@@ -37,7 +37,7 @@ export default function OrganizationSelector() {
         if (org.hasDiamondBooking) {
           setLocation(`/booking/${org.id}`);
         } else {
-          setLocation(`/admin-portal`);
+          setLocation(`/admin/org/${org.id}`);
         }
       }
     }
@@ -115,7 +115,7 @@ export default function OrganizationSelector() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {organizations.map((org) => {
-            const destinationUrl = org.hasDiamondBooking ? `/booking/${org.id}` : `/admin-portal`;
+            const destinationUrl = org.hasDiamondBooking ? `/booking/${org.id}` : `/admin/org/${org.id}`;
             
             return (
               <Card 

@@ -191,7 +191,21 @@ function Router() {
         {() => <RequireAuth component={BookingDashboard} />}
       </Route>
       
-      {/* Protected admin routes */}
+      {/* Protected admin routes - NEW org-scoped routes */}
+      <Route path="/admin/org/:orgId/tournament/:tournamentId/validation-report">
+        {() => <RequireAuth component={ValidationReport} />}
+      </Route>
+      <Route path="/admin/org/:orgId/tournament/:tournamentId">
+        {() => <RequireAuth component={AdminPortal} />}
+      </Route>
+      <Route path="/admin/org/:orgId/booking/calendar">
+        {() => <RequireAuth component={AdminBookingCalendarPage} />}
+      </Route>
+      <Route path="/admin/org/:orgId">
+        {() => <RequireAuth component={AdminPortal} />}
+      </Route>
+      
+      {/* Legacy admin routes - kept for backward compatibility, will redirect */}
       <Route path="/admin-portal/:tournamentId?">
         {() => <RequireAuth component={AdminPortal} />}
       </Route>

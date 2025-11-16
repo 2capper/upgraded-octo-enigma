@@ -25,6 +25,63 @@ import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { notificationService } from "./lib/notificationService";
 
+// Helper function to get all organization IDs a user has access to
+async function getUserOrganizationIds(userId: string): Promise<Set<string>> {
+  const user = await storage.getUser(userId);
+  const orgIds = new Set<string>();
+  
+  if (!user) {
+    return orgIds;
+  }
+  
+  // Super admins have access to all organizations
+  if (user.isSuperAdmin) {
+    const allOrgs = await storage.getOrganizations();
+    allOrgs.forEach(org => orgIds.add(org.id));
+    return orgIds;
+  }
+  
+  // Get admin organizations
+  if (user.isAdmin) {
+    const adminOrgs = await storage.getUserOrganizations(userId);
+    adminOrgs.forEach(org => orgIds.add(org.id));
+  }
+  
+  // Get coach organizations (accepted invitations)
+  const coachInvites = await storage.getAcceptedCoachInvitations(userId);
+  coachInvites.forEach(inv => orgIds.add(inv.organizationId));
+  
+  // Get coordinator organizations
+  const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+  coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
+  
+  return orgIds;
+}
+
+// Helper function to check tournament access for authenticated users
+async function checkTournamentAccess(req: any, res: any, tournamentId: string): Promise<boolean> {
+  const tournament = await storage.getTournament(tournamentId);
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return false;
+  }
+  
+  // Authorization check for authenticated users
+  if (req.user && req.user.claims) {
+    const userId = req.user.claims.sub;
+    const userOrgIds = await getUserOrganizationIds(userId);
+    
+    // Deny access if tournament is not in user's organizations
+    // Empty org set means no access to any org-specific data
+    if (!userOrgIds.has(tournament.organizationId)) {
+      res.status(403).json({ error: "Access denied to this tournament" });
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -68,8 +125,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Super Admins can see EVERYTHING
         organizations = await storage.getOrganizations();
       } else {
-        // Regular Admins see only what they are linked to
-        organizations = await storage.getUserOrganizations(userId);
+        // Collect all organizations user has access to (union of admin, coach, coordinator)
+        const orgIds = new Set<string>();
+        
+        // Get admin organizations
+        if (user.isAdmin) {
+          const adminOrgs = await storage.getUserOrganizations(userId);
+          adminOrgs.forEach(org => orgIds.add(org.id));
+        }
+        
+        // Get coach organizations (accepted invitations)
+        const coachInvites = await storage.getAcceptedCoachInvitations(userId);
+        coachInvites.forEach(invite => orgIds.add(invite.organizationId));
+        
+        // Get coordinator organizations
+        const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+        coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
+        
+        // Get unique organizations from collected IDs
+        const allOrgs = await storage.getOrganizations();
+        organizations = allOrgs.filter(org => orgIds.has(org.id));
       }
       
       res.json(organizations);
@@ -648,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let tournaments = await storage.getTournaments();
       
-      // Role-aware filtering for admin users
+      // Role-aware filtering for authenticated users
       if (req.user && req.user.claims) {
         const userId = req.user.claims.sub;
         const user = await storage.getUser(userId);
@@ -663,7 +738,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userOrgIds = userOrgs.map(org => org.id);
           tournaments = tournaments.filter(t => userOrgIds.includes(t.organizationId));
         }
-        // Non-admin authenticated users see all tournaments (public viewing)
+        // Coaches/coordinators see tournaments from their affiliated organizations
+        else if (user) {
+          const orgIds = new Set<string>();
+          
+          // Get coach organizations
+          const acceptedInvites = await storage.getAcceptedCoachInvitations(userId);
+          acceptedInvites.forEach(inv => orgIds.add(inv.organizationId));
+          
+          // Get coordinator organizations
+          const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+          coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
+          
+          if (orgIds.size > 0) {
+            // Filter to only show tournaments from affiliated organizations
+            tournaments = tournaments.filter(t => orgIds.has(t.organizationId));
+          }
+          // If no affiliations, show all tournaments (public viewing)
+        }
       }
       // Unauthenticated users see all tournaments (public viewing)
       
@@ -674,12 +766,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tournaments/:id", async (req, res) => {
+  app.get("/api/tournaments/:id", async (req: any, res) => {
     try {
       const tournament = await storage.getTournament(req.params.id);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
+      
+      // Authorization check for authenticated users
+      if (req.user && req.user.claims) {
+        const userId = req.user.claims.sub;
+        const userOrgIds = await getUserOrganizationIds(userId);
+        
+        // If user has org affiliations and tournament is not in their orgs, deny access
+        if (userOrgIds.size > 0 && !userOrgIds.has(tournament.organizationId)) {
+          return res.status(403).json({ error: "Access denied to this tournament" });
+        }
+      }
+      
       res.json(tournament);
     } catch (error) {
       console.error("Error fetching tournament:", error);
@@ -794,8 +898,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Age Division routes
-  app.get("/api/tournaments/:tournamentId/age-divisions", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/age-divisions", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       const ageDivisions = await storage.getAgeDivisions(req.params.tournamentId);
       res.json(ageDivisions);
     } catch (error) {
@@ -880,8 +987,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pool routes
-  app.get("/api/tournaments/:tournamentId/pools", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/pools", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       const pools = await storage.getPools(req.params.tournamentId);
       res.json(pools);
     } catch (error) {
@@ -905,8 +1015,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Team routes
-  app.get("/api/tournaments/:tournamentId/teams", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/teams", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       // Prevent caching to ensure mobile devices get fresh data
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
       res.set('Pragma', 'no-cache');
@@ -1724,8 +1837,11 @@ Waterdown 10U AA
   });
 
   // Matchup routes
-  app.get("/api/tournaments/:tournamentId/matchups", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/matchups", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       const { tournamentId } = req.params;
       const { poolId } = req.query;
       
@@ -1738,8 +1854,11 @@ Waterdown 10U AA
   });
 
   // Game routes
-  app.get("/api/tournaments/:tournamentId/games", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/games", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       const games = await storage.getGames(req.params.tournamentId);
       res.json(games);
     } catch (error) {
@@ -1749,8 +1868,11 @@ Waterdown 10U AA
   });
 
   // CSV export endpoint
-  app.get("/api/tournaments/:tournamentId/schedule-export", async (req, res) => {
+  app.get("/api/tournaments/:tournamentId/schedule-export", async (req: any, res) => {
     try {
+      if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
+        return;
+      }
       const tournamentId = req.params.tournamentId;
       const divisionId = req.query.divisionId as string | undefined;
       const dateFilter = req.query.date as string | undefined;

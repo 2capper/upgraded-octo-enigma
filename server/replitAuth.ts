@@ -126,9 +126,58 @@ export async function setupAuth(app: Express) {
         }
 
         try {
-          // Redirect all authenticated users to the homepage
-          // The homepage will show the "Get Started" card for new users with no organizations
-          return res.redirect("/");
+          // Check user's organizations to determine redirect
+          const { storage } = await import("./storage");
+          const userId = user.claims.sub;
+          const dbUser = await storage.getUser(userId);
+          
+          if (!dbUser) {
+            // New user - let them go through onboarding
+            return res.redirect("/");
+          }
+
+          if (dbUser.isSuperAdmin) {
+            // Super admin can access all orgs - redirect to homepage
+            return res.redirect("/");
+          } else if (dbUser.isAdmin) {
+            // Regular admin - get their organizations
+            const userOrgs = await storage.getUserOrganizations(userId);
+            
+            if (userOrgs.length === 0) {
+              // Admin with no orgs - redirect to homepage
+              return res.redirect("/");
+            } else if (userOrgs.length === 1) {
+              // Admin with single org - redirect to their org's admin portal
+              return res.redirect(`/admin/org/${userOrgs[0].id}`);
+            } else {
+              // Admin with multiple orgs - let them choose
+              return res.redirect("/select-organization");
+            }
+          } else {
+            // Regular user (coach, coordinator) - collect all organization memberships
+            const orgIds = new Set<string>();
+            
+            // Check accepted coach invitations
+            const acceptedCoachInvites = await storage.getAcceptedCoachInvitations(userId);
+            acceptedCoachInvites.forEach(inv => orgIds.add(inv.organizationId));
+            
+            // Check coordinator assignments
+            const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+            coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
+            
+            const orgs = Array.from(orgIds);
+            
+            if (orgs.length === 1) {
+              // User belongs to one org - redirect to booking dashboard
+              return res.redirect(`/booking/${orgs[0]}`);
+            } else if (orgs.length > 1) {
+              // User belongs to multiple orgs - let them choose
+              return res.redirect("/select-organization");
+            } else {
+              // User with no affiliations - redirect to homepage (will go to /welcome)
+              return res.redirect("/");
+            }
+          }
         } catch (error) {
           console.error("Error during login redirect:", error);
           return res.redirect("/");

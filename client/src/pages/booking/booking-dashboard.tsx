@@ -140,7 +140,7 @@ export default function BookingDashboard() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-4">Administration</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link href="/admin-portal">
+              <Link href={`/admin/org/${orgId}`}>
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-purple-600" data-testid="card-tournament-management">
                   <CardHeader>
                     <div className="flex items-center justify-between">

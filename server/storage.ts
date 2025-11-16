@@ -202,6 +202,7 @@ export interface IStorage {
   // Coordinator methods
   getOrganizationCoordinators(organizationId: string, role?: string): Promise<OrganizationCoordinator[]>;
   getCoordinatorByRole(organizationId: string, role: string): Promise<OrganizationCoordinator | undefined>;
+  getUserCoordinatorAssignments(userId: string): Promise<OrganizationCoordinator[]>;
   createOrganizationCoordinator(coordinator: InsertOrganizationCoordinator): Promise<OrganizationCoordinator>;
   updateOrganizationCoordinator(id: string, coordinator: Partial<InsertOrganizationCoordinator>, organizationId: string): Promise<OrganizationCoordinator>;
   deleteOrganizationCoordinator(id: string, organizationId: string): Promise<void>;
@@ -210,6 +211,7 @@ export interface IStorage {
   // Coach Invitation methods
   getCoachInvitations(organizationId: string, status?: string): Promise<CoachInvitation[]>;
   getCoachInvitationByToken(token: string): Promise<CoachInvitation | undefined>;
+  getAcceptedCoachInvitations(userId: string): Promise<CoachInvitation[]>;
   createCoachInvitation(invitation: InsertCoachInvitation): Promise<CoachInvitation>;
   updateCoachInvitation(id: string, invitation: Partial<InsertCoachInvitation>, organizationId: string): Promise<CoachInvitation>;
   acceptCoachInvitation(token: string, userId: string): Promise<CoachInvitation>;
@@ -1720,6 +1722,12 @@ export class DatabaseStorage implements IStorage {
     return coordinator;
   }
 
+  async getUserCoordinatorAssignments(userId: string): Promise<OrganizationCoordinator[]> {
+    return await db.select().from(organizationCoordinators).where(
+      eq(organizationCoordinators.userId, userId)
+    );
+  }
+
   async createOrganizationCoordinator(coordinator: InsertOrganizationCoordinator): Promise<OrganizationCoordinator> {
     const [result] = await db.insert(organizationCoordinators).values(coordinator).returning();
     return result;
@@ -1774,6 +1782,13 @@ export class DatabaseStorage implements IStorage {
   async getCoachInvitationByToken(token: string): Promise<CoachInvitation | undefined> {
     const [invitation] = await db.select().from(coachInvitations).where(eq(coachInvitations.token, token));
     return invitation;
+  }
+
+  async getAcceptedCoachInvitations(userId: string): Promise<CoachInvitation[]> {
+    return await db.select().from(coachInvitations).where(and(
+      eq(coachInvitations.acceptedByUserId, userId),
+      eq(coachInvitations.status, 'accepted')
+    ));
   }
 
   async createCoachInvitation(invitation: InsertCoachInvitation): Promise<CoachInvitation> {

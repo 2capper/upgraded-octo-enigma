@@ -9,6 +9,7 @@ interface TournamentBranding {
   logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  organizationId?: string;
 }
 
 interface TournamentLogoProps {
@@ -145,7 +146,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
               </Button>
             </Link>
             
-            <Link href={`/admin-portal/${tournamentId}`}>
+            <Link href={tournament?.organizationId ? `/admin/org/${tournament.organizationId}/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
               <Button 
                 variant={currentPage === 'admin' ? 'secondary' : 'ghost'}
                 size="sm"
@@ -229,7 +230,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
                 </Button>
               </Link>
               
-              <Link href={`/admin-portal/${tournamentId}`}>
+              <Link href={tournament?.organizationId ? `/admin/org/${tournament.organizationId}/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
                 <Button
                   variant="ghost"
                   size="lg"
