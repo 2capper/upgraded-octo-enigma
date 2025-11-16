@@ -16,8 +16,8 @@ import type { Diamond } from '@shared/schema';
 
 export default function Dashboard() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
-  const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
-  const { teams, games, pools, tournaments, ageDivisions, currentTournament, loading, error } = useTournamentData(currentTournamentId);
+  const currentTournamentId = tournamentId;
+  const { teams, games, pools, tournaments, ageDivisions, currentTournament, loading, error } = useTournamentData(currentTournamentId!);
 
   // Fetch diamonds for the tournament's organization
   const { data: diamonds = [], isLoading: diamondsLoading } = useQuery<Diamond[]>({

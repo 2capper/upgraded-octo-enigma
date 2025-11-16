@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tournament, Team, Game, Pool, AgeDivision } from '@shared/schema';
 
-export const useTournamentData = (tournamentId: string = 'aug-classic') => {
+export const useTournamentData = (tournamentId: string = '') => {
   // Fetch tournaments (backend already filters by user's organizations)
   const { data: tournaments = [], isLoading: tournamentsLoading, error: tournamentsError } = useQuery({
     queryKey: ['/api/tournaments'],
@@ -13,6 +13,9 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
     },
   });
 
+  // Only fetch tournament-specific data if we have a valid tournament ID
+  const hasValidTournamentId = tournamentId && tournamentId.length > 0;
+
   const { data: teams = [], isLoading: teamsLoading, error: teamsError } = useQuery({
     queryKey: ['/api/tournaments', tournamentId, 'teams'],
     queryFn: async () => {
@@ -20,6 +23,7 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
       if (!response.ok) throw new Error('Failed to fetch teams');
       return response.json() as Team[];
     },
+    enabled: hasValidTournamentId,
   });
 
   const { data: games = [], isLoading: gamesLoading, error: gamesError } = useQuery({
@@ -29,6 +33,7 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
       if (!response.ok) throw new Error('Failed to fetch games');
       return response.json() as Game[];
     },
+    enabled: hasValidTournamentId,
   });
 
   // Fetch ALL pools (including Playoff, Unassigned, and temp pools)
@@ -39,6 +44,7 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
       if (!response.ok) throw new Error('Failed to fetch pools');
       return response.json() as Pool[];
     },
+    enabled: hasValidTournamentId,
   });
 
   // Filter to get only REAL pools (exclude system pools)
@@ -61,6 +67,7 @@ export const useTournamentData = (tournamentId: string = 'aug-classic') => {
       if (!response.ok) throw new Error('Failed to fetch age divisions');
       return response.json() as AgeDivision[];
     },
+    enabled: hasValidTournamentId,
   });
 
   const loading = tournamentsLoading || teamsLoading || gamesLoading || poolsLoading || ageDivisionsLoading;

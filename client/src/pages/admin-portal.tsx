@@ -64,9 +64,9 @@ export default function AdminPortal() {
     }
   }, [authLoading, isAuthenticated, orgId, orgsLoading, userOrgs, tournamentId, setLocation]);
 
-  // Use fallback tournamentId for backward compatibility
-  const currentTournamentId = tournamentId || 'fg-baseball-11u-13u-2025-08';
-  const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
+  // Only load tournament data if we have a specific tournament ID
+  const currentTournamentId = tournamentId;
+  const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId || '');
   
   // Filter tournaments to only show those from the selected organization
   const orgTournaments = orgId 
