@@ -23,6 +23,7 @@ import type { Organization, Diamond, InsertDiamond, OrganizationIcalFeed, Insert
 import { insertDiamondSchema, insertOrganizationIcalFeedSchema, insertOrganizationCoordinatorSchema } from '@shared/schema';
 import { poolPlayFormats, type PlayoffFormatOption } from '@shared/playoffFormats';
 import { seedingPatternOptions, type SeedingPattern } from '@shared/seedingPatterns';
+import { AdminManagement } from '@/components/admin/admin-management';
 import { z } from 'zod';
 
 interface DiamondRestriction {
@@ -2233,6 +2234,11 @@ export function OrganizationSettings() {
                           {poolPlayFormats.find(f => f.value === org.defaultPlayoffFormat)?.label || 'Top 6 Teams'}
                         </p>
                       </div>
+                    </div>
+
+                    {/* Admin Management Section */}
+                    <div className="pt-4 border-t">
+                      <AdminManagement organizationId={org.id} />
                     </div>
 
                     {/* Diamonds Management Section */}
