@@ -14,7 +14,7 @@ export const useTournamentData = (tournamentId: string = '') => {
   });
 
   // Only fetch tournament-specific data if we have a valid tournament ID
-  const hasValidTournamentId = tournamentId && tournamentId.length > 0;
+  const hasValidTournamentId = !!(tournamentId && tournamentId.length > 0);
 
   const { data: teams = [], isLoading: teamsLoading, error: teamsError } = useQuery({
     queryKey: ['/api/tournaments', tournamentId, 'teams'],
