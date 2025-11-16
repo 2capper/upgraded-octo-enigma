@@ -137,8 +137,8 @@ export async function setupAuth(app: Express) {
           }
 
           if (dbUser.isSuperAdmin) {
-            // Super admin can access all orgs - redirect to homepage
-            return res.redirect("/");
+            // Super admin can access all orgs - redirect to org selector
+            return res.redirect("/select-organization");
           } else if (dbUser.isAdmin) {
             // Regular admin - get their organizations
             const userOrgs = await storage.getUserOrganizations(userId);

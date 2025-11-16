@@ -1,10 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Building2, Loader2, AlertCircle } from "lucide-react";
+import { Building2, Loader2, AlertCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type Organization = {
   id: string;
@@ -19,6 +31,10 @@ type Organization = {
 
 export default function OrganizationSelector() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: organizations, isLoading, error } = useQuery<Organization[]>({
     queryKey: ['/api/users/me/organizations'],
@@ -28,9 +44,45 @@ export default function OrganizationSelector() {
     queryKey: ['/api/auth/user'],
   });
 
+  const handleDeleteClick = (e: React.MouseEvent, org: Organization) => {
+    e.stopPropagation(); // Prevent card click
+    setOrgToDelete(org);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!orgToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await apiRequest(`/api/organizations/${orgToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      toast({
+        title: "Organization deleted",
+        description: `${orgToDelete.name} has been permanently deleted.`,
+      });
+
+      // Invalidate and refetch organizations list
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
+      
+      setDeleteDialogOpen(false);
+      setOrgToDelete(null);
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: "Failed to delete organization. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   useEffect(() => {
-    if (!isLoading && organizations) {
-      // Auto-redirect if user has exactly one organization
+    if (!isLoading && organizations && !user?.isSuperAdmin) {
+      // Auto-redirect if user has exactly one organization (skip for super admins)
       if (organizations.length === 1) {
         const org = organizations[0];
         // Route based on diamond booking capability
@@ -41,7 +93,7 @@ export default function OrganizationSelector() {
         }
       }
     }
-  }, [organizations, isLoading, setLocation]);
+  }, [organizations, isLoading, user, setLocation]);
 
   if (isLoading) {
     return (
@@ -148,6 +200,17 @@ export default function OrganizationSelector() {
                         </CardDescription>
                       )}
                     </div>
+                    {user?.isSuperAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => handleDeleteClick(e, org)}
+                        data-testid={`button-delete-${org.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -176,6 +239,36 @@ export default function OrganizationSelector() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{orgToDelete?.name}</strong>? 
+              This will permanently delete all tournaments, teams, games, and booking data 
+              associated with this organization. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Organization'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

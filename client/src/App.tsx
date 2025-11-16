@@ -37,6 +37,12 @@ function RequireAuth({ component: Component }: { component: any }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
+  // Fetch user data for super admin check
+  const { data: userData, isLoading: isUserLoading } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+    enabled: isAuthenticated,
+  });
+
   // Fetch user's organizations to determine if they need onboarding
   const { data: userOrgs, isLoading: isOrgsLoading } = useQuery<Array<any>>({
     queryKey: ['/api/users/me/organizations'],
@@ -51,7 +57,12 @@ function RequireAuth({ component: Component }: { component: any }) {
 
   // Hard redirect logic for new user onboarding
   useEffect(() => {
-    if (isAuthenticated && !isOrgsLoading && userOrgs) {
+    if (isAuthenticated && !isOrgsLoading && !isUserLoading && userOrgs && userData) {
+      // Skip onboarding redirects for super admins
+      if (userData.isSuperAdmin) {
+        return;
+      }
+
       // Whitelist routes that new users (0 orgs) can access during onboarding
       const onboardingAllowedRoutes = ['/welcome', '/onboarding'];
       const isOnOnboardingRoute = onboardingAllowedRoutes.some(route => location.startsWith(route));
@@ -66,9 +77,9 @@ function RequireAuth({ component: Component }: { component: any }) {
         setLocation('/');
       }
     }
-  }, [isAuthenticated, isOrgsLoading, userOrgs, location, setLocation]);
+  }, [isAuthenticated, isOrgsLoading, isUserLoading, userOrgs, userData, location, setLocation]);
 
-  if (isLoading || isOrgsLoading) {
+  if (isLoading || isOrgsLoading || isUserLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -106,14 +117,11 @@ function HostnameAwareHome() {
   // Hard redirect logic for authenticated users on homepage
   useEffect(() => {
     if (isAuthenticated && !userLoading && !orgsLoading && user && userOrgs) {
-      // SUPER ADMIN CHECK - Must come FIRST to prevent redirect loop
-      if (user.email === 'richard.lepage@gmail.com') {
-        // Super admin can access platform home - no redirect
-        return;
-      }
-      
-      // New user with no orgs - redirect to /welcome
-      if (userOrgs.length === 0) {
+      if (user.isSuperAdmin) {
+        // Super admin - redirect to org selector
+        setLocation('/select-organization');
+      } else if (userOrgs.length === 0) {
+        // New user with no orgs - redirect to /welcome
         setLocation('/welcome');
       }
     }
