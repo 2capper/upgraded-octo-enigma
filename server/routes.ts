@@ -11,7 +11,8 @@ import {
   gameUpdateSchema,
   insertAdminRequestSchema,
   insertOrganizationCoordinatorSchema,
-  insertCoachInvitationSchema
+  insertCoachInvitationSchema,
+  insertAdminInvitationSchema
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
@@ -4733,6 +4734,161 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error accepting invitation:", error);
       res.status(400).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  // Admin Invitation Routes
+  app.get('/api/organizations/:orgId/admin-invitations', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { status } = req.query;
+      
+      const invitations = await storage.getAdminInvitations(orgId, status as string | undefined);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching admin invitations:", error);
+      res.status(500).json({ error: "Failed to fetch admin invitations" });
+    }
+  });
+
+  app.post('/api/organizations/:orgId/admin-invitations', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const token = nanoid(32);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      
+      const validatedData = insertAdminInvitationSchema.parse({
+        ...req.body,
+        organizationId: orgId,
+        token,
+        expiresAt,
+        invitedBy: userId,
+      });
+      
+      const invitation = await storage.createAdminInvitation(validatedData);
+      
+      const org = await storage.getOrganization(orgId);
+      if (org && invitation.email) {
+        try {
+          const host = req.get('host') || 'localhost:5000';
+          const protocol = host.includes('localhost') ? 'http' : (req.protocol || 'https');
+          const inviteUrl = `${protocol}://${host}/admin-invite/${token}`;
+          
+          await notificationService.sendNotification({
+            organizationId: orgId,
+            type: 'approval_requested',
+            channel: 'email',
+            recipient: { email: invitation.email },
+            subject: `Admin Invitation to ${org.name}`,
+            body: `You've been invited to become an administrator for ${org.name} on Dugout Desk.\n\nClick here to accept: ${inviteUrl}\n\nThis invitation expires on ${expiresAt.toLocaleDateString()}.`,
+          });
+        } catch (emailError) {
+          console.error("Failed to send admin invitation email:", emailError);
+        }
+      }
+      
+      res.status(201).json(invitation);
+    } catch (error) {
+      console.error("Error creating admin invitation:", error);
+      res.status(400).json({ error: "Failed to create admin invitation" });
+    }
+  });
+
+  app.delete('/api/organizations/:orgId/admin-invitations/:invitationId', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId, invitationId } = req.params;
+      await storage.revokeAdminInvitation(invitationId, orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error revoking admin invitation:", error);
+      res.status(400).json({ error: "Failed to revoke admin invitation" });
+    }
+  });
+
+  // Public admin invitation routes
+  app.get('/api/admin-invitations/:token', async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const invitation = await storage.getAdminInvitationByToken(token);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation has been ${invitation.status}` });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      const org = await storage.getOrganization(invitation.organizationId);
+      res.json({
+        email: invitation.email,
+        organizationName: org?.name,
+        organizationId: invitation.organizationId,
+        logoUrl: org?.logoUrl,
+        expiresAt: invitation.expiresAt,
+        status: invitation.status,
+      });
+    } catch (error) {
+      console.error("Error validating admin invitation:", error);
+      res.status(500).json({ error: "Failed to validate admin invitation" });
+    }
+  });
+
+  app.post('/api/admin-invitations/:token/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const invitation = await storage.getAdminInvitationByToken(token);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation has already been ${invitation.status}` });
+      }
+      
+      if (new Date() > new Date(invitation.expiresAt)) {
+        return res.status(400).json({ error: "Invitation has expired" });
+      }
+      
+      // Accept the invitation
+      const acceptedInvitation = await storage.acceptAdminInvitation(token, userId);
+      
+      // Add user as organization admin
+      await storage.assignOrganizationAdmin(userId, invitation.organizationId);
+      
+      res.json(acceptedInvitation);
+    } catch (error) {
+      console.error("Error accepting admin invitation:", error);
+      res.status(400).json({ error: "Failed to accept admin invitation" });
+    }
+  });
+
+  // Remove organization admin
+  app.delete('/api/organizations/:orgId/admins/:userId', requireAdmin, async (req: any, res) => {
+    try {
+      const { orgId, userId } = req.params;
+      
+      // Prevent removing the last admin
+      const admins = await storage.getOrganizationAdmins(orgId);
+      if (admins.length <= 1) {
+        return res.status(400).json({ error: "Cannot remove the last admin from the organization" });
+      }
+      
+      await storage.removeOrganizationAdmin(userId, orgId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing admin:", error);
+      res.status(400).json({ error: "Failed to remove admin" });
     }
   });
 
