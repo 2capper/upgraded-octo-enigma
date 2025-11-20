@@ -27,6 +27,8 @@ import TeamManagementPage from "@/pages/booking/team-management-page";
 import BookingReportsPage from "@/pages/booking/booking-reports-page";
 import BookingSettingsPage from "@/pages/booking/booking-settings-page";
 import TwilioSettings from "@/pages/TwilioSettings";
+import WeatherSettings from "@/pages/WeatherSettings";
+import WeatherDashboard from "@/pages/WeatherDashboard";
 import Communications from "@/pages/Communications";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
@@ -202,6 +204,9 @@ function Router() {
       <Route path="/booking/:orgId/twilio-settings">
         {() => <RequireAuth component={TwilioSettings} />}
       </Route>
+      <Route path="/booking/:orgId/weather-settings">
+        {() => <RequireAuth component={WeatherSettings} />}
+      </Route>
       <Route path="/booking/:orgId/communications">
         {() => <RequireAuth component={Communications} />}
       </Route>
@@ -210,6 +215,9 @@ function Router() {
       </Route>
       
       {/* Protected admin routes - NEW org-scoped routes */}
+      <Route path="/admin/org/:orgId/tournament/:tournamentId/weather">
+        {() => <RequireAuth component={WeatherDashboard} />}
+      </Route>
       <Route path="/admin/org/:orgId/tournament/:tournamentId/validation-report">
         {() => <RequireAuth component={ValidationReport} />}
       </Route>

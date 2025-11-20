@@ -9,6 +9,7 @@ import { tournamentService } from "./services/tournamentService";
 import { gameService } from "./services/gameService";
 import { playoffService } from "./services/playoffService";
 import { smsService } from "./services/smsService";
+import { weatherService } from "./services/weatherService";
 import { 
   insertOrganizationSchema,
   insertTournamentSchema, 
@@ -5154,6 +5155,214 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error processing Twilio webhook:", error);
       res.status(500).send('Error');
+    }
+  });
+
+  // =============================================
+  // WEATHER INTEGRATION ROUTES
+  // =============================================
+
+  // Get weather settings for organization
+  app.get('/api/organizations/:orgId/weather-settings', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const settings = await weatherService.getWeatherSettings(orgId);
+      
+      if (!settings) {
+        // Return defaults for first-time setup
+        const now = new Date();
+        return res.json({
+          id: `temp-${orgId}`,
+          organizationId: orgId,
+          apiKey: "",
+          isEnabled: true,
+          lightningRadiusMiles: 10,
+          heatIndexThresholdF: 94,
+          windSpeedThresholdMph: 25,
+          precipitationThresholdPct: 70,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          apiKeyConfigured: false,
+        });
+      }
+
+      // Don't send API key to frontend for security
+      const { apiKey, ...safeSettings } = settings;
+      res.json({ ...safeSettings, apiKeyConfigured: true });
+    } catch (error) {
+      console.error("Error fetching weather settings:", error);
+      res.status(500).json({ error: "Failed to fetch weather settings" });
+    }
+  });
+
+  // Save weather settings
+  app.post('/api/organizations/:orgId/weather-settings', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { apiKey, isEnabled, lightningRadiusMiles, heatIndexThresholdF, windSpeedThresholdMph, precipitationThresholdPct } = req.body;
+
+      if (!apiKey) {
+        return res.status(400).json({ error: "API key is required" });
+      }
+
+      const settings = await weatherService.saveWeatherSettings(orgId, {
+        apiKey,
+        isEnabled,
+        lightningRadiusMiles,
+        heatIndexThresholdF,
+        windSpeedThresholdMph,
+        precipitationThresholdPct,
+      });
+
+      const { apiKey: _, ...safeSettings } = settings;
+      res.json({ ...safeSettings, apiKeyConfigured: true });
+    } catch (error) {
+      console.error("Error saving weather settings:", error);
+      res.status(500).json({ error: "Failed to save weather settings" });
+    }
+  });
+
+  // Get weather forecast for a specific game
+  app.get('/api/games/:gameId/weather', async (req: any, res) => {
+    try {
+      const { gameId } = req.params;
+      const forceRefresh = req.query.refresh === 'true';
+
+      // Get game details
+      const game = await gameService.getGame(gameId);
+      if (!game) {
+        return res.status(404).json({ error: "Game not found" });
+      }
+
+      // Get diamond for location coordinates
+      if (!game.diamondId) {
+        return res.status(400).json({ error: "Game has no diamond assigned" });
+      }
+
+      const diamond = await diamondService.getDiamond(game.diamondId);
+      if (!diamond || !diamond.latitude || !diamond.longitude) {
+        return res.status(400).json({ error: "Diamond has no location coordinates" });
+      }
+
+      // Combine date and time into a Date object
+      const gameDateTime = new Date(`${game.date}T${game.time}`);
+
+      // Fetch or get cached forecast
+      const forecast = await weatherService.getGameWeatherForecast(
+        gameId,
+        game.tournamentId,
+        parseFloat(diamond.latitude),
+        parseFloat(diamond.longitude),
+        gameDateTime,
+        forceRefresh
+      );
+
+      if (!forecast) {
+        return res.status(404).json({ error: "Weather forecast not available" });
+      }
+
+      res.json(forecast);
+    } catch (error) {
+      console.error("Error fetching game weather:", error);
+      res.status(500).json({ error: "Failed to fetch weather forecast" });
+    }
+  });
+
+  // Bulk fetch weather for multiple games in a tournament
+  app.post('/api/tournaments/:tournamentId/weather/bulk-fetch', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { tournamentId } = req.params;
+
+      // Get all games for tournament
+      const games = await gameService.getGames(tournamentId);
+      
+      // Filter games that have diamonds with coordinates, track errors
+      const gamesWithLocation = [];
+      const skippedGames = [];
+      
+      for (const game of games) {
+        if (!game.diamondId) {
+          skippedGames.push({
+            gameId: game.id,
+            reason: "No diamond assigned",
+          });
+          continue;
+        }
+        
+        const diamond = await diamondService.getDiamond(game.diamondId);
+        if (!diamond) {
+          skippedGames.push({
+            gameId: game.id,
+            reason: "Diamond not found",
+          });
+          continue;
+        }
+        
+        if (!diamond.latitude || !diamond.longitude) {
+          skippedGames.push({
+            gameId: game.id,
+            reason: "Diamond has no GPS coordinates",
+          });
+          continue;
+        }
+        
+        const gameDateTime = new Date(`${game.date}T${game.time}`);
+        gamesWithLocation.push({
+          id: game.id,
+          organizationId: tournamentId,
+          latitude: parseFloat(diamond.latitude),
+          longitude: parseFloat(diamond.longitude),
+          dateTime: gameDateTime,
+        });
+      }
+
+      // Bulk fetch forecasts (handles individual errors internally)
+      const forecasts = await weatherService.bulkFetchGameForecasts(gamesWithLocation);
+
+      res.json({
+        success: true,
+        totalGames: games.length,
+        gamesWithWeather: forecasts.length,
+        gamesSkipped: skippedGames.length,
+        skippedGames,
+        forecasts,
+      });
+    } catch (error) {
+      console.error("Error bulk fetching weather:", error);
+      res.status(500).json({ error: "Failed to bulk fetch weather" });
+    }
+  });
+
+  // Get all games with weather alerts for a tournament
+  app.get('/api/tournaments/:tournamentId/weather/alerts', async (req: any, res) => {
+    try {
+      const { tournamentId } = req.params;
+
+      // Get all games for tournament
+      const games = await gameService.getGames(tournamentId);
+
+      // Get cached forecasts for all games
+      const gamesWithAlerts = [];
+      for (const game of games) {
+        const forecast = await weatherService.getCachedForecast(game.id);
+        if (forecast && (
+          forecast.hasLightningAlert ||
+          forecast.hasHeatAlert ||
+          forecast.hasWindAlert ||
+          forecast.hasPrecipitationAlert ||
+          forecast.hasSevereWeatherAlert
+        )) {
+          gamesWithAlerts.push({
+            game,
+            forecast,
+          });
+        }
+      }
+
+      res.json(gamesWithAlerts);
+    } catch (error) {
+      console.error("Error fetching weather alerts:", error);
+      res.status(500).json({ error: "Failed to fetch weather alerts" });
     }
   });
 

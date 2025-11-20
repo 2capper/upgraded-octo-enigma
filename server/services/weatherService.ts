@@ -2,6 +2,7 @@ import { db } from "../db";
 import {
   organizationWeatherSettings,
   weatherForecasts,
+  games,
   type OrganizationWeatherSettings,
   type WeatherForecast,
   type InsertWeatherForecast,
@@ -373,11 +374,44 @@ export class WeatherService {
 
       // Insert new forecast
       const [forecast] = await db.insert(weatherForecasts).values(forecastData).returning();
+      
+      // Update game's weather status based on alert severity
+      const weatherStatus = this.determineWeatherStatus(forecastData);
+      await this.updateGameWeatherStatus(gameId, weatherStatus);
+      
       return forecast;
     } catch (error) {
       console.error("Error fetching weather forecast:", error);
       throw error;
     }
+  }
+
+  // Determine weather status based on alert severity
+  determineWeatherStatus(forecast: InsertWeatherForecast | WeatherForecast): string {
+    // Critical: Lightning or severe weather
+    if (forecast.hasLightningAlert || forecast.hasSevereWeatherAlert) {
+      return "warning"; // Red - evacuate immediately
+    }
+    
+    // High concern: Heat or wind alerts
+    if (forecast.hasHeatAlert || forecast.hasWindAlert) {
+      return "watch"; // Yellow - monitor closely
+    }
+    
+    // Moderate concern: Rain likely
+    if (forecast.hasPrecipitationAlert) {
+      return "watch"; // Yellow - prepare for delays
+    }
+    
+    return "normal"; // Green - safe to play
+  }
+
+  // Update game's weather status based on forecast
+  async updateGameWeatherStatus(gameId: string, weatherStatus: string): Promise<void> {
+    await db
+      .update(games)
+      .set({ weatherStatus })
+      .where(eq(games.id, gameId));
   }
 
   // Get cached weather forecast for a game

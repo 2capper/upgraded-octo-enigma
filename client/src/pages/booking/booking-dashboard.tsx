@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Trophy, ArrowRight, ClipboardList, Users, BarChart3, Settings, CheckSquare, PlusCircle, MessageSquare, Shield } from "lucide-react";
+import { Calendar, Trophy, ArrowRight, ClipboardList, Users, BarChart3, Settings, CheckSquare, PlusCircle, MessageSquare, Shield, Cloud } from "lucide-react";
 import { BookingRequestList } from "@/components/booking/booking-request-list";
 import type { HouseLeagueTeam } from "@shared/schema";
 
@@ -227,6 +227,25 @@ export default function BookingDashboard() {
                         <div>
                           <CardTitle className="text-lg">SMS Settings</CardTitle>
                           <CardDescription className="text-sm">Configure Twilio</CardDescription>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              <Link href={`/booking/${orgId}/weather-settings`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-sky-600" data-testid="card-weather-settings">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
+                          <Cloud className="w-5 h-5 text-sky-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Weather Settings</CardTitle>
+                          <CardDescription className="text-sm">Configure forecasts & alerts</CardDescription>
                         </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-gray-400" />
