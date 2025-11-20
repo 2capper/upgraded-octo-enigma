@@ -26,6 +26,8 @@ import CoordinatorApprovals from "@/pages/booking/coordinator-approvals";
 import TeamManagementPage from "@/pages/booking/team-management-page";
 import BookingReportsPage from "@/pages/booking/booking-reports-page";
 import BookingSettingsPage from "@/pages/booking/booking-settings-page";
+import TwilioSettings from "@/pages/TwilioSettings";
+import Communications from "@/pages/Communications";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
 import OrganizationSelector from "@/pages/organization-selector";
@@ -196,6 +198,12 @@ function Router() {
       </Route>
       <Route path="/booking/:orgId/settings">
         {() => <RequireAuth component={BookingSettingsPage} />}
+      </Route>
+      <Route path="/booking/:orgId/twilio-settings">
+        {() => <RequireAuth component={TwilioSettings} />}
+      </Route>
+      <Route path="/booking/:orgId/communications">
+        {() => <RequireAuth component={Communications} />}
       </Route>
       <Route path="/booking/:orgId">
         {() => <RequireAuth component={BookingDashboard} />}

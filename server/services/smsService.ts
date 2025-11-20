@@ -8,8 +8,7 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { isValidE164 } from "@shared/phoneUtils";
-
-const twilio = require('twilio');
+import twilio from "twilio";
 
 export interface SendSmsOptions {
   organizationId: string;

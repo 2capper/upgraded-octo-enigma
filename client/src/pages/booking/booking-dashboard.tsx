@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Trophy, ArrowRight, ClipboardList, Users, BarChart3, Settings, CheckSquare, PlusCircle } from "lucide-react";
+import { Calendar, Trophy, ArrowRight, ClipboardList, Users, BarChart3, Settings, CheckSquare, PlusCircle, MessageSquare, Shield } from "lucide-react";
 import { BookingRequestList } from "@/components/booking/booking-request-list";
 import type { HouseLeagueTeam } from "@shared/schema";
 
@@ -189,6 +189,44 @@ export default function BookingDashboard() {
                         <div>
                           <CardTitle className="text-lg">Reports</CardTitle>
                           <CardDescription className="text-sm">View booking analytics</CardDescription>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              <Link href={`/booking/${orgId}/communications`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-purple-600" data-testid="card-communications">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <MessageSquare className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Communications</CardTitle>
+                          <CardDescription className="text-sm">Send SMS to coaches</CardDescription>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              <Link href={`/booking/${orgId}/twilio-settings`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-600" data-testid="card-twilio-settings">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Shield className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">SMS Settings</CardTitle>
+                          <CardDescription className="text-sm">Configure Twilio</CardDescription>
                         </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-gray-400" />

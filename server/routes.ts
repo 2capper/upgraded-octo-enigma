@@ -8,6 +8,7 @@ import { teamService } from "./services/teamService";
 import { tournamentService } from "./services/tournamentService";
 import { gameService } from "./services/gameService";
 import { playoffService } from "./services/playoffService";
+import { smsService } from "./services/smsService";
 import { 
   insertOrganizationSchema,
   insertTournamentSchema, 
@@ -4945,6 +4946,214 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error removing admin:", error);
       res.status(400).json({ error: "Failed to remove admin" });
+    }
+  });
+
+  // =============================================
+  // SMS COMMUNICATIONS ROUTES
+  // =============================================
+
+  // Get organization tournaments with teams and coaches (for SMS communications)
+  app.get('/api/organizations/:orgId/tournaments-with-teams', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      
+      // Get tournaments scoped to this organization (uses SQL WHERE clause)
+      const orgTournaments = await tournamentService.getTournaments(orgId);
+      
+      // Fetch teams for each tournament
+      const tournamentsWithTeams = await Promise.all(
+        orgTournaments.map(async (tournament: any) => {
+          const teams = await teamService.getTeams(tournament.id);
+          return {
+            id: tournament.id,
+            name: tournament.name,
+            organizationId: tournament.organizationId,
+            teams: teams,
+          };
+        })
+      );
+      
+      res.json(tournamentsWithTeams);
+    } catch (error) {
+      console.error("Error fetching organization tournaments:", error);
+      res.status(500).json({ error: "Failed to fetch tournaments" });
+    }
+  });
+
+  // Get Twilio settings for organization
+  app.get('/api/organizations/:orgId/twilio-settings', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const settings = await smsService.getTwilioSettings(orgId);
+      
+      if (!settings) {
+        // Return defaults for first-time setup matching OrganizationTwilioSettings schema
+        const now = new Date();
+        return res.json({
+          id: `temp-${orgId}`, // Temporary ID that will be replaced on save
+          organizationId: orgId,
+          accountSid: "",
+          phoneNumber: "",
+          isEnabled: true,
+          dailyLimit: 100,
+          rateLimit: 100,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          authTokenConfigured: false,
+        });
+      }
+
+      // Don't send auth token to frontend for security
+      const { authToken, ...safeSettings } = settings;
+      res.json({ ...safeSettings, authTokenConfigured: true });
+    } catch (error) {
+      console.error("Error fetching Twilio settings:", error);
+      res.status(500).json({ error: "Failed to fetch Twilio settings" });
+    }
+  });
+
+  // Save Twilio settings
+  app.post('/api/organizations/:orgId/twilio-settings', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { accountSid, authToken, phoneNumber, dailyLimit, rateLimit } = req.body;
+
+      if (!accountSid || !authToken || !phoneNumber) {
+        return res.status(400).json({ error: "Account SID, Auth Token, and Phone Number are required" });
+      }
+
+      const settings = await smsService.saveTwilioSettings(
+        orgId,
+        accountSid,
+        authToken,
+        phoneNumber,
+        dailyLimit,
+        rateLimit
+      );
+
+      const { authToken: _, ...safeSettings } = settings;
+      res.json({ ...safeSettings, authTokenConfigured: true });
+    } catch (error) {
+      console.error("Error saving Twilio settings:", error);
+      res.status(400).json({ error: "Failed to save Twilio settings" });
+    }
+  });
+
+  // Check rate limit status
+  app.get('/api/organizations/:orgId/sms/rate-limit', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const status = await smsService.checkRateLimit(orgId);
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking rate limit:", error);
+      res.status(500).json({ error: "Failed to check rate limit" });
+    }
+  });
+
+  // Send SMS message
+  app.post('/api/organizations/:orgId/sms/send', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const userId = req.user.claims.sub;
+      const { recipientPhone, recipientName, messageBody, tournamentId, teamId } = req.body;
+
+      if (!recipientPhone || !messageBody) {
+        return res.status(400).json({ error: "Recipient phone and message body are required" });
+      }
+
+      const result = await smsService.sendSms({
+        organizationId: orgId,
+        recipientPhone,
+        recipientName,
+        messageBody,
+        sentBy: userId,
+        tournamentId,
+        teamId,
+      });
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error sending SMS:", error);
+      res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
+  // Bulk send SMS messages
+  app.post('/api/organizations/:orgId/sms/send-bulk', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const userId = req.user.claims.sub;
+      const { recipients, messageBody, tournamentId } = req.body;
+
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ error: "Recipients array is required" });
+      }
+
+      if (!messageBody) {
+        return res.status(400).json({ error: "Message body is required" });
+      }
+
+      const messages = recipients.map(recipient => ({
+        organizationId: orgId,
+        recipientPhone: recipient.phone,
+        recipientName: recipient.name,
+        messageBody,
+        sentBy: userId,
+        tournamentId,
+        teamId: recipient.teamId,
+      }));
+
+      const results = await smsService.bulkSendSms(messages);
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
+      res.json({
+        success: true,
+        sent: successCount,
+        failed: failureCount,
+        results,
+      });
+    } catch (error) {
+      console.error("Error sending bulk SMS:", error);
+      res.status(500).json({ error: "Failed to send bulk SMS" });
+    }
+  });
+
+  // Get message history
+  app.get('/api/organizations/:orgId/sms/messages', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const messages = await smsService.getMessageHistory(orgId, limit, offset);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching message history:", error);
+      res.status(500).json({ error: "Failed to fetch message history" });
+    }
+  });
+
+  // Twilio webhook for delivery status updates
+  app.post('/api/sms/webhook', async (req, res) => {
+    try {
+      const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body;
+
+      if (MessageSid && MessageStatus) {
+        await smsService.updateMessageStatus(MessageSid, MessageStatus, ErrorCode, ErrorMessage);
+      }
+
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error("Error processing Twilio webhook:", error);
+      res.status(500).send('Error');
     }
   });
 
