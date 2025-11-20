@@ -20,7 +20,7 @@ interface FeatureCard {
   icon: React.ReactNode;
   href: string;
   color: string;
-  requiresFeatureFlag?: string;
+  featureKey?: string; // Key to check in feature flags
   requiresAdmin?: boolean;
   testId: string;
 }
@@ -37,7 +37,22 @@ export default function OrgAdminPortal() {
     queryKey: [`/api/organizations/${orgId}/user-role`],
   });
 
+  const { data: featureFlags, isLoading: flagsLoading } = useQuery<Array<{
+    key: string;
+    effectivelyEnabled: boolean;
+  }>>({
+    queryKey: [`/api/organizations/${orgId}/feature-flags`],
+    enabled: !!orgId,
+  });
+
   const isAdmin = userRole?.isAdmin || false;
+
+  // Helper function to check if a feature is enabled
+  const isFeatureEnabled = (featureKey: string): boolean => {
+    if (!featureFlags) return true; // Default to showing features if flags haven't loaded
+    const flag = featureFlags.find(f => f.key === featureKey);
+    return flag ? flag.effectivelyEnabled : true;
+  };
 
   // Define all available features
   const allFeatures: FeatureCard[] = [
@@ -58,7 +73,7 @@ export default function OrgAdminPortal() {
       icon: <Calendar className="w-5 h-5" />,
       href: `/org/${orgId}/booking`,
       color: 'green',
-      requiresFeatureFlag: 'enable_booking',
+      featureKey: 'booking',
       testId: 'card-booking',
     },
     {
@@ -68,7 +83,7 @@ export default function OrgAdminPortal() {
       icon: <MessageSquare className="w-5 h-5" />,
       href: `/org/${orgId}/communications`,
       color: 'blue',
-      requiresFeatureFlag: 'enable_sms',
+      featureKey: 'sms',
       requiresAdmin: true,
       testId: 'card-communications',
     },
@@ -79,7 +94,7 @@ export default function OrgAdminPortal() {
       icon: <Cloud className="w-5 h-5" />,
       href: `/org/${orgId}/weather`,
       color: 'sky',
-      requiresFeatureFlag: 'enable_weather',
+      featureKey: 'weather',
       requiresAdmin: true,
       testId: 'card-weather',
     },
@@ -122,8 +137,10 @@ export default function OrgAdminPortal() {
       return false;
     }
 
-    // TODO: Check feature flags when implemented
-    // For now, show all features except those explicitly disabled
+    // Check feature flag if specified
+    if (feature.featureKey && !isFeatureEnabled(feature.featureKey)) {
+      return false;
+    }
     
     return true;
   });
@@ -141,7 +158,7 @@ export default function OrgAdminPortal() {
     return colorMap[color] || colorMap.gray;
   };
 
-  if (roleLoading) {
+  if (roleLoading || flagsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

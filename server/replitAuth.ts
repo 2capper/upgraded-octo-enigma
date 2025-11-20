@@ -149,7 +149,7 @@ export async function setupAuth(app: Express) {
               return res.redirect("/");
             } else if (userOrgs.length === 1) {
               // Admin with single org - redirect to their org's admin portal
-              return res.redirect(`/admin/org/${userOrgs[0].id}`);
+              return res.redirect(`/org/${userOrgs[0].id}/admin`);
             } else {
               // Admin with multiple orgs - let them choose
               return res.redirect("/select-organization");
@@ -169,8 +169,8 @@ export async function setupAuth(app: Express) {
             const orgs = Array.from(orgIds);
             
             if (orgs.length === 1) {
-              // User belongs to one org - redirect to booking dashboard
-              return res.redirect(`/booking/${orgs[0]}`);
+              // User belongs to one org - redirect to admin portal
+              return res.redirect(`/org/${orgs[0]}/admin`);
             } else if (orgs.length > 1) {
               // User belongs to multiple orgs - let them choose
               return res.redirect("/select-organization");

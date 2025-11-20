@@ -36,6 +36,7 @@ import OrganizationSelector from "@/pages/organization-selector";
 import { WelcomePage } from "@/pages/welcome";
 import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
 import OrgAdminPortal from "@/pages/OrgAdminPortal";
+import OrgSettings from "@/pages/OrgSettings";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -199,7 +200,7 @@ function Router() {
         {() => <RequireAuth component={BookingReportsPage} />}
       </Route>
       <Route path="/org/:orgId/settings">
-        {() => <RequireAuth component={BookingSettingsPage} />}
+        {() => <RequireAuth component={OrgSettings} />}
       </Route>
       <Route path="/org/:orgId/booking">
         {() => <RequireAuth component={BookingDashboard} />}

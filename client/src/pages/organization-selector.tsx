@@ -90,12 +90,8 @@ export default function OrganizationSelector() {
       // Auto-redirect if user has exactly one organization (skip for super admins)
       if (organizations.length === 1) {
         const org = organizations[0];
-        // Route based on diamond booking capability
-        if (org.hasDiamondBooking) {
-          setLocation(`/booking/${org.id}`);
-        } else {
-          setLocation(`/admin/org/${org.id}`);
-        }
+        // Route to organization admin portal
+        setLocation(`/org/${org.id}/admin`);
       }
     }
   }, [organizations, isLoading, user, setLocation]);
@@ -172,7 +168,7 @@ export default function OrganizationSelector() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {organizations.map((org) => {
-            const destinationUrl = org.hasDiamondBooking ? `/booking/${org.id}` : `/admin/org/${org.id}`;
+            const destinationUrl = `/org/${org.id}/admin`;
             
             return (
               <Card 
