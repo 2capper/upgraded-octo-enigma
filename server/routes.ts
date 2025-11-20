@@ -1,6 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { userService } from "./services/userService";
+import { organizationService } from "./services/organizationService";
+import { diamondService } from "./services/diamondService";
+import { teamService } from "./services/teamService";
+import { tournamentService } from "./services/tournamentService";
+import { gameService } from "./services/gameService";
+import { playoffService } from "./services/playoffService";
 import { 
   insertOrganizationSchema,
   insertTournamentSchema, 
@@ -28,7 +34,7 @@ import { notificationService } from "./lib/notificationService";
 
 // Helper function to get all organization IDs a user has access to
 async function getUserOrganizationIds(userId: string): Promise<Set<string>> {
-  const user = await storage.getUser(userId);
+  const user = await userService.getUser(userId);
   const orgIds = new Set<string>();
   
   if (!user) {
@@ -37,23 +43,23 @@ async function getUserOrganizationIds(userId: string): Promise<Set<string>> {
   
   // Super admins have access to all organizations
   if (user.isSuperAdmin) {
-    const allOrgs = await storage.getOrganizations();
+    const allOrgs = await organizationService.getOrganizations();
     allOrgs.forEach(org => orgIds.add(org.id));
     return orgIds;
   }
   
   // Get admin organizations
   if (user.isAdmin) {
-    const adminOrgs = await storage.getUserOrganizations(userId);
+    const adminOrgs = await userService.getUserOrganizations(userId);
     adminOrgs.forEach(org => orgIds.add(org.id));
   }
   
   // Get coach organizations (accepted invitations)
-  const coachInvites = await storage.getAcceptedCoachInvitations(userId);
+  const coachInvites = await organizationService.getAcceptedCoachInvitations(userId);
   coachInvites.forEach(inv => orgIds.add(inv.organizationId));
   
   // Get coordinator organizations
-  const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+  const coordinatorAssignments = await userService.getUserCoordinatorAssignments(userId);
   coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
   
   return orgIds;
@@ -61,7 +67,7 @@ async function getUserOrganizationIds(userId: string): Promise<Set<string>> {
 
 // Helper function to check tournament access for authenticated users
 async function checkTournamentAccess(req: any, res: any, tournamentId: string): Promise<boolean> {
-  const tournament = await storage.getTournament(tournamentId);
+  const tournament = await tournamentService.getTournament(tournamentId);
   if (!tournament) {
     res.status(404).json({ error: "Tournament not found" });
     return false;
@@ -103,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await userService.getUser(userId);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -115,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/me/organizations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await userService.getUser(userId);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -124,27 +130,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let organizations;
       if (user.isSuperAdmin) {
         // Super Admins can see EVERYTHING
-        organizations = await storage.getOrganizations();
+        organizations = await organizationService.getOrganizations();
       } else {
         // Collect all organizations user has access to (union of admin, coach, coordinator)
         const orgIds = new Set<string>();
         
         // Get admin organizations
         if (user.isAdmin) {
-          const adminOrgs = await storage.getUserOrganizations(userId);
+          const adminOrgs = await userService.getUserOrganizations(userId);
           adminOrgs.forEach(org => orgIds.add(org.id));
         }
         
         // Get coach organizations (accepted invitations)
-        const coachInvites = await storage.getAcceptedCoachInvitations(userId);
+        const coachInvites = await organizationService.getAcceptedCoachInvitations(userId);
         coachInvites.forEach(invite => orgIds.add(invite.organizationId));
         
         // Get coordinator organizations
-        const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+        const coordinatorAssignments = await userService.getUserCoordinatorAssignments(userId);
         coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
         
         // Get unique organizations from collected IDs
-        const allOrgs = await storage.getOrganizations();
+        const allOrgs = await organizationService.getOrganizations();
         organizations = allOrgs.filter(org => orgIds.has(org.id));
       }
       
@@ -158,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User list endpoint - super admin only
   app.get('/api/users', requireSuperAdmin, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const users = await userService.getAllUsers();
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -170,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin-requests', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await userService.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -180,13 +186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "You already have admin access" });
       }
 
-      const existingRequest = await storage.getUserAdminRequest(userId);
+      const existingRequest = await userService.getUserAdminRequest(userId);
       if (existingRequest && existingRequest.status === 'pending') {
         return res.status(400).json({ error: "You already have a pending admin request" });
       }
 
       // Check if organization slug already exists
-      const existingOrg = await storage.getOrganizationBySlug(req.body.organizationSlug);
+      const existingOrg = await organizationService.getOrganizationBySlug(req.body.organizationSlug);
       if (existingOrg) {
         return res.status(400).json({ error: "An organization with this URL slug already exists. Please choose a different slug." });
       }
@@ -210,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending'
       });
       
-      const request = await storage.createAdminRequest(validatedData);
+      const request = await organizationService.createAdminRequest(validatedData);
       res.status(201).json(request);
     } catch (error) {
       console.error("Error creating admin request:", error);
@@ -221,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin-requests', requireSuperAdmin, async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
-      const requests = await storage.getAdminRequests(status);
+      const requests = await organizationService.getAdminRequests(status);
       res.json(requests);
     } catch (error) {
       console.error("Error fetching admin requests:", error);
@@ -232,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin-requests/my-request', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const request = await storage.getUserAdminRequest(userId);
+      const request = await userService.getUserAdminRequest(userId);
       res.json(request || null);
     } catch (error) {
       console.error("Error fetching user admin request:", error);
@@ -243,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/admin-requests/:id/approve', requireSuperAdmin, async (req: any, res) => {
     try {
       const reviewerId = req.user.claims.sub;
-      const request = await storage.approveAdminRequest(req.params.id, reviewerId);
+      const request = await organizationService.approveAdminRequest(req.params.id, reviewerId);
       res.json(request);
     } catch (error: any) {
       console.error("Error approving admin request:", error);
@@ -260,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/admin-requests/:id/reject', requireSuperAdmin, async (req: any, res) => {
     try {
       const reviewerId = req.user.claims.sub;
-      const request = await storage.rejectAdminRequest(req.params.id, reviewerId);
+      const request = await organizationService.rejectAdminRequest(req.params.id, reviewerId);
       res.json(request);
     } catch (error: any) {
       console.error("Error rejecting admin request:", error);
@@ -277,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Feature flag routes
   app.get('/api/feature-flags', async (req, res) => {
     try {
-      const flags = await storage.getFeatureFlags();
+      const flags = await organizationService.getFeatureFlags();
       res.json(flags);
     } catch (error) {
       console.error("Error fetching feature flags:", error);
@@ -288,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/feature-flags/:id', requireSuperAdmin, async (req, res) => {
     try {
       const { isEnabled } = req.body;
-      const updatedFlag = await storage.updateFeatureFlag(req.params.id, { isEnabled });
+      const updatedFlag = await organizationService.updateFeatureFlag(req.params.id, { isEnabled });
       res.json(updatedFlag);
     } catch (error: any) {
       console.error("Error updating feature flag:", error);
@@ -302,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Organization routes
   app.get("/api/organizations", async (req, res) => {
     try {
-      const organizations = await storage.getOrganizations();
+      const organizations = await organizationService.getOrganizations();
       res.json(organizations);
     } catch (error) {
       console.error("Error fetching organizations:", error);
@@ -313,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get organization by ID (for internal use, e.g., from tournament.organizationId)
   app.get("/api/organizations/by-id/:id", async (req, res) => {
     try {
-      const organization = await storage.getOrganization(req.params.id);
+      const organization = await organizationService.getOrganization(req.params.id);
       if (!organization) {
         return res.status(404).json({ error: "Organization not found" });
       }
@@ -327,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get organization by slug (for public pages)
   app.get("/api/organizations/:slug", async (req, res) => {
     try {
-      const organization = await storage.getOrganizationBySlug(req.params.slug);
+      const organization = await organizationService.getOrganizationBySlug(req.params.slug);
       if (!organization) {
         return res.status(404).json({ error: "Organization not found" });
       }
@@ -340,11 +346,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/organizations/:slug/tournaments", async (req, res) => {
     try {
-      const organization = await storage.getOrganizationBySlug(req.params.slug);
+      const organization = await organizationService.getOrganizationBySlug(req.params.slug);
       if (!organization) {
         return res.status(404).json({ error: "Organization not found" });
       }
-      const tournaments = await storage.getTournaments(organization.id);
+      const tournaments = await tournamentService.getTournaments(organization.id);
       res.json(tournaments);
     } catch (error) {
       console.error("Error fetching organization tournaments:", error);
@@ -361,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user already has organizations
-      const existingOrgs = await storage.getUserOrganizations(userId);
+      const existingOrgs = await userService.getUserOrganizations(userId);
       if (existingOrgs.length > 0) {
         return res.status(403).json({ 
           error: "You already have an organization. Use the admin portal to manage it." 
@@ -370,13 +376,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create the organization
       const validatedData = insertOrganizationSchema.parse(req.body);
-      const organization = await storage.createOrganization(validatedData);
+      const organization = await organizationService.createOrganization(validatedData);
 
       // Automatically make the user an admin of their new organization
-      await storage.assignOrganizationAdmin(userId, organization.id, 'admin');
+      await organizationService.assignOrganizationAdmin(userId, organization.id, 'admin');
 
       // Send welcome email
-      const user = await storage.getUser(userId);
+      const user = await userService.getUser(userId);
       if (organization.adminEmail && user) {
         const adminName = user.firstName 
           ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
@@ -404,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/organizations", requireSuperAdmin, async (req, res) => {
     try {
       const validatedData = insertOrganizationSchema.parse(req.body);
-      const organization = await storage.createOrganization(validatedData);
+      const organization = await organizationService.createOrganization(validatedData);
       res.status(201).json(organization);
     } catch (error) {
       console.error("Error creating organization:", error);
@@ -415,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/organizations/:id", requireSuperAdmin, async (req, res) => {
     try {
       const validatedData = insertOrganizationSchema.partial().parse(req.body);
-      const organization = await storage.updateOrganization(req.params.id, validatedData);
+      const organization = await organizationService.updateOrganization(req.params.id, validatedData);
       res.json(organization);
     } catch (error) {
       console.error("Error updating organization:", error);
@@ -425,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/organizations/:id", requireSuperAdmin, async (req, res) => {
     try {
-      await storage.deleteOrganization(req.params.id);
+      await organizationService.deleteOrganization(req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting organization:", error);
@@ -443,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "userId is required" });
       }
 
-      const admin = await storage.assignOrganizationAdmin(userId, organizationId, role);
+      const admin = await organizationService.assignOrganizationAdmin(userId, organizationId, role);
       res.status(201).json(admin);
     } catch (error) {
       console.error("Error assigning organization admin:", error);
@@ -454,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/organizations/:organizationId/admins/:userId", requireSuperAdmin, async (req, res) => {
     try {
       const { organizationId, userId } = req.params;
-      await storage.removeOrganizationAdmin(userId, organizationId);
+      await organizationService.removeOrganizationAdmin(userId, organizationId);
       res.status(204).send();
     } catch (error) {
       console.error("Error removing organization admin:", error);
@@ -465,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/organizations/:organizationId/admins", requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
-      const admins = await storage.getOrganizationAdmins(organizationId);
+      const admins = await organizationService.getOrganizationAdmins(organizationId);
       res.json(admins);
     } catch (error) {
       console.error("Error fetching organization admins:", error);
@@ -478,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { organizationId } = req.params;
       const userId = req.user.claims.sub;
       
-      const admins = await storage.getOrganizationAdmins(organizationId);
+      const admins = await organizationService.getOrganizationAdmins(organizationId);
       const userAdmin = admins.find(admin => admin.userId === userId);
       
       if (!userAdmin) {
@@ -502,13 +508,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Users can only view their own organizations unless they're a super admin
       if (requestingUserId !== targetUserId) {
-        const user = await storage.getUser(requestingUserId);
+        const user = await userService.getUser(requestingUserId);
         if (!user || !user.isSuperAdmin) {
           return res.status(403).json({ error: "Forbidden - Cannot view other users' organizations" });
         }
       }
       
-      const organizations = await storage.getUserOrganizations(targetUserId);
+      const organizations = await userService.getUserOrganizations(targetUserId);
       res.json(organizations);
     } catch (error) {
       console.error("Error fetching user organizations:", error);
@@ -522,10 +528,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { organizationId } = req.params;
       
       // Get all global feature flags
-      const globalFlags = await storage.getFeatureFlags();
+      const globalFlags = await organizationService.getFeatureFlags();
       
       // Get organization-specific flag settings
-      const orgFlags = await storage.getOrganizationFeatureFlags(organizationId);
+      const orgFlags = await organizationService.getOrganizationFeatureFlags(organizationId);
       
       // Merge the data
       const flagsWithOrgSettings = globalFlags.map(flag => {
@@ -553,7 +559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "isEnabled must be a boolean" });
       }
       
-      const orgFlag = await storage.setOrganizationFeatureFlag(organizationId, featureFlagId, isEnabled);
+      const orgFlag = await organizationService.setOrganizationFeatureFlag(organizationId, featureFlagId, isEnabled);
       res.json(orgFlag);
     } catch (error) {
       console.error("Error setting organization feature flag:", error);
@@ -564,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/organizations/:organizationId/feature-flags/:featureFlagId", requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId, featureFlagId } = req.params;
-      await storage.removeOrganizationFeatureFlag(organizationId, featureFlagId);
+      await organizationService.removeOrganizationFeatureFlag(organizationId, featureFlagId);
       res.status(204).send();
     } catch (error) {
       console.error("Error removing organization feature flag:", error);
@@ -576,7 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/organizations/:organizationId/features/:featureKey/enabled", async (req, res) => {
     try {
       const { organizationId, featureKey } = req.params;
-      const isEnabled = await storage.isFeatureEnabledForOrganization(organizationId, featureKey);
+      const isEnabled = await organizationService.isFeatureEnabledForOrganization(organizationId, featureKey);
       res.json({ enabled: isEnabled });
     } catch (error) {
       console.error("Error checking feature enabled status:", error);
@@ -588,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/organizations/:organizationId/diamonds", requireDiamondBooking, async (req, res) => {
     try {
       const { organizationId } = req.params;
-      const diamonds = await storage.getDiamonds(organizationId);
+      const diamonds = await diamondService.getDiamonds(organizationId);
       res.json(diamonds);
     } catch (error) {
       console.error("Error fetching diamonds:", error);
@@ -599,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/organizations/:organizationId/diamonds", requireDiamondBooking, requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
-      const diamond = await storage.createDiamond({ ...req.body, organizationId });
+      const diamond = await diamondService.createDiamond({ ...req.body, organizationId });
       res.status(201).json(diamond);
     } catch (error) {
       console.error("Error creating diamond:", error);
@@ -610,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/diamonds/:id", requireOrgAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const diamond = await storage.updateDiamond(id, req.body);
+      const diamond = await diamondService.updateDiamond(id, req.body);
       res.json(diamond);
     } catch (error) {
       console.error("Error updating diamond:", error);
@@ -621,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/diamonds/:id", requireOrgAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      await storage.deleteDiamond(id);
+      await diamondService.deleteDiamond(id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting diamond:", error);
@@ -633,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/organizations/:organizationId/diamond-restrictions", isAuthenticated, async (req, res) => {
     try {
       const { organizationId } = req.params;
-      const restrictions = await storage.getDiamondRestrictions(organizationId);
+      const restrictions = await diamondService.getDiamondRestrictions(organizationId);
       res.json(restrictions);
     } catch (error) {
       console.error("Error fetching diamond restrictions:", error);
@@ -644,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/organizations/:organizationId/diamond-restrictions", requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
-      const restriction = await storage.createDiamondRestriction({
+      const restriction = await diamondService.createDiamondRestriction({
         ...req.body,
         organizationId,
       });
@@ -658,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/diamond-restrictions/:id", requireOrgAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const restriction = await storage.updateDiamondRestriction(id, req.body);
+      const restriction = await diamondService.updateDiamondRestriction(id, req.body);
       res.json(restriction);
     } catch (error) {
       console.error("Error updating diamond restriction:", error);
@@ -669,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/diamond-restrictions/:id", requireOrgAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      await storage.deleteDiamondRestriction(id);
+      await diamondService.deleteDiamondRestriction(id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting diamond restriction:", error);
@@ -681,7 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/tournaments", async (req, res) => {
     try {
       // Get all tournaments
-      let tournaments = await storage.getTournaments();
+      let tournaments = await tournamentService.getTournaments();
       
       // Filter to only public tournaments
       tournaments = tournaments.filter(t => t.visibility === 'public');
@@ -690,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tournamentsWithOrgs = await Promise.all(
         tournaments.map(async (tournament) => {
           const org = tournament.organizationId 
-            ? await storage.getOrganization(tournament.organizationId)
+            ? await organizationService.getOrganization(tournament.organizationId)
             : null;
           
           return {
@@ -722,12 +728,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {
-      let tournaments = await storage.getTournaments();
+      let tournaments = await tournamentService.getTournaments();
       
       // Role-aware filtering for authenticated users
       if (req.user && req.user.claims) {
         const userId = req.user.claims.sub;
-        const user = await storage.getUser(userId);
+        const user = await userService.getUser(userId);
         
         // Super admins see all tournaments (no filtering)
         if (user && user.isSuperAdmin) {
@@ -735,7 +741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         // Regular org admins only see tournaments from their organizations
         else if (user && user.isAdmin) {
-          const userOrgs = await storage.getUserOrganizations(userId);
+          const userOrgs = await userService.getUserOrganizations(userId);
           const userOrgIds = userOrgs.map(org => org.id);
           tournaments = tournaments.filter(t => userOrgIds.includes(t.organizationId));
         }
@@ -744,11 +750,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const orgIds = new Set<string>();
           
           // Get coach organizations
-          const acceptedInvites = await storage.getAcceptedCoachInvitations(userId);
+          const acceptedInvites = await organizationService.getAcceptedCoachInvitations(userId);
           acceptedInvites.forEach(inv => orgIds.add(inv.organizationId));
           
           // Get coordinator organizations
-          const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+          const coordinatorAssignments = await userService.getUserCoordinatorAssignments(userId);
           coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
           
           if (orgIds.size > 0) {
@@ -769,7 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tournaments/:id", async (req: any, res) => {
     try {
-      const tournament = await storage.getTournament(req.params.id);
+      const tournament = await tournamentService.getTournament(req.params.id);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -795,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tournaments", requireAdmin, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = await userService.getUser(userId);
       
       // Validate tournament data
       const validatedData = insertTournamentSchema.parse({
@@ -806,7 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Authorization check: Verify user is admin for the target organization
       if (!user?.isSuperAdmin) {
         // Get user's organizations
-        const userOrgs = await storage.getUserOrganizations(userId);
+        const userOrgs = await userService.getUserOrganizations(userId);
         const userOrgIds = userOrgs.map(org => org.id);
         
         // Check if user is admin for the target organization
@@ -817,11 +823,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const tournament = await storage.createTournament(validatedData);
+      const tournament = await tournamentService.createTournament(validatedData);
 
       // Send tournament creation email
       if (tournament.organizationId && user) {
-        const organization = await storage.getOrganization(tournament.organizationId);
+        const organization = await organizationService.getOrganization(tournament.organizationId);
         if (organization?.adminEmail) {
           const adminName = user.firstName 
             ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
@@ -856,8 +862,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/tournaments/:id", requireAdmin, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      const tournament = await storage.getTournament(req.params.id);
+      const user = await userService.getUser(userId);
+      const tournament = await tournamentService.getTournament(req.params.id);
 
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
@@ -868,7 +874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertTournamentSchema.partial().parse(req.body);
-      const updatedTournament = await storage.updateTournament(req.params.id, validatedData);
+      const updatedTournament = await tournamentService.updateTournament(req.params.id, validatedData);
       res.json(updatedTournament);
     } catch (error) {
       console.error("Error updating tournament:", error);
@@ -879,8 +885,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/tournaments/:id", requireAdmin, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      const tournament = await storage.getTournament(req.params.id);
+      const user = await userService.getUser(userId);
+      const tournament = await tournamentService.getTournament(req.params.id);
 
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
@@ -890,7 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "You can only delete tournaments you created" });
       }
 
-      await storage.deleteTournament(req.params.id);
+      await tournamentService.deleteTournament(req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting tournament:", error);
@@ -904,7 +910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
         return;
       }
-      const ageDivisions = await storage.getAgeDivisions(req.params.tournamentId);
+      const ageDivisions = await tournamentService.getAgeDivisions(req.params.tournamentId);
       res.json(ageDivisions);
     } catch (error) {
       console.error("Error fetching age divisions:", error);
@@ -914,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to auto-create pools for a division
   async function autoCreatePoolsForDivision(tournamentId: string, divisionId: string) {
-    const tournament = await storage.getTournament(tournamentId);
+    const tournament = await tournamentService.getTournament(tournamentId);
     if (!tournament) {
       throw new Error("Tournament not found");
     }
@@ -922,7 +928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const numberOfPools = tournament.numberOfPools || 2;
     
     // Check if pools already exist for this division
-    const existingPools = await storage.getPools(tournamentId);
+    const existingPools = await tournamentService.getPools(tournamentId);
     const divisionPools = existingPools.filter(p => p.ageDivisionId === divisionId);
     if (divisionPools.length > 0) {
       console.log(`Pools already exist for division ${divisionId}, skipping auto-creation`);
@@ -941,7 +947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     for (let i = 0; i < numberOfPools; i++) {
-      await storage.createPool({
+      await tournamentService.createPool({
         id: nanoid(),
         name: getPoolName(i),
         tournamentId,
@@ -958,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         tournamentId: req.params.tournamentId
       });
-      const ageDivision = await storage.createAgeDivision(validatedData);
+      const ageDivision = await tournamentService.createAgeDivision(validatedData);
       
       // Auto-create pools for this division
       await autoCreatePoolsForDivision(req.params.tournamentId, ageDivision.id);
@@ -975,7 +981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { divisionId } = req.params;
       const updateData = insertAgeDivisionSchema.partial().parse(req.body);
       
-      const updated = await storage.updateAgeDivision(divisionId, updateData);
+      const updated = await tournamentService.updateAgeDivision(divisionId, updateData);
       if (!updated) {
         return res.status(404).json({ error: "Age division not found" });
       }
@@ -993,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
         return;
       }
-      const pools = await storage.getPools(req.params.tournamentId);
+      const pools = await tournamentService.getPools(req.params.tournamentId);
       res.json(pools);
     } catch (error) {
       console.error("Error fetching pools:", error);
@@ -1007,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         tournamentId: req.params.tournamentId
       });
-      const pool = await storage.createPool(validatedData);
+      const pool = await tournamentService.createPool(validatedData);
       res.status(201).json(pool);
     } catch (error) {
       console.error("Error creating pool:", error);
@@ -1026,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
       
-      const teams = await storage.getTeams(req.params.tournamentId);
+      const teams = await teamService.getTeams(req.params.tournamentId);
       res.json(teams);
     } catch (error) {
       console.error("Error fetching teams:", error);
@@ -1040,7 +1046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         tournamentId: req.params.tournamentId
       });
-      const team = await storage.createTeam(validatedData);
+      const team = await teamService.createTeam(validatedData);
       res.status(201).json(team);
     } catch (error) {
       console.error("Error creating team:", error);
@@ -1059,7 +1065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No data provided for update" });
       }
       
-      const team = await storage.updateTeam(req.params.id, updateData);
+      const team = await teamService.updateTeam(req.params.id, updateData);
       res.json(team);
     } catch (error) {
       console.error("Error updating team:", error);
@@ -1279,13 +1285,13 @@ Waterdown 10U AA
       const { spawn } = await import("child_process");
       
       // Get the tournament team details
-      const team = await storage.getTeamById(teamId);
+      const team = await teamService.getTeamById(teamId);
       if (!team) {
         return res.status(404).json({ error: "Team not found" });
       }
       
       // Get the team's pool to find the age division
-      const pool = await storage.getPoolById(team.poolId);
+      const pool = await tournamentService.getPoolById(team.poolId);
       if (!pool) {
         return res.status(404).json({ error: "Team's pool not found" });
       }
@@ -1389,7 +1395,7 @@ Waterdown 10U AA
             }
             
             if (Object.keys(updateData).length > 0) {
-              const team = await storage.updateTeam(teamId, updateData);
+              const team = await teamService.updateTeam(teamId, updateData);
               res.json({ 
                 success: true, 
                 team, 
@@ -1768,7 +1774,7 @@ Waterdown 10U AA
               rosterData: JSON.stringify(validPlayers)
             };
             
-            const team = await storage.updateTeam(teamId, updateData);
+            const team = await teamService.updateTeam(teamId, updateData);
             
             res.json({ 
               success: true, 
@@ -1797,7 +1803,7 @@ Waterdown 10U AA
 
   app.delete("/api/teams/:id", requireAdmin, async (req, res) => {
     try {
-      await storage.deleteTeam(req.params.id);
+      await teamService.deleteTeam(req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting team:", error);
@@ -1825,7 +1831,7 @@ Waterdown 10U AA
       };
       
       // Update the team with the suggested data
-      const updatedTeam = await storage.updateTeam(teamId, suggestedData);
+      const updatedTeam = await teamService.updateTeam(teamId, suggestedData);
       
       res.json({
         team: updatedTeam,
@@ -1846,7 +1852,7 @@ Waterdown 10U AA
       const { tournamentId } = req.params;
       const { poolId } = req.query;
       
-      const matchups = await storage.getMatchups(tournamentId, poolId as string | undefined);
+      const matchups = await tournamentService.getMatchups(tournamentId, poolId as string | undefined);
       res.json(matchups);
     } catch (error) {
       console.error("Error fetching matchups:", error);
@@ -1860,7 +1866,7 @@ Waterdown 10U AA
       if (!await checkTournamentAccess(req, res, req.params.tournamentId)) {
         return;
       }
-      const games = await storage.getGames(req.params.tournamentId);
+      const games = await gameService.getGames(req.params.tournamentId);
       res.json(games);
     } catch (error) {
       console.error("Error fetching games:", error);
@@ -1878,20 +1884,20 @@ Waterdown 10U AA
       const divisionId = req.query.divisionId as string | undefined;
       const dateFilter = req.query.date as string | undefined;
       
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
 
-      let allGames = await storage.getGames(tournamentId);
-      const teams = await storage.getTeams(tournamentId);
-      const pools = await storage.getPools(tournamentId);
-      const ageDivisions = await storage.getAgeDivisions(tournamentId);
+      let allGames = await gameService.getGames(tournamentId);
+      const teams = await teamService.getTeams(tournamentId);
+      const pools = await tournamentService.getPools(tournamentId);
+      const ageDivisions = await tournamentService.getAgeDivisions(tournamentId);
       
       // Fetch diamonds with error handling for permission issues
       let diamonds: any[] = [];
       try {
-        diamonds = await storage.getDiamonds(tournament.organizationId);
+        diamonds = await diamondService.getDiamonds(tournament.organizationId);
       } catch (error) {
         console.warn("Could not fetch diamonds for CSV export:", error);
         // Continue without diamond names
@@ -1985,7 +1991,7 @@ Waterdown 10U AA
         ...req.body,
         tournamentId: req.params.tournamentId
       });
-      const game = await storage.createGame(validatedData);
+      const game = await gameService.createGame(validatedData);
       res.status(201).json(game);
     } catch (error) {
       console.error("Error creating game:", error);
@@ -2001,7 +2007,7 @@ Waterdown 10U AA
       // If duration, time, date, or diamond is being updated, validate no overlaps
       if (validatedData.durationMinutes !== undefined || validatedData.time !== undefined || 
           validatedData.date !== undefined || validatedData.diamondId !== undefined) {
-        const currentGame = await storage.getGame(req.params.id);
+        const currentGame = await gameService.getGame(req.params.id);
         if (!currentGame) {
           return res.status(404).json({ error: "Game not found" });
         }
@@ -2013,7 +2019,7 @@ Waterdown 10U AA
         const effectiveDuration = validatedData.durationMinutes ?? currentGame.durationMinutes;
         
         // Get all games on the same diamond and date
-        const tournamentGames = await storage.getGames(currentGame.tournamentId);
+        const tournamentGames = await gameService.getGames(currentGame.tournamentId);
         const conflictingGames = tournamentGames.filter(g => 
           g.id !== currentGame.id && 
           g.diamondId === effectiveDiamond && 
@@ -2052,7 +2058,7 @@ Waterdown 10U AA
       };
       
       // Update game with audit logging
-      const game = await storage.updateGameWithAudit(req.params.id, validatedData, userId, metadata);
+      const game = await gameService.updateGameWithAudit(req.params.id, validatedData, userId, metadata);
       
       res.json(game);
     } catch (error) {
@@ -2072,7 +2078,7 @@ Waterdown 10U AA
 
   app.delete("/api/games/:id", requireAdmin, async (req, res) => {
     try {
-      await storage.deleteGame(req.params.id);
+      await gameService.deleteGame(req.params.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting game:", error);
@@ -2142,7 +2148,7 @@ Waterdown 10U AA
       const { tournamentId } = req.params;
       
       // Fetch tournament to get playoff format and seeding pattern
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -2151,10 +2157,10 @@ Waterdown 10U AA
       const seedingPattern = tournament.seedingPattern || 'standard';
       
       // Fetch all pools, teams, and games for this tournament
-      const pools = await storage.getPools(tournamentId);
-      const teams = await storage.getTeams(tournamentId);
-      const allGames = await storage.getGames(tournamentId);
-      const divisions = await storage.getAgeDivisions(tournamentId);
+      const pools = await tournamentService.getPools(tournamentId);
+      const teams = await teamService.getTeams(tournamentId);
+      const allGames = await gameService.getGames(tournamentId);
+      const divisions = await tournamentService.getAgeDivisions(tournamentId);
       
       // Filter pool play games only (not playoff games)
       const poolPlayGames = allGames.filter(g => !g.isPlayoff);
@@ -2162,7 +2168,7 @@ Waterdown 10U AA
       // Delete all existing playoff games for this tournament
       const playoffGames = allGames.filter(g => g.isPlayoff);
       for (const game of playoffGames) {
-        await storage.deleteGame(game.id);
+        await gameService.deleteGame(game.id);
       }
       
       // Generate playoff games for each division
@@ -2213,7 +2219,7 @@ Waterdown 10U AA
       
       // Insert new playoff games into database
       for (const gameData of newPlayoffGames) {
-        await storage.createGame(gameData);
+        await gameService.createGame(gameData);
       }
       
       res.json({ 
@@ -2240,7 +2246,7 @@ Waterdown 10U AA
       }
 
       // Delegate to storage layer
-      const updatedGames = await storage.savePlayoffSlots(tournamentId, divisionId, slots);
+      const updatedGames = await playoffService.savePlayoffSlots(tournamentId, divisionId, slots);
 
       res.json({ 
         message: "Playoff schedule saved successfully",
@@ -2278,13 +2284,13 @@ Waterdown 10U AA
       }
 
       // Get the game being moved
-      const game = await storage.getGame(gameId);
+      const game = await gameService.getGame(gameId);
       if (!game) {
         return res.status(404).json({ error: "Game not found" });
       }
 
       // Get tournament to validate date range
-      const tournament = await storage.getTournament(game.tournamentId);
+      const tournament = await tournamentService.getTournament(game.tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -2297,7 +2303,7 @@ Waterdown 10U AA
       }
 
       // Verify diamond exists and belongs to tournament's organization
-      const diamonds = await storage.getDiamonds(tournament.organizationId);
+      const diamonds = await diamondService.getDiamonds(tournament.organizationId);
       const targetDiamond = diamonds.find(d => d.id === diamondId);
       if (!targetDiamond) {
         return res.status(400).json({ error: "Invalid diamond for this tournament" });
@@ -2320,7 +2326,7 @@ Waterdown 10U AA
       }
 
       // Get all games from the tournament to check for conflicts
-      const tournamentGames = await storage.getGames(game.tournamentId);
+      const tournamentGames = await gameService.getGames(game.tournamentId);
       
       // Filter games on the same date, excluding the game being moved
       const gamesOnSameDate = tournamentGames.filter(g => 
@@ -2369,7 +2375,7 @@ Waterdown 10U AA
       }
 
       // All validations passed - update the game
-      const updatedGame = await storage.updateGame(gameId, {
+      const updatedGame = await gameService.updateGame(gameId, {
         date,
         time,
         diamondId
@@ -2389,7 +2395,7 @@ Waterdown 10U AA
       const { divisionId } = req.body;
       
       // Get tournament details
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -2399,8 +2405,8 @@ Waterdown 10U AA
       }
       
       // Get all pools and teams for this tournament
-      const allPools = await storage.getPools(tournamentId);
-      const allTeams = await storage.getTeams(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
+      const allTeams = await teamService.getTeams(tournamentId);
       
       // Filter pools by division if divisionId is provided
       const pools = divisionId 
@@ -2409,14 +2415,14 @@ Waterdown 10U AA
       
       // DELETE EXISTING GAMES for this tournament/division before generating new matchups
       // This makes "Generate Schedule" a true reset button
-      const allGames = await storage.getGames(tournamentId);
+      const allGames = await gameService.getGames(tournamentId);
       const poolIds = new Set(pools.map(p => p.id));
       const gamesToDelete = divisionId 
         ? allGames.filter(g => poolIds.has(g.poolId) && !g.isPlayoff)
         : allGames.filter(g => !g.isPlayoff);
       
       for (const game of gamesToDelete) {
-        await storage.deleteGame(game.id);
+        await gameService.deleteGame(game.id);
       }
       
       console.log(`Deleted ${gamesToDelete.length} existing pool play games before generating new matchups`);
@@ -2440,7 +2446,7 @@ Waterdown 10U AA
       const savedMatchups: any[] = [];
       for (const pool of pools) {
         const poolMatchups = matchupResult.matchups.filter(m => m.poolId === pool.id);
-        const saved = await storage.replaceMatchups(tournamentId, pool.id, poolMatchups);
+        const saved = await tournamentService.replaceMatchups(tournamentId, pool.id, poolMatchups);
         savedMatchups.push(...saved);
       }
       
@@ -2466,7 +2472,7 @@ Waterdown 10U AA
       const { divisionId } = req.body;
       
       // Get tournament details
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -2476,8 +2482,8 @@ Waterdown 10U AA
       }
       
       // Get all pools and teams for this tournament
-      const allPools = await storage.getPools(tournamentId);
-      const allTeams = await storage.getTeams(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
+      const allTeams = await teamService.getTeams(tournamentId);
       
       // Filter pools by division if divisionId is provided
       const pools = divisionId 
@@ -2536,7 +2542,7 @@ Waterdown 10U AA
       if (tournament.selectedDiamondIds && tournament.selectedDiamondIds.length > 0) {
         diamonds = [];
         for (const diamondId of tournament.selectedDiamondIds) {
-          const diamond = await storage.getDiamond(diamondId);
+          const diamond = await diamondService.getDiamond(diamondId);
           if (diamond) {
             diamonds.push(diamond);
           }
@@ -2595,17 +2601,17 @@ Waterdown 10U AA
       }
       
       // Verify tournament exists
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
       
       // Get valid pools for this tournament to verify games belong to correct tournament
-      const validPools = await storage.getPools(tournamentId);
+      const validPools = await tournamentService.getPools(tournamentId);
       const validPoolIds = new Set(validPools.map(p => p.id));
       
       // Get valid teams for this tournament
-      const validTeams = await storage.getTeams(tournamentId);
+      const validTeams = await teamService.getTeams(tournamentId);
       const validTeamIds = new Set(validTeams.map(t => t.id));
       
       // Fetch diamonds if tournament uses them
@@ -2613,7 +2619,7 @@ Waterdown 10U AA
       if (tournament.selectedDiamondIds && tournament.selectedDiamondIds.length > 0) {
         diamonds = [];
         for (const diamondId of tournament.selectedDiamondIds) {
-          const diamond = await storage.getDiamond(diamondId);
+          const diamond = await diamondService.getDiamond(diamondId);
           if (diamond) {
             diamonds.push(diamond);
           }
@@ -2787,7 +2793,7 @@ Waterdown 10U AA
       // Save all validated games to database
       const createdGames = [];
       for (const game of validatedGames) {
-        const created = await storage.createGame(game);
+        const created = await gameService.createGame(game);
         createdGames.push(created);
       }
       
@@ -2812,13 +2818,13 @@ Waterdown 10U AA
       }
       
       // Verify tournament exists
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
       
       // Get all teams to validate
-      const teams = await storage.getTeams(tournamentId);
+      const teams = await teamService.getTeams(tournamentId);
       const validTeamIds = new Set(teams.map(t => t.id));
       
       if (!validTeamIds.has(homeTeamId) || !validTeamIds.has(awayTeamId)) {
@@ -2831,7 +2837,7 @@ Waterdown 10U AA
       let subVenue = '';
       
       if (diamondId) {
-        diamond = await storage.getDiamond(diamondId);
+        diamond = await diamondService.getDiamond(diamondId);
         if (!diamond) {
           return res.status(400).json({ error: "Invalid diamond ID" });
         }
@@ -2856,7 +2862,7 @@ Waterdown 10U AA
       }
       
       // Check for team conflicts at this time slot
-      const allGames = await storage.getGames(tournamentId);
+      const allGames = await gameService.getGames(tournamentId);
       const gamesAtTime = allGames.filter(g => g.date === date && g.time === time);
       
       for (const game of gamesAtTime) {
@@ -2939,7 +2945,7 @@ Waterdown 10U AA
         awayScore: null
       };
       
-      const createdGame = await storage.createGame(gameData);
+      const createdGame = await gameService.createGame(gameData);
       
       res.status(201).json({
         message: "Game placed successfully",
@@ -2966,21 +2972,21 @@ Waterdown 10U AA
       }
       
       // Get tournament
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
 
       // Verify division exists
-      const ageDivisions = await storage.getAgeDivisions(tournamentId);
+      const ageDivisions = await tournamentService.getAgeDivisions(tournamentId);
       const division = ageDivisions.find(d => d.id === divisionId);
       if (!division) {
         return res.status(404).json({ error: "Division not found" });
       }
       
       // Get all teams and pools
-      const allTeams = await storage.getTeams(tournamentId);
-      const allPools = await storage.getPools(tournamentId);
+      const allTeams = await teamService.getTeams(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
 
       // Filter teams for this division
       // Teams belong to a division if:
@@ -3010,14 +3016,14 @@ Waterdown 10U AA
       const divisionPools = allPools.filter(p => p.ageDivisionId === divisionId);
       const nonTempPools = divisionPools.filter(p => !p.id.includes('_pool_temp_'));
       for (const pool of nonTempPools) {
-        await storage.deletePool(pool.id);
+        await tournamentService.deletePool(pool.id);
       }
       
       // Create new pools for this division
       const poolNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       const createdPools = [];
       for (let i = 0; i < numberOfPools; i++) {
-        const pool = await storage.createPool({
+        const pool = await tournamentService.createPool({
           id: `${tournamentId}-${divisionId}-pool-${poolNames[i].toLowerCase()}`,
           name: `Pool ${poolNames[i]}`,
           tournamentId,
@@ -3031,7 +3037,7 @@ Waterdown 10U AA
       for (let i = 0; i < teams.length; i++) {
         const poolIndex = i % numberOfPools;
         const team = teams[i];
-        const updated = await storage.updateTeam(team.id, {
+        const updated = await teamService.updateTeam(team.id, {
           poolId: createdPools[poolIndex].id
         });
         updatedTeams.push(updated);
@@ -3040,7 +3046,7 @@ Waterdown 10U AA
       // Delete temporary pools for this division
       const tempPools = divisionPools.filter(p => p.id.includes('_pool_temp_'));
       for (const pool of tempPools) {
-        await storage.deletePool(pool.id);
+        await tournamentService.deletePool(pool.id);
       }
       
       res.status(200).json({
@@ -3061,14 +3067,14 @@ Waterdown 10U AA
       const reportType = (req.query.type as 'post-pool-play' | 'final-convenor') || 'post-pool-play';
       
       // Fetch all necessary data
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
       
-      const allPools = await storage.getPools(tournamentId);
-      const teams = await storage.getTeams(tournamentId);
-      const games = await storage.getGames(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
+      const teams = await teamService.getTeams(tournamentId);
+      const games = await gameService.getGames(tournamentId);
       
       // Filter to get only REAL pools (exclude system pools like Playoff, Unassigned, temp)
       const pools = allPools.filter(pool => {
@@ -3104,7 +3110,7 @@ Waterdown 10U AA
       }
       
       // Fetch all necessary data
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -3117,7 +3123,7 @@ Waterdown 10U AA
       }
       
       // Get the specified division
-      const divisions = await storage.getAgeDivisions(tournamentId);
+      const divisions = await tournamentService.getAgeDivisions(tournamentId);
       const division = divisions.find(d => d.id === divisionId);
       if (!division || division.tournamentId !== tournamentId) {
         return res.status(404).json({ 
@@ -3126,7 +3132,7 @@ Waterdown 10U AA
       }
       
       // Get all pools in this division (same scoping as generatePlayoffBracket)
-      const allPools = await storage.getPools(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
       const divisionPools = allPools.filter(p => p.ageDivisionId === division.id);
       const regularPools = divisionPools.filter(p => !p.name.toLowerCase().includes('playoff'));
       
@@ -3137,7 +3143,7 @@ Waterdown 10U AA
       }
       
       // Get teams in this division
-      const allTeams = await storage.getTeams(tournamentId);
+      const allTeams = await teamService.getTeams(tournamentId);
       const regularPoolIds = regularPools.map(p => p.id);
       const divisionTeams = allTeams.filter(t => regularPoolIds.includes(t.poolId));
       
@@ -3148,7 +3154,7 @@ Waterdown 10U AA
       }
       
       // Get only completed pool play games for this division (same as generatePlayoffBracket)
-      const allGames = await storage.getGames(tournamentId);
+      const allGames = await gameService.getGames(tournamentId);
       const teamIds = divisionTeams.map(t => t.id);
       const poolPlayGames = allGames.filter(g => 
         g.status === 'completed' &&
@@ -3243,7 +3249,7 @@ Waterdown 10U AA
   app.post("/api/tournaments/:tournamentId/divisions/:divisionId/generate-bracket", requireAdmin, async (req, res) => {
     try {
       const { tournamentId, divisionId } = req.params;
-      const games = await storage.generatePlayoffBracket(tournamentId, divisionId);
+      const games = await playoffService.generatePlayoffBracket(tournamentId, divisionId);
       res.status(201).json({ 
         message: `Generated ${games.length} playoff games`, 
         games 
@@ -3261,11 +3267,11 @@ Waterdown 10U AA
       const tournamentId = req.params.tournamentId;
 
       // Clear existing games only (preserve teams from registration import)
-      await storage.clearTournamentData(tournamentId);
+      await tournamentService.clearTournamentData(tournamentId);
 
       // Get existing divisions and pools to avoid duplicates
-      const existingDivisions = await storage.getAgeDivisions(tournamentId);
-      const existingPools = await storage.getPools(tournamentId);
+      const existingDivisions = await tournamentService.getAgeDivisions(tournamentId);
+      const existingPools = await tournamentService.getPools(tournamentId);
       
       // Create or reuse divisions
       const createdAgeDivisions = await Promise.all(
@@ -3274,7 +3280,7 @@ Waterdown 10U AA
           if (existing) {
             return existing;
           }
-          const newDivision = await storage.createAgeDivision({ ...div, tournamentId });
+          const newDivision = await tournamentService.createAgeDivision({ ...div, tournamentId });
           // Auto-create pools for new divisions
           await autoCreatePoolsForDivision(tournamentId, newDivision.id);
           return newDivision;
@@ -3288,16 +3294,16 @@ Waterdown 10U AA
           if (existing) {
             return existing;
           }
-          return storage.createPool({ ...pool, tournamentId });
+          return tournamentService.createPool({ ...pool, tournamentId });
         })
       );
 
       // Update existing teams with new pool assignments
-      const createdTeams = await storage.bulkCreateTeams(
+      const createdTeams = await teamService.bulkCreateTeams(
         teams.map((team: any) => ({ ...team, tournamentId }))
       );
 
-      const createdGames = await storage.bulkCreateGames(
+      const createdGames = await gameService.bulkCreateGames(
         games.map((game: any) => ({ ...game, tournamentId }))
       );
 
@@ -3320,13 +3326,13 @@ Waterdown 10U AA
       const tournamentId = req.params.tournamentId;
 
       // Verify tournament exists
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
 
       // Import teams - they will be associated with pools later when Matches CSV is imported
-      const createdTeams = await storage.bulkCreateOrUpdateTeamsFromRegistrations(
+      const createdTeams = await teamService.bulkCreateOrUpdateTeamsFromRegistrations(
         teams.map((team: any) => ({ ...team, tournamentId }))
       );
 
@@ -3539,7 +3545,7 @@ Waterdown 10U AA
             
             if (rosterData.success && rosterData.players) {
               // Update the tournament team with roster data
-              await storage.updateTeamRoster(tournamentTeamId, JSON.stringify(rosterData.players));
+              await teamService.updateTeamRoster(tournamentTeamId, JSON.stringify(rosterData.players));
               
               res.json({ 
                 success: true, 
@@ -3573,7 +3579,7 @@ Waterdown 10U AA
       const { tournamentId } = req.params;
       
       // Get tournament configuration
-      const tournament = await storage.getTournament(tournamentId);
+      const tournament = await tournamentService.getTournament(tournamentId);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
@@ -3604,7 +3610,7 @@ Waterdown 10U AA
       
       // Create age division
       const ageDivisionId = `${tournamentId}-11u`;
-      await storage.createAgeDivision({
+      await tournamentService.createAgeDivision({
         id: ageDivisionId,
         name: "11U",
         tournamentId
@@ -3619,7 +3625,7 @@ Waterdown 10U AA
         const poolName = poolNames[i];
         const poolId = `${tournamentId}-pool-${poolName.toLowerCase()}`;
         
-        await storage.createPool({
+        await tournamentService.createPool({
           id: poolId,
           name: poolName,
           tournamentId,
@@ -3635,7 +3641,7 @@ Waterdown 10U AA
           const city = selectedCities[cityIndex];
           const teamId = `${tournamentId}-${city.toLowerCase().replace(/\s+/g, '-')}`;
           
-          await storage.createTeam({
+          await teamService.createTeam({
             id: teamId,
             name: city,
             city,
@@ -3666,7 +3672,7 @@ Waterdown 10U AA
             const homeScore = Math.floor(Math.random() * 8) + 3; // 3-10
             const awayScore = Math.floor(Math.random() * 8) + 1; // 1-8
             
-            await storage.createGame({
+            await gameService.createGame({
               id: `${tournamentId}-game-${gameNumber}`,
               tournamentId,
               poolId: poolId,
@@ -3689,7 +3695,7 @@ Waterdown 10U AA
       }
       
       // Generate playoff bracket for the division
-      const playoffGames = await storage.generatePlayoffBracket(tournamentId, ageDivisionId);
+      const playoffGames = await playoffService.generatePlayoffBracket(tournamentId, ageDivisionId);
       
       res.json({
         success: true,
@@ -3715,7 +3721,7 @@ Waterdown 10U AA
   app.get('/api/organizations/:orgId/house-league-teams', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const teams = await storage.getHouseLeagueTeams(orgId);
+      const teams = await diamondService.getHouseLeagueTeams(orgId);
       res.json(teams);
     } catch (error) {
       console.error("Error fetching house league teams:", error);
@@ -3726,7 +3732,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/house-league-teams', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const team = await storage.createHouseLeagueTeam({
+      const team = await diamondService.createHouseLeagueTeam({
         ...req.body,
         organizationId: orgId,
       });
@@ -3740,7 +3746,7 @@ Waterdown 10U AA
   app.patch('/api/organizations/:orgId/house-league-teams/:teamId', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, teamId } = req.params;
-      const team = await storage.updateHouseLeagueTeam(teamId, req.body, orgId);
+      const team = await diamondService.updateHouseLeagueTeam(teamId, req.body, orgId);
       res.json(team);
     } catch (error) {
       console.error("Error updating house league team:", error);
@@ -3751,7 +3757,7 @@ Waterdown 10U AA
   app.delete('/api/organizations/:orgId/house-league-teams/:teamId', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, teamId } = req.params;
-      await storage.deleteHouseLeagueTeam(teamId, orgId);
+      await diamondService.deleteHouseLeagueTeam(teamId, orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting house league team:", error);
@@ -3765,7 +3771,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { status, teamId, startDate, endDate } = req.query;
       
-      const requests = await storage.getBookingRequests(orgId, {
+      const requests = await diamondService.getBookingRequests(orgId, {
         status: status as string | undefined,
         teamId: teamId as string | undefined,
         startDate: startDate as string | undefined,
@@ -3784,7 +3790,7 @@ Waterdown 10U AA
     try {
       const { orgId, startDate, endDate } = req.params;
       
-      const requests = await storage.getBookingRequests(orgId, {
+      const requests = await diamondService.getBookingRequests(orgId, {
         startDate,
         endDate,
       });
@@ -3793,8 +3799,8 @@ Waterdown 10U AA
       const enrichedRequests = await Promise.all(
         requests.map(async (request) => {
           const [team, diamond] = await Promise.all([
-            storage.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
-            request.diamondId ? storage.getDiamond(request.diamondId) : null,
+            diamondService.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
+            request.diamondId ? diamondService.getDiamond(request.diamondId) : null,
           ]);
           
           return {
@@ -3816,15 +3822,15 @@ Waterdown 10U AA
     try {
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
-      const request = await storage.getBookingRequest(requestId, orgId);
+      const request = await diamondService.getBookingRequest(requestId, orgId);
       
       if (!request) {
         return res.status(404).json({ error: "Booking request not found" });
       }
       
       // Verify user owns this booking OR is an admin
-      const dbUser = await storage.getUser(userId);
-      const isOrgAdmin = dbUser?.isSuperAdmin || await storage.isOrganizationAdmin(userId, orgId);
+      const dbUser = await userService.getUser(userId);
+      const isOrgAdmin = dbUser?.isSuperAdmin || await organizationService.isOrganizationAdmin(userId, orgId);
       
       if (!isOrgAdmin && request.submittedBy !== userId) {
         return res.status(403).json({ error: "Access denied" });
@@ -3832,9 +3838,9 @@ Waterdown 10U AA
       
       // Return rich response with team, diamond, and approvals
       const [team, diamond, approvals] = await Promise.all([
-        storage.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
-        storage.getDiamond(request.diamondId),
-        storage.getBookingApprovals(requestId, orgId),
+        diamondService.getHouseLeagueTeam(request.houseLeagueTeamId, orgId),
+        diamondService.getDiamond(request.diamondId),
+        diamondService.getBookingApprovals(requestId, orgId),
       ]);
       
       res.json({
@@ -3855,13 +3861,13 @@ Waterdown 10U AA
       const userId = req.user.claims.sub;
       
       // Validate diamond restrictions
-      const team = await storage.getHouseLeagueTeam(req.body.houseLeagueTeamId);
+      const team = await diamondService.getHouseLeagueTeam(req.body.houseLeagueTeamId);
       if (!team) {
         return res.status(404).json({ error: "Team not found" });
       }
       
       if (req.body.diamondId) {
-        const isValid = await storage.validateDiamondRestriction(
+        const isValid = await diamondService.validateDiamondRestriction(
           orgId,
           team.division,
           req.body.diamondId
@@ -3874,7 +3880,7 @@ Waterdown 10U AA
         }
       }
       
-      const request = await storage.createBookingRequest({
+      const request = await diamondService.createBookingRequest({
         ...req.body,
         organizationId: orgId,
         submittedBy: userId,
@@ -3891,7 +3897,7 @@ Waterdown 10U AA
   app.patch('/api/organizations/:orgId/booking-requests/:requestId', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
-      const request = await storage.updateBookingRequest(requestId, req.body, orgId);
+      const request = await diamondService.updateBookingRequest(requestId, req.body, orgId);
       res.json(request);
     } catch (error) {
       console.error("Error updating booking request:", error);
@@ -3905,11 +3911,11 @@ Waterdown 10U AA
       const { orgId, requestId } = req.params;
       const userId = req.user.claims.sub;
       
-      const request = await storage.submitBookingRequest(requestId, userId, orgId);
+      const request = await diamondService.submitBookingRequest(requestId, userId, orgId);
       
-      const coordinators = await storage.getOrganizationCoordinators(orgId, 'select_coordinator');
-      const team = await storage.getHouseLeagueTeam(request.houseLeagueTeamId);
-      const coach = await storage.getUser(userId);
+      const coordinators = await organizationService.getOrganizationCoordinators(orgId, 'select_coordinator');
+      const team = await diamondService.getHouseLeagueTeam(request.houseLeagueTeamId);
+      const coach = await userService.getUser(userId);
       
       const { notificationService } = await import('./lib/notificationService');
       
@@ -3943,7 +3949,7 @@ Waterdown 10U AA
       const { approved, notes } = req.body;
       
       // Server-side validation: Get user's actual role from database
-      const admins = await storage.getOrganizationAdmins(orgId);
+      const admins = await organizationService.getOrganizationAdmins(orgId);
       const userAdmin = admins.find(admin => admin.userId === userId);
       
       if (!userAdmin) {
@@ -3955,7 +3961,7 @@ Waterdown 10U AA
         return res.status(403).json({ error: "User does not have coordinator permissions" });
       }
       
-      const result = await storage.processBookingApproval(requestId, {
+      const result = await diamondService.processBookingApproval(requestId, {
         approverId: userId,
         approverRole: userAdmin.role,
         decision: approved ? 'approved' : 'declined',
@@ -3963,9 +3969,9 @@ Waterdown 10U AA
       }, orgId);
       
       const request = result.request;
-      const team = await storage.getHouseLeagueTeam(request.houseLeagueTeamId);
-      const coach = await storage.getUser(request.submittedBy);
-      const approver = await storage.getUser(userId);
+      const team = await diamondService.getHouseLeagueTeam(request.houseLeagueTeamId);
+      const coach = await userService.getUser(request.submittedBy);
+      const approver = await userService.getUser(userId);
       
       const { notificationService } = await import('./lib/notificationService');
       
@@ -3983,7 +3989,7 @@ Waterdown 10U AA
       }).catch(err => console.error('Error sending notification:', err));
       
       if (approved && userAdmin.role === 'diamond_coordinator' && request.requiresUmpire) {
-        const uicCoordinators = await storage.getOrganizationCoordinators(orgId, 'diamond_coordinator');
+        const uicCoordinators = await organizationService.getOrganizationCoordinators(orgId, 'diamond_coordinator');
         
         for (const uic of uicCoordinators) {
           await notificationService.sendUICNotification({
@@ -4011,7 +4017,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/booking-requests/:requestId/cancel', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
-      const request = await storage.cancelBookingRequest(requestId, orgId);
+      const request = await diamondService.cancelBookingRequest(requestId, orgId);
       res.json(request);
     } catch (error) {
       console.error("Error cancelling booking request:", error);
@@ -4025,12 +4031,12 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { startDate, endDate } = req.query;
       
-      const bookings = await storage.getBookingRequests(orgId, {
+      const bookings = await diamondService.getBookingRequests(orgId, {
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
       });
       
-      const diamonds = await storage.getDiamonds(orgId);
+      const diamonds = await diamondService.getDiamonds(orgId);
       
       const utilizationMap = new Map();
       
@@ -4075,12 +4081,12 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { startDate, endDate } = req.query;
       
-      const bookings = await storage.getBookingRequests(orgId, {
+      const bookings = await diamondService.getBookingRequests(orgId, {
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
       });
       
-      const teams = await storage.getHouseLeagueTeams(orgId);
+      const teams = await diamondService.getHouseLeagueTeams(orgId);
       const teamMap = new Map(teams.map(t => [t.id, t]));
       
       const divisionMap = new Map();
@@ -4133,7 +4139,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { startDate, endDate } = req.query;
       
-      const bookings = await storage.getBookingRequests(orgId, {
+      const bookings = await diamondService.getBookingRequests(orgId, {
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
       });
@@ -4202,7 +4208,7 @@ Waterdown 10U AA
   app.get('/api/organizations/:orgId/diamond-restrictions', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const restrictions = await storage.getDiamondRestrictions(orgId);
+      const restrictions = await diamondService.getDiamondRestrictions(orgId);
       res.json(restrictions);
     } catch (error) {
       console.error("Error fetching diamond restrictions:", error);
@@ -4213,7 +4219,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/diamond-restrictions', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const restriction = await storage.createDiamondRestriction({
+      const restriction = await diamondService.createDiamondRestriction({
         ...req.body,
         organizationId: orgId,
       });
@@ -4227,7 +4233,7 @@ Waterdown 10U AA
   app.patch('/api/organizations/:orgId/diamond-restrictions/:restrictionId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { restrictionId } = req.params;
-      const restriction = await storage.updateDiamondRestriction(restrictionId, req.body);
+      const restriction = await diamondService.updateDiamondRestriction(restrictionId, req.body);
       res.json(restriction);
     } catch (error) {
       console.error("Error updating diamond restriction:", error);
@@ -4238,7 +4244,7 @@ Waterdown 10U AA
   app.delete('/api/organizations/:orgId/diamond-restrictions/:restrictionId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { restrictionId } = req.params;
-      await storage.deleteDiamondRestriction(restrictionId);
+      await diamondService.deleteDiamondRestriction(restrictionId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting diamond restriction:", error);
@@ -4251,17 +4257,17 @@ Waterdown 10U AA
     try {
       const { token } = req.params;
       
-      const team = await storage.getHouseLeagueTeamByToken(token);
+      const team = await diamondService.getHouseLeagueTeamByToken(token);
       if (!team) {
         return res.status(404).send('Calendar not found');
       }
       
-      const org = await storage.getOrganization(team.organizationId);
+      const org = await organizationService.getOrganization(team.organizationId);
       if (!org) {
         return res.status(404).send('Organization not found');
       }
       
-      const bookings = await storage.getBookingRequests(team.organizationId, {
+      const bookings = await diamondService.getBookingRequests(team.organizationId, {
         teamId: team.id,
         status: 'confirmed',
       });
@@ -4314,16 +4320,16 @@ Waterdown 10U AA
     try {
       const { token } = req.params;
       
-      const org = await storage.getOrganizationByToken(token);
+      const org = await organizationService.getOrganizationByToken(token);
       if (!org) {
         return res.status(404).send('Calendar not found');
       }
       
-      const bookings = await storage.getBookingRequests(org.id, {
+      const bookings = await diamondService.getBookingRequests(org.id, {
         status: 'confirmed',
       });
       
-      const teams = await storage.getHouseLeagueTeams(org.id);
+      const teams = await diamondService.getHouseLeagueTeams(org.id);
       const teamsMap = new Map(teams.map(t => [t.id, t]));
       const timezone = org.timezone || 'America/Toronto';
       
@@ -4378,7 +4384,7 @@ Waterdown 10U AA
       const { orgId, teamId } = req.params;
       const token = nanoid(32);
       
-      const team = await storage.updateHouseLeagueTeam(teamId, { calendarSubscriptionToken: token }, orgId);
+      const team = await diamondService.updateHouseLeagueTeam(teamId, { calendarSubscriptionToken: token }, orgId);
       
       res.json({ token: team.calendarSubscriptionToken });
     } catch (error) {
@@ -4392,7 +4398,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const token = nanoid(32);
       
-      const org = await storage.updateOrganization(orgId, { calendarSubscriptionToken: token });
+      const org = await organizationService.updateOrganization(orgId, { calendarSubscriptionToken: token });
       
       res.json({ token: org.calendarSubscriptionToken });
     } catch (error) {
@@ -4405,7 +4411,7 @@ Waterdown 10U AA
   app.get('/api/organizations/:orgId/ical-feeds', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const feeds = await storage.getOrganizationIcalFeeds(orgId);
+      const feeds = await diamondService.getOrganizationIcalFeeds(orgId);
       res.json(feeds);
     } catch (error) {
       console.error("Error fetching iCal feeds:", error);
@@ -4422,7 +4428,7 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Name and URL are required" });
       }
       
-      const feed = await storage.createOrganizationIcalFeed({
+      const feed = await diamondService.createOrganizationIcalFeed({
         id: nanoid(),
         organizationId: orgId,
         name,
@@ -4444,7 +4450,7 @@ Waterdown 10U AA
       const { orgId, feedId } = req.params;
       const { name, url, diamondMapping } = req.body;
       
-      const feed = await storage.updateOrganizationIcalFeed(feedId, {
+      const feed = await diamondService.updateOrganizationIcalFeed(feedId, {
         name,
         url,
         diamondMapping: diamondMapping || null,
@@ -4461,8 +4467,8 @@ Waterdown 10U AA
     try {
       const { orgId, feedId } = req.params;
       
-      await storage.deleteExternalCalendarEventsByFeed(feedId);
-      await storage.deleteOrganizationIcalFeed(feedId, orgId);
+      await diamondService.deleteExternalCalendarEventsByFeed(feedId);
+      await diamondService.deleteOrganizationIcalFeed(feedId, orgId);
       
       res.status(204).send();
     } catch (error) {
@@ -4475,7 +4481,7 @@ Waterdown 10U AA
     try {
       const { orgId, feedId } = req.params;
       
-      const org = await storage.getOrganization(orgId);
+      const org = await organizationService.getOrganization(orgId);
       if (!org) {
         return res.status(404).json({ error: "Organization not found" });
       }
@@ -4496,7 +4502,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { icalFeedId, startDate, endDate, diamondId } = req.query;
       
-      const events = await storage.getExternalCalendarEvents(orgId, {
+      const events = await diamondService.getExternalCalendarEvents(orgId, {
         icalFeedId: icalFeedId as string | undefined,
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
@@ -4519,14 +4525,14 @@ Waterdown 10U AA
         return res.status(400).json({ error: "organizationId is required" });
       }
       
-      const organizationDiamonds = await storage.getDiamonds(organizationId as string);
+      const organizationDiamonds = await diamondService.getDiamonds(organizationId as string);
       const organizationDiamondIds = organizationDiamonds.map(d => d.id);
       
       if (organizationDiamondIds.length === 0) {
         return res.json([]);
       }
       
-      const allGames = await storage.getAllGames();
+      const allGames = await gameService.getAllGames();
       
       const filteredGames = allGames.filter(game => {
         if (!game.diamondId) return false;
@@ -4555,7 +4561,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { role } = req.query;
       
-      const coordinators = await storage.getOrganizationCoordinators(orgId, role as string | undefined);
+      const coordinators = await organizationService.getOrganizationCoordinators(orgId, role as string | undefined);
       res.json(coordinators);
     } catch (error) {
       console.error("Error fetching coordinators:", error);
@@ -4568,7 +4574,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const validatedData = insertOrganizationCoordinatorSchema.parse(req.body);
       
-      const coordinator = await storage.upsertOrganizationCoordinator(
+      const coordinator = await organizationService.upsertOrganizationCoordinator(
         orgId,
         validatedData.role,
         validatedData
@@ -4586,7 +4592,7 @@ Waterdown 10U AA
       const { orgId, coordinatorId } = req.params;
       const validatedData = insertOrganizationCoordinatorSchema.partial().parse(req.body);
       
-      const coordinator = await storage.updateOrganizationCoordinator(coordinatorId, validatedData, orgId);
+      const coordinator = await organizationService.updateOrganizationCoordinator(coordinatorId, validatedData, orgId);
       res.json(coordinator);
     } catch (error) {
       console.error("Error updating coordinator:", error);
@@ -4597,7 +4603,7 @@ Waterdown 10U AA
   app.delete('/api/organizations/:orgId/coordinators/:coordinatorId', requireAdmin, async (req: any, res) => {
     try {
       const { orgId, coordinatorId } = req.params;
-      await storage.deleteOrganizationCoordinator(coordinatorId, orgId);
+      await organizationService.deleteOrganizationCoordinator(coordinatorId, orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting coordinator:", error);
@@ -4611,7 +4617,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { status } = req.query;
       
-      const invitations = await storage.getCoachInvitations(orgId, status as string | undefined);
+      const invitations = await organizationService.getCoachInvitations(orgId, status as string | undefined);
       res.json(invitations);
     } catch (error) {
       console.error("Error fetching invitations:", error);
@@ -4636,9 +4642,9 @@ Waterdown 10U AA
         invitedBy: userId,
       });
       
-      const invitation = await storage.createCoachInvitation(validatedData);
+      const invitation = await organizationService.createCoachInvitation(validatedData);
       
-      const org = await storage.getOrganization(orgId);
+      const org = await organizationService.getOrganization(orgId);
       if (org && invitation.email) {
         try {
           const host = req.get('host') || 'localhost:5000';
@@ -4668,7 +4674,7 @@ Waterdown 10U AA
   app.delete('/api/organizations/:orgId/invitations/:invitationId', requireDiamondBooking, requireAdmin, async (req: any, res) => {
     try {
       const { orgId, invitationId } = req.params;
-      await storage.revokeCoachInvitation(invitationId, orgId);
+      await organizationService.revokeCoachInvitation(invitationId, orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error revoking invitation:", error);
@@ -4680,7 +4686,7 @@ Waterdown 10U AA
   app.get('/api/invitations/:token', async (req: any, res) => {
     try {
       const { token } = req.params;
-      const invitation = await storage.getCoachInvitationByToken(token);
+      const invitation = await organizationService.getCoachInvitationByToken(token);
       
       if (!invitation) {
         return res.status(404).json({ error: "Invitation not found" });
@@ -4694,7 +4700,7 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Invitation has expired" });
       }
       
-      const org = await storage.getOrganization(invitation.organizationId);
+      const org = await organizationService.getOrganization(invitation.organizationId);
       res.json({
         email: invitation.email,
         organizationName: org?.name,
@@ -4715,7 +4721,7 @@ Waterdown 10U AA
       const { token } = req.params;
       const userId = req.user.claims.sub;
       
-      const invitation = await storage.getCoachInvitationByToken(token);
+      const invitation = await organizationService.getCoachInvitationByToken(token);
       
       if (!invitation) {
         return res.status(404).json({ error: "Invitation not found" });
@@ -4729,7 +4735,7 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Invitation has expired" });
       }
       
-      const acceptedInvitation = await storage.acceptCoachInvitation(token, userId);
+      const acceptedInvitation = await organizationService.acceptCoachInvitation(token, userId);
       res.json(acceptedInvitation);
     } catch (error) {
       console.error("Error accepting invitation:", error);
@@ -4743,7 +4749,7 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { status } = req.query;
       
-      const invitations = await storage.getAdminInvitations(orgId, status as string | undefined);
+      const invitations = await organizationService.getAdminInvitations(orgId, status as string | undefined);
       res.json(invitations);
     } catch (error) {
       console.error("Error fetching admin invitations:", error);
@@ -4768,9 +4774,9 @@ Waterdown 10U AA
         invitedBy: userId,
       });
       
-      const invitation = await storage.createAdminInvitation(validatedData);
+      const invitation = await organizationService.createAdminInvitation(validatedData);
       
-      const org = await storage.getOrganization(orgId);
+      const org = await organizationService.getOrganization(orgId);
       if (org && invitation.email) {
         try {
           const host = req.get('host') || 'localhost:5000';
@@ -4800,7 +4806,7 @@ Waterdown 10U AA
   app.delete('/api/organizations/:orgId/admin-invitations/:invitationId', requireAdmin, async (req: any, res) => {
     try {
       const { orgId, invitationId } = req.params;
-      await storage.revokeAdminInvitation(invitationId, orgId);
+      await organizationService.revokeAdminInvitation(invitationId, orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error revoking admin invitation:", error);
@@ -4812,7 +4818,7 @@ Waterdown 10U AA
   app.get('/api/admin-invitations/:token', async (req: any, res) => {
     try {
       const { token } = req.params;
-      const invitation = await storage.getAdminInvitationByToken(token);
+      const invitation = await organizationService.getAdminInvitationByToken(token);
       
       if (!invitation) {
         return res.status(404).json({ error: "Invitation not found" });
@@ -4826,7 +4832,7 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Invitation has expired" });
       }
       
-      const org = await storage.getOrganization(invitation.organizationId);
+      const org = await organizationService.getOrganization(invitation.organizationId);
       res.json({
         email: invitation.email,
         organizationName: org?.name,
@@ -4846,7 +4852,7 @@ Waterdown 10U AA
       const { token } = req.params;
       const userId = req.user.claims.sub;
       
-      const invitation = await storage.getAdminInvitationByToken(token);
+      const invitation = await organizationService.getAdminInvitationByToken(token);
       
       if (!invitation) {
         return res.status(404).json({ error: "Invitation not found" });
@@ -4861,10 +4867,10 @@ Waterdown 10U AA
       }
       
       // Accept the invitation
-      const acceptedInvitation = await storage.acceptAdminInvitation(token, userId);
+      const acceptedInvitation = await organizationService.acceptAdminInvitation(token, userId);
       
       // Add user as organization admin
-      await storage.assignOrganizationAdmin(userId, invitation.organizationId);
+      await organizationService.assignOrganizationAdmin(userId, invitation.organizationId);
       
       res.json(acceptedInvitation);
     } catch (error) {
@@ -4879,12 +4885,12 @@ Waterdown 10U AA
       const { orgId, userId } = req.params;
       
       // Prevent removing the last admin
-      const admins = await storage.getOrganizationAdmins(orgId);
+      const admins = await organizationService.getOrganizationAdmins(orgId);
       if (admins.length <= 1) {
         return res.status(400).json({ error: "Cannot remove the last admin from the organization" });
       }
       
-      await storage.removeOrganizationAdmin(userId, orgId);
+      await organizationService.removeOrganizationAdmin(userId, orgId);
       res.status(204).send();
     } catch (error) {
       console.error("Error removing admin:", error);
