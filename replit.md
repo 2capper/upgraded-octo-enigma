@@ -1,78 +1,71 @@
 # Dugout Desk - Your Tournament Command Center
 
 ## Overview
-Dugout Desk is a mobile-first tournament management application designed for baseball leagues in Ontario, specifically targeting the Ontario Baseball Association (OBA) and partner organizations. Its purpose is to provide real-time standings, score tracking, and playoff bracket management with a focus on speed and usability for coaches managing tournaments on mobile devices. The platform aims to streamline tournament operations, allowing users to "Get in, get it done, get back to the game."
+Dugout Desk is a mobile-first tournament management application for baseball leagues, specifically targeting the Ontario Baseball Association (OBA). Its core purpose is to provide real-time standings, score tracking, and playoff bracket management to streamline tournament operations for coaches using mobile devices. The platform aims to be a quick and efficient tool, allowing users to "Get in, get it done, get back to the game."
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
 - **Framework**: React with TypeScript
 - **Routing**: Wouter
 - **State Management**: TanStack Query
-- **UI Components**: Radix UI primitives with shadcn/ui components
+- **UI Components**: Radix UI primitives with shadcn/ui
 - **Styling**: Tailwind CSS with CSS variables for theming
 - **Build Tool**: Vite
-- **Timezone Support**: date-fns-tz for organization-specific timezone formatting
-- **Theming**: Professional baseball aesthetic with Deep Navy, Field Green, and Clay Red. Typography uses Oswald for headings and Inter for body text.
+- **Theming**: Professional baseball aesthetic (Deep Navy, Field Green, Clay Red) with Oswald for headings and Inter for body text.
 
-### Backend Architecture
+### Backend
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
 - **Database**: PostgreSQL with Drizzle ORM
 - **Session Management**: PostgreSQL session store
 - **Development**: TSX for TypeScript execution
 
-### Data Storage Solutions
+### Data Storage
 - **Primary Database**: PostgreSQL via Neon Database serverless
 - **ORM**: Drizzle ORM
-- **Session Storage**: PostgreSQL with connect-pg-simple
-- **Migrations**: Drizzle Kit
 
 ### Key Architectural Decisions
-- **Authentication System**: Replit Auth using OpenID Connect for secure and seamless user management.
-- **Monorepo Structure**: Unified TypeScript configuration and shared schema for type safety and code reuse.
-- **Database Choice**: PostgreSQL with Drizzle ORM for relational data handling and performance.
-- **Storage Abstraction**: Interface-based storage layer for flexibility and testability.
-- **Component-First UI**: Utilizes Radix UI and shadcn/ui for consistent, accessible UI.
-- **Development Experience**: Fast iteration with Vite, HMR, TSX, and Replit integration.
-- **Multi-Organization Support**: Dedicated `organizations` table allowing multiple baseball organizations to manage their tournaments on the platform with individual branding and settings.
-- **Feature Flag System**: Database-backed feature flags with super admin and organization-level controls for granular feature management.
-- **Role-Based Access Control**: `isAdmin` flag and `requireAdmin` middleware to restrict sensitive operations.
-- **Timezone Management**: Organization-specific timezone settings for accurate date/time display using `date-fns-tz`.
-- **Hostname-Based Routing**: Single deployment serves both www.dugoutdesk.ca (public storefront) and app.dugoutdesk.ca (admin app) with context-aware UI using `/api/context` endpoint and client-side fallback for resilience.
+- **Authentication**: Replit Auth using OpenID Connect.
+- **Monorepo Structure**: Unified TypeScript configuration and shared schema.
+- **Multi-Organization Support**: Dedicated `organizations` table for separate branding and settings.
+- **Feature Flags**: Database-backed feature flags for granular control at super admin and organization levels.
+- **Role-Based Access Control**: `isAdmin` flag and `requireAdmin` middleware.
+- **Timezone Management**: Organization-specific timezone settings using `date-fns-tz`.
+- **Hostname-Based Routing**: Single deployment serving public storefront (`www.dugoutdesk.ca`) and admin app (`app.dugoutdesk.ca`).
+- **Unified Organization Admin Portal**: Modular admin portal at `/org/:orgId/admin` as the central hub for organization management, with features like Tournament Management, Diamond Booking, SMS, Weather, Team Management, Reports, and Settings, all controlled by feature flags.
+- **Component-First UI**: Radix UI and shadcn/ui for consistent and accessible UI.
 
 ### Core Features & Design
-- **Tournament Dashboard**: Central interface for tournament management, publicly accessible.
-- **Standings Table**: Real-time standings with tie-breaker logic and pool-based seeding.
-- **Admin Portal**: Comprehensive administrative functions including tournament creation, data import/export, game result editing, and access control.
-- **Hierarchical Score Input**: Step-by-step score submission workflow.
-- **Organization Settings**: Super admins can configure organization defaults like timezone and playoff formats.
-- **Organization Admin Management**: Two-tier admin system with role-based access control.
-- **Team Management**: Team editor with fields for name, division, city, coach, and integration with PlayOBA roster via a 6-digit team number.
-- **Consolidated Schedule Editing**: All game schedule editing is centralized in the Admin Portal.
-- **Location Integration**: Display of diamond GPS coordinates with Google Maps integration.
+- **Tournament Dashboard**: Central interface for managing tournaments.
+- **Standings Table**: Real-time standings with tie-breaker logic.
+- **Admin Portal**: Comprehensive functions including tournament creation, data import/export, game result editing, and access control.
+- **Hierarchical Score Input**: Step-by-step score submission.
+- **Organization Settings**: Configuration of organization defaults and admin management.
+- **Team Management**: Editor with PlayOBA roster integration.
+- **Consolidated Schedule Editing**: Centralized game schedule editing in the Admin Portal.
+- **Location Integration**: Display of diamond GPS coordinates with Google Maps.
 - **Roster Management**: Manual roster import system.
-- **Public Homepage & Organization Detail Pages**: Publicly accessible pages showcasing organizations and their tournaments.
-- **Tournament Creation with Organization Defaults**: Tournament creation form auto-populates playoff format, seeding pattern, colors, and logo from selected organization's defaults while allowing per-tournament customization.
-- **Enhanced Admin Onboarding**: Admin request process captures complete organization details (name, logo, branding, timezone, defaults) for atomic organization creation upon approval with notification badges for super admins.
-- **Cross-Pool Playoff Bracket View**: Dedicated bracket visualization for tournaments using cross_pool_4 seeding that displays pool standings (top 2 teams per pool A/B/C/D), quarterfinal matchups with seed labels (A1 vs C2, A2 vs C1, B1 vs D2, B2 vs D1), semifinals showing winner advancement, and finals.
-- **Test Data Population**: One-click "Populate Test Data" button for tournaments with IDs containing 'test' or 'testing', creating 4 pools with 4 teams each and complete game schedules with innings data for tiebreaker validation.
-- **Tournament Visibility System**: Three-tier visibility control (private, public, unlisted) enabling SaaS model with public tournament directory at /directory, public API endpoint at /api/public/tournaments, and access control that restricts private tournaments to authenticated users while allowing public discovery of tournaments marked as public.
-- **Division-Aware Schedule Generation**: Enhanced schedule generator with division selector UI for tournaments with multiple age divisions (11U, 13U, 18U). Teams are filtered by division text field before pool distribution, preventing cross-division mixing. Division-specific messaging shows team counts, pool distribution, and success notifications per division. Backend validates divisionId and filters teams by matching t.division === division.name, with fallback to pool membership for already-assigned teams. Temporary pools (created during import) are filtered out to ensure users always start at the distribute step, with full navigation control between workflow steps.
-- **Playoff Bracket Preview**: Visual preview component that displays playoff bracket structure before games are generated. For cross_pool_4 seeding, shows detailed matchup structure (A1 vs C2, A2 vs C1, B1 vs D2, B2 vs D1) through quarterfinals, semifinals, and finals. For other formats (top_8, top_6, top_4), displays format information and team count. Preview appears in the Playoffs tab when no playoff games exist, providing tournament organizers visibility into the bracket structure during pool play.
-- **Playoff Slot Pre-Scheduling**: Admin-only interface for scheduling playoff games before pool play ends. Admins can assign date, time, and diamond to each playoff bracket slot (quarterfinals, semifinals, finals) in advance. Component displays bracket structure using shared bracketStructure definitions (shared/bracketStructure.ts) and provides form inputs for each slot. Features DST-safe timezone handling: displays times in admin's browser timezone while storing in tournament timezone using date-fns-tz (fromZonedTime/toZonedTime). Backend validates all slots before transaction (tournament/division existence, bracket structure, diamond ownership, date ranges) and uses typed domain errors (NotFoundError, ValidationError) for proper HTTP status mapping. When Generate Playoffs button is clicked, pre-scheduled times are preserved and teams are filled in based on pool standings. Accessible via "Schedule Slots" tab in Playoffs section for authenticated admins, alongside "Bracket Preview" tab.
-- **Draft Schedule Workflow**: Three-step schedule creation process (CSV import → manual pool assignment → draft generation → review → commit) that allows tournament organizers to review generated schedules before saving to database. Backend endpoints split: `/generate-schedule` returns draft games as JSON without persisting, `/commit-schedule` validates games (schema validation, tournament ownership, team/pool verification) and regenerates IDs server-side using nanoid for security before saving. Frontend displays draft games in scrollable review table showing game details (date/time, diamond, teams, pool), with clear commit/cancel controls. Prevents accidental schedule overwrites and allows iterative refinement before finalization.
-- **Diamond Availability & Scheduling Constraints**: Organization-level field (diamond) management system with availability hours tracking and tournament-specific scheduling rules. Organizations define diamonds with names, locations, operating hours, and lighting capabilities. Tournament creators select available diamonds and configure constraints: minimum rest between games (default 30 minutes), extended rest between 2nd/3rd game of day (default 60 minutes), and maximum games per team per day (default 3). Schedule generator automatically assigns diamonds to games and validates all constraints, displaying violations with severity levels in the review UI. Server-side validation in commit endpoint re-checks all constraints to prevent API bypass, ensuring only valid schedules are persisted to database.
-- **WordPress Calendar Integration (Forest Glade)**: Complete diamond booking system featuring iCal subscription import from WordPress Events Calendar (8-hour sync interval), external calendar events storage, unified calendar view displaying three event types (house league/orange, bookings/status-based, tournaments/indigo) with filtering by diamond and event type, two-tier approval workflow (select coordinator → diamond coordinator) with email/SMS notifications, admin UI for managing iCal feeds with diamond location mapping, manual sync controls, and automatic display of Forest Glade tournament games as calendar conflicts. Background sync job runs on server boot and every 8 hours, with ICS parser supporting line folding and timezone-safe date conversion using date-fns-tz.
-- **Coordinator Management System**: Four distinct coordinator roles (Select Coordinator, Diamond Coordinator, UIC, Treasurer) stored in database with email/phone contact information for notifications. Admins configure coordinators per organization in Organization Settings. Database-driven system ensures accurate notification delivery during booking approval workflow, replacing hardcoded contact information.
-- **Coach Invitation System**: Email-based invitation workflow where organization admins invite coaches by email and assign house league teams. Invitations use secure token-based acceptance links (30-day expiration), track status (pending/accepted/revoked), and integrate with Replit Auth for seamless login. Coaches gain access only to booking features (no tournament visibility) and can request diamond time for assigned teams. Email notifications sent via Gmail integration with magic link acceptance flow. After acceptance, coaches are redirected to the Organization Home page.
-- **Booking Time Constraints**: Booking request form enforces 30-minute time intervals (8:00 AM - 10:00 PM) via dropdown selectors, preventing arbitrary time entry. Start/end time pickers display 12-hour format to users while storing 24-hour values. Form calculates durationMinutes field automatically for database storage and validation.
-- **Organization Home Page**: Unified landing hub at `/booking/{orgId}` where all users land after login or invitation acceptance. Displays personalized welcome with org logo and role-based feature cards: all users see Diamond Booking quick actions (View Calendar, New Request) and inline booking request list; coordinators see Pending Approvals card; admins see Tournament Management, Teams, Reports, and Settings cards. Each feature card links to dedicated pages with "Back to Home" navigation. All coordinator/admin pages enforce role-based authorization with automatic redirect for unauthorized users, preventing URL-based privilege escalation.
-- **SMS Communications**: Organization admins can send SMS messages to coaches via Twilio integration. Features include bulk messaging, message history, rate limiting (100/15min, 100/day configurable), E.164 phone normalization using libphonenumber-js, and automatic coach phone collection during team registration CSV import.
-- **Weather Integration**: Dynamic weather forecasting and player safety alerts using WeatherAPI.com (1M free calls/month). Features organization-level API key management, configurable safety thresholds (lightning: 10 miles, heat index: 94°F, wind: 25mph, precipitation: 70%), automated forecast caching (2-hour refresh), game-specific weather cards displaying temperature/precipitation/wind/alerts, bulk weather fetching for tournaments, and dedicated weather dashboard showing all games with active alerts. Backend implements heat index calculation, thunderstorm detection via condition codes, and comprehensive safety alert generation following NCAA/NATA baseball guidelines. Frontend components include compact/expanded weather cards, real-time refresh controls, and severity-based visual indicators (red: lightning/severe, orange: heat, yellow: wind/rain).
+- **Public Pages**: Homepage and organization detail pages for public access.
+- **Tournament Creation**: Auto-populates from organization defaults with per-tournament customization.
+- **Enhanced Admin Onboarding**: Admin request process for organization creation and approval.
+- **Cross-Pool Playoff Bracket View**: Visualization for complex playoff structures (e.g., cross_pool_4).
+- **Test Data Population**: One-click generation of test data for tournaments.
+- **Tournament Visibility System**: Three-tier control (private, public, unlisted) with a public directory.
+- **Division-Aware Schedule Generation**: UI and backend support for scheduling across multiple age divisions.
+- **Playoff Bracket Preview**: Visual preview of bracket structure before games are generated.
+- **Playoff Slot Pre-Scheduling**: Admin interface to schedule playoff game times and diamonds in advance.
+- **Draft Schedule Workflow**: Three-step process (import → assign → generate → review → commit) allowing review before saving.
+- **Diamond Availability & Scheduling Constraints**: Organization-level field management with availability hours and constraints (rest between games, max games per team per day).
+- **WordPress Calendar Integration**: iCal subscription import from WordPress Events Calendar for diamond booking.
+- **Coordinator Management System**: Database-driven roles (Select, Diamond, UIC, Treasurer) for notifications.
+- **Coach Invitation System**: Email-based invitation workflow with secure tokens for coaches to access booking features.
+- **Booking Time Constraints**: Booking form enforces 30-minute intervals.
+- **SMS Communications**: Twilio integration for organization admins to send bulk SMS to coaches.
+- **Weather Integration**: WeatherAPI.com for dynamic forecasts, player safety alerts, and a dedicated weather dashboard with configurable safety thresholds.
 
 ## External Dependencies
 
@@ -84,4 +77,6 @@ Preferred communication style: Simple, everyday language.
 - **Date Handling**: `date-fns`, `date-fns-tz`
 - **Session Management**: `connect-pg-simple`, `express-session`
 - **Authentication**: `openid-client`, `passport`, `memoizee`
+- **SMS**: Twilio
+- **Weather**: WeatherAPI.com
 - **Web Scraping**: Python-based service for OBA roster data
