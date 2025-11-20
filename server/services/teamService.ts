@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { withRetry } from "../dbRetry";
+import { normalizePhone } from "@shared/phoneUtils";
 
 export class TeamService {
   async getTeams(tournamentId: string): Promise<Team[]> {
@@ -121,6 +122,11 @@ export class TeamService {
         });
       }
       
+      // Normalize phone number from CSV to E.164 format
+      const rawPhone = teamData.phone || teamData.coachPhone || teamData['Team ContactPhone'];
+      const phoneResult = normalizePhone(rawPhone);
+      const cleanPhone = phoneResult.isValid ? phoneResult.normalized : null;
+      
       const existingTeams = await db.select().from(teams)
         .where(and(
           eq(teams.name, teamData.name),
@@ -133,6 +139,7 @@ export class TeamService {
             coachFirstName: teamData.coachFirstName,
             coachLastName: teamData.coachLastName,
             coachEmail: teamData.coachEmail,
+            coachPhone: cleanPhone,
             phone: teamData.phone,
             teamNumber: teamData.teamNumber,
             rosterLink: teamData.rosterLink,
@@ -154,6 +161,7 @@ export class TeamService {
           coachFirstName: teamData.coachFirstName,
           coachLastName: teamData.coachLastName,
           coachEmail: teamData.coachEmail,
+          coachPhone: cleanPhone,
           phone: teamData.phone,
           teamNumber: teamData.teamNumber,
           rosterLink: teamData.rosterLink,
