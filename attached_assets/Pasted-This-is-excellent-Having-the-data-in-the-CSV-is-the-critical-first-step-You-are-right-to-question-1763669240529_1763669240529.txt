@@ -1,0 +1,140 @@
+This is excellent. Having the data in the CSV is the critical first step.
+
+You are right to question the E.164 format. While some CSV parsers might clean it up, we cannot trust it. "Garbage in, garbage out." If a user uploads (519) 555-0199 and we send that to Twilio, it might fail. We must enforce normalization on the backend to be 100% sure.
+
+Here is the code to implement Phase 1: The Foundation. This updates your schema and your import logic to capture and clean that phone number.
+
+1. Update shared/schema.ts
+We need to add the coachPhone column and the organization_integrations table.
+
+TypeScript
+
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// ... existing imports ...
+
+// 1. MODIFY TEAMS TABLE
+export const teams = pgTable("teams", {
+  // ... existing fields ...
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  // ...
+  coach: text("coach"),
+  coachEmail: text("coach_email"),
+  
+  // --- ADD THIS ---
+  coachPhone: text("coach_phone"), // Stores the normalized +15551234567 number
+  // ----------------
+  
+  // ... other fields ...
+});
+
+// 2. ADD NEW TABLE: ORGANIZATION INTEGRATIONS
+export const organizationIntegrations = pgTable("organization_integrations", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(), // e.g., 'twilio'
+  
+  // Store keys securely. For Twilio we need these 3.
+  config: jsonb("config").$type<{
+    accountSid: string;
+    authToken: string;
+    phoneNumber: string;
+  }>().notNull(),
+  
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrganizationIntegrationSchema = createInsertSchema(organizationIntegrations);
+export type OrganizationIntegration = typeof organizationIntegrations.$inferSelect;
+export type InsertOrganizationIntegration = z.infer<typeof insertOrganizationIntegrationSchema>;
+2. Update server/storage.ts (or teamService.ts)
+We will add the normalization logic directly into the import function. This guarantees that no matter what format is in the CSV (519-555-0123, (416) 555-0199, etc.), it gets saved as +15195550123.
+
+Locate: bulkCreateOrUpdateTeamsFromRegistrations
+
+TypeScript
+
+  // Helper to normalize phone numbers to E.164 (e.g. +15551234567)
+  private normalizePhone(phone: string | any): string | null {
+    if (!phone) return null;
+    const str = String(phone);
+    // Remove all non-digit characters
+    const digits = str.replace(/\D/g, '');
+    
+    // Handle common North American formats
+    if (digits.length === 10) {
+      return `+1${digits}`;
+    } else if (digits.length === 11 && digits.startsWith('1')) {
+      return `+${digits}`;
+    }
+    
+    // If it's some other length, return as-is with a + prefix if missing, 
+    // or null if it's too short to be valid
+    return digits.length > 7 ? `+${digits}` : null;
+  }
+
+  async bulkCreateOrUpdateTeamsFromRegistrations(teamsList: any[]): Promise<Team[]> {
+    if (teamsList.length === 0) return [];
+    
+    const createdTeams: Team[] = [];
+    
+    for (const teamData of teamsList) {
+      // ... (existing temp pool logic) ...
+
+      // Normalize the phone number from the CSV "Team ContactPhone" field
+      const rawPhone = teamData.coachPhone || teamData.phone || teamData['Team ContactPhone']; 
+      const cleanPhone = this.normalizePhone(rawPhone);
+      
+      if (existingTeams.length > 0) {
+        // Update existing team
+        const [updatedTeam] = await db.update(teams)
+          .set({
+            // ... existing fields ...
+            coach: `${teamData.coachFirstName} ${teamData.coachLastName}`,
+            coachEmail: teamData.coachEmail,
+            
+            // --- UPDATE THIS ---
+            coachPhone: cleanPhone, 
+            // ----------------
+          })
+          .where(eq(teams.id, existingTeams[0].id))
+          .returning();
+        
+        createdTeams.push(updatedTeam);
+      } else {
+        // Create new team
+        const [newTeam] = await db.insert(teams).values({
+          // ... existing fields ...
+          id: teamId, // (from your existing logic)
+          name: teamData.name,
+          coach: `${teamData.coachFirstName} ${teamData.coachLastName}`,
+          coachEmail: teamData.coachEmail,
+
+          // --- UPDATE THIS ---
+          coachPhone: cleanPhone,
+          // ----------------
+          
+          // ... other fields ...
+        }).returning();
+        
+        createdTeams.push(newTeam);
+      }
+    }
+    
+    return createdTeams;
+  }
+3. Execution Plan
+Apply the Schema: Update shared/schema.ts and run npm run db:push (or npx drizzle-kit push).
+
+Update the Logic: Apply the changes to server/storage.ts.
+
+Test Import: Run a test import with your 16-team CSV.
+
+Verify: Check the database (or add a console.log) to confirm that coachPhone is being saved as +1....
+
+Once the data is in the database, we can build the UI to send the messages.
