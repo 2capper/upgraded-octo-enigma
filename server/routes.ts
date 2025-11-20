@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import passport from "passport";
 import { userService } from "./services/userService";
 import { organizationService } from "./services/organizationService";
 import { diamondService } from "./services/diamondService";
@@ -90,8 +91,57 @@ async function checkTournamentAccess(req: any, res: any, tournamentId: string): 
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // Auth middleware (must be first so Passport is initialized)
   await setupAuth(app);
+  
+  // Test-only login endpoint for Cypress (after setupAuth so Passport is available)
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/test/login', async (req, res) => {
+      try {
+        const { email } = req.body;
+        
+        // Create or update test admin user
+        const user = await userService.upsertUser({
+          id: 'test-admin-cypress-id',
+          email: email || 'test-admin@dugoutdesk.ca',
+          name: 'Test Admin (Cypress)',
+          isAdmin: true,
+          isSuperAdmin: true,
+        });
+        
+        // Create Express.User object matching Replit Auth structure
+        // Set expires_at to 7 days in the future (matches session TTL)
+        const futureExpiry = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+        
+        const expressUser: Express.User = {
+          claims: {
+            sub: user.id,
+            email: user.email,
+            name: user.name,
+          },
+          access_token: 'test-access-token',
+          refresh_token: 'test-refresh-token',
+          expires_at: futureExpiry,
+        };
+        
+        // Use Passport's req.login() to properly serialize the session
+        const reqWithLogin = req as any;
+        await new Promise<void>((resolve, reject) => {
+          reqWithLogin.login(expressUser, (err: any) => {
+            if (err) return reject(err);
+            // Also set userId for compatibility with existing code
+            reqWithLogin.session.userId = user.id;
+            resolve();
+          });
+        });
+        
+        res.json({ success: true, user });
+      } catch (error) {
+        console.error("Test login error:", error);
+        res.status(500).json({ error: "Test login failed" });
+      }
+    });
+  }
   
   // Hostname context endpoint (public, no auth required)
   app.get('/api/context', (req, res) => {

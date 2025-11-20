@@ -9,21 +9,20 @@ declare global {
 }
 
 Cypress.Commands.add('loginAsAdmin', () => {
-  // Since we're using Replit Auth, we need to set up a session
-  // This is a simplified version - in production, you'd use actual OAuth flow
+  // Create a test admin session via the test-only login endpoint
   cy.request({
     method: 'POST',
     url: '/api/test/login',
     body: {
-      isAdmin: true,
-      isSuperAdmin: false,
+      email: 'test-admin@dugoutdesk.ca',
     },
-    failOnStatusCode: false,
+    failOnStatusCode: true,
   }).then((response) => {
-    if (response.status === 404) {
-      // Test login endpoint doesn't exist, skip auth for now
-      cy.log('Test login endpoint not available, proceeding without auth');
-    }
+    expect(response.status).to.eq(200);
+    expect(response.body).to.have.property('success', true);
+    expect(response.body).to.have.property('user');
+    expect(response.body.user).to.have.property('isAdmin', true);
+    cy.log('Successfully logged in as test admin');
   });
 });
 
