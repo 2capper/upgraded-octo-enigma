@@ -168,6 +168,7 @@ export const teams = pgTable("teams", {
   coachFirstName: text("coach_first_name"),
   coachLastName: text("coach_last_name"),
   coachEmail: text("coach_email"),
+  coachPhone: text("coach_phone"), // Normalized E.164 format phone number (+15551234567)
   phone: text("phone"),
   tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   poolId: text("pool_id").references(() => pools.id, { onDelete: "set null" }),
@@ -626,6 +627,52 @@ export const coachInvitations = pgTable("coach_invitations", {
   // Metadata
   invitedBy: varchar("invited_by").notNull().references(() => users.id),
   expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Organization Twilio settings for SMS communications
+export const organizationTwilioSettings = pgTable("organization_twilio_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Twilio credentials (stored securely)
+  accountSid: text("account_sid").notNull(),
+  authToken: text("auth_token").notNull(), // Should be encrypted in production
+  phoneNumber: text("phone_number").notNull(), // Twilio phone number in E.164 format
+  
+  // Status and limits
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  dailyLimit: integer("daily_limit").notNull().default(100), // Max messages per day
+  rateLimit: integer("rate_limit").notNull().default(100), // Max messages per 15 minutes
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Outbound SMS message log for tracking and auditing
+export const outboundSmsMessages = pgTable("outbound_sms_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  tournamentId: text("tournament_id").references(() => tournaments.id, { onDelete: "set null" }),
+  teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
+  
+  // Message details
+  recipientPhone: text("recipient_phone").notNull(), // E.164 format
+  recipientName: text("recipient_name"), // Coach name for display
+  messageBody: text("message_body").notNull(),
+  
+  // Delivery tracking
+  status: text("status").notNull().default("pending"), // "pending" | "sent" | "delivered" | "failed" | "undelivered"
+  twilioMessageSid: text("twilio_message_sid"), // Twilio's unique message ID
+  errorCode: text("error_code"), // Twilio error code if failed
+  errorMessage: text("error_message"), // Error description
+  
+  // Metadata
+  sentBy: varchar("sent_by").notNull().references(() => users.id), // Admin who sent the message
+  characterCount: integer("character_count").notNull(),
+  segmentCount: integer("segment_count").notNull().default(1), // SMS segments (160 chars each)
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1130,3 +1177,11 @@ export type InsertCoachInvitation = z.infer<typeof insertCoachInvitationSchema>;
 
 export type AdminInvitation = typeof adminInvitations.$inferSelect;
 export type InsertAdminInvitation = z.infer<typeof insertAdminInvitationSchema>;
+
+export const insertOrganizationTwilioSettingsSchema = createInsertSchema(organizationTwilioSettings);
+export type OrganizationTwilioSettings = typeof organizationTwilioSettings.$inferSelect;
+export type InsertOrganizationTwilioSettings = z.infer<typeof insertOrganizationTwilioSettingsSchema>;
+
+export const insertOutboundSmsMessageSchema = createInsertSchema(outboundSmsMessages);
+export type OutboundSmsMessage = typeof outboundSmsMessages.$inferSelect;
+export type InsertOutboundSmsMessage = z.infer<typeof insertOutboundSmsMessageSchema>;
