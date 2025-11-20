@@ -1,0 +1,118 @@
+The Goal: Verify that the "Pool Assignment" tab works. This tests that teams can be imported, displayed, drag-and-dropped into pools, and that those assignments persist after a reload.
+
+The Script:
+
+TypeScript
+
+describe('Pool Assignment E2E Workflow', () => {
+  let testData: {
+    tournamentId: string;
+    divisionId: string;
+    team1Id: string;
+    team2Id: string;
+    poolAId: string;
+  };
+
+  beforeEach(() => {
+    // 1. Seed a tournament with 2 unassigned teams and 2 pools
+    cy.task('seed:tournamentWithTeams').then((data) => {
+      testData = data as any;
+      cy.loginAsAdmin(); 
+    });
+  });
+
+  afterEach(() => {
+    if (testData?.tournamentId) {
+      cy.task('db:deleteTournament', testData.tournamentId);
+    }
+  });
+
+  it('should allow an admin to drag-and-drop teams and persist the new poolId', () => {
+    // 1. Visit the Pool Assignment Page
+    cy.visit(`/admin/tournament/${testData.tournamentId}/pools`);
+    
+    // 2. Setup Aliases
+    cy.get(`[data-testid="draggable-team-${testData.team1Id}"]`).as('team1');
+    cy.get(`[data-testid="pool-dropzone-${testData.poolAId}"]`).as('poolA');
+
+    // 3. Drag Team 1 into Pool A
+    cy.get('@team1').trigger('mousedown', { which: 1 });
+    cy.get('@poolA').trigger('mousemove').trigger('mouseup', { force: true });
+
+    // 4. Verify UI update
+    cy.contains('Team Updated').should('be.visible');
+    cy.get('@poolA').find(`[data-testid="draggable-team-${testData.team1Id}"]`).should('exist');
+
+    // 5. RELOAD (The Critical Step)
+    cy.reload();
+
+    // 6. Verify Persistence (Team should still be in Pool A)
+    cy.get(`[data-testid="pool-dropzone-${testData.poolAId}"]`).find(`[data-testid="draggable-team-${testData.team1Id}"]`).should('exist');
+  });
+});
+2. cypress/e2e/playoff-workflow.cy.ts
+The Goal: Verify the complex "Playoff" tab workflow. This tests that we can schedule slots (when/where) and generate a bracket (who) without the "sideways" bugs returning.
+
+The Script:
+
+TypeScript
+
+describe('Playoff End-to-End Workflow', () => {
+  let testData: {
+    tournamentId: string;
+    divisionId: string;
+    divisionName: string;
+  };
+
+  beforeEach(() => {
+    // 1. Seed a FULL tournament where pool play is 100% complete and scores are final
+    cy.task('seed:fullTournament').then((data) => {
+      testData = data as any;
+      cy.loginAsAdmin();
+    });
+  });
+
+  afterEach(() => {
+    if (testData?.tournamentId) {
+      cy.task('db:deleteTournament', testData.tournamentId);
+    }
+  });
+
+  it('should allow an admin to set slots, generate a bracket, and view it publicly', () => {
+    // --- STEP 1: Schedule Slots (When/Where) ---
+    cy.visit(`/admin/tournament/${testData.tournamentId}/playoffs`);
+    
+    // Select Division
+    cy.get('[data-testid="select-division-main"]').click();
+    cy.contains(testData.divisionName).click();
+
+    // Schedule Quarterfinal 1
+    cy.get('[data-testid="input-r1-g1-date"]').type('2025-07-20');
+    cy.get('[data-testid="input-r1-g1-time"]').type('09:00');
+    cy.get('[data-testid="button-save-playoff-schedule"]').click();
+    
+    // Verify Save
+    cy.contains('Playoff Schedule Saved').should('be.visible');
+
+    // --- STEP 2: Generate Bracket (Who) ---
+    // Button should be enabled because pool play is complete
+    cy.get('[data-testid="button-generate-bracket"]').should('not.be.disabled').click();
+    
+    // Verify Generation
+    cy.contains('Matchups Created!').should('be.visible');
+
+    // --- STEP 3: Verify Public Site ---
+    cy.visit(`/tournament/${testData.tournamentId}/playoffs`);
+    
+    // The game should have the TIME we set in Step 1...
+    cy.contains('9:00').should('exist');
+    // ...AND the TEAMS generated in Step 2 (e.g., "Pool A #1")
+    cy.contains('Pool A #1').should('exist');
+  });
+});
+What You Need to Do
+Run pool-setup-workflow first. This checks the basic plumbing (teamService, organizationService).
+
+Run playoff-workflow second. This checks the complex logic (gameService, playoffService, tournamentService).
+
+If both pass, your refactor was a complete success. Run them now.
