@@ -58,7 +58,7 @@ export const OnboardingOrganizationForm = () => {
       setTimeout(() => {
         // Redirect to org-scoped admin portal with auto-open tournament creation
         const orgId = data.id || data.organizationId;
-        setLocation(`/admin/org/${orgId}?firstTime=true`);
+        setLocation(`/org/${orgId}/tournaments?firstTime=true`);
       }, 2500);
     },
     onError: (error: any) => {

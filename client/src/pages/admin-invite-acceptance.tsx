@@ -40,7 +40,7 @@ export default function AdminInviteAcceptance() {
         title: "Invitation accepted!",
         description: "You are now an administrator for this organization.",
       });
-      setLocation(`/admin/org/${invitation?.organizationId}`);
+      setLocation(`/org/${invitation?.organizationId}/tournaments`);
     },
     onError: (error: any) => {
       toast({

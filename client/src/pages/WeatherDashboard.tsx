@@ -88,7 +88,7 @@ export default function WeatherDashboard() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <Button
         variant="ghost"
-        onClick={() => navigate(`/admin/org/${orgId}/tournament/${tournamentId}`)}
+        onClick={() => navigate(`/org/${orgId}/tournaments/tournament/${tournamentId}`)}
         className="mb-4"
         data-testid="button-back"
       >

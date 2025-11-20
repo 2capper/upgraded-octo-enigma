@@ -54,8 +54,8 @@ export default function AdminPortal() {
       if (userOrgs.length === 1) {
         // User has single org - redirect to that org's admin portal
         const redirectPath = tournamentId 
-          ? `/admin/org/${userOrgs[0].id}/tournament/${tournamentId}`
-          : `/admin/org/${userOrgs[0].id}`;
+          ? `/org/${userOrgs[0].id}/tournaments/tournament/${tournamentId}`
+          : `/org/${userOrgs[0].id}/tournaments`;
         setLocation(redirectPath);
       } else if (userOrgs.length > 1) {
         // User has multiple orgs - let them choose
@@ -80,7 +80,8 @@ export default function AdminPortal() {
     const urlParams = new URLSearchParams(window.location.search);
     const isFirstTime = urlParams.get('firstTime') === 'true';
     
-    if (isFirstTime && !showCreateForm && orgId) {
+    // Only process firstTime for new org-scoped routes (with orgId)
+    if (isFirstTime && !showCreateForm && orgId && typeof orgId === 'string' && orgId.length > 0) {
       // Auto-open tournament creation form for new org admins
       setActiveTab('tournaments');
       setShowCreateForm(true);
@@ -92,8 +93,8 @@ export default function AdminPortal() {
       
       // Clean up URL by removing the query parameter
       const cleanUrl = tournamentId 
-        ? `/admin/org/${orgId}/tournament/${tournamentId}`
-        : `/admin/org/${orgId}`;
+        ? `/org/${orgId}/tournaments/tournament/${tournamentId}`
+        : `/org/${orgId}/tournaments`;
       window.history.replaceState({}, '', cleanUrl);
     }
   }, [toast, showCreateForm, orgId, tournamentId]);

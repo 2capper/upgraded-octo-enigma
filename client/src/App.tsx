@@ -242,6 +242,20 @@ function Router() {
       </Route>
       
       {/* Protected admin routes - NEW org-scoped routes */}
+      <Route path="/org/:orgId/tournaments/tournament/:tournamentId/weather">
+        {() => <RequireAuth component={WeatherDashboard} />}
+      </Route>
+      <Route path="/org/:orgId/tournaments/tournament/:tournamentId/validation-report">
+        {() => <RequireAuth component={ValidationReport} />}
+      </Route>
+      <Route path="/org/:orgId/tournaments/tournament/:tournamentId">
+        {() => <RequireAuth component={AdminPortal} />}
+      </Route>
+      <Route path="/org/:orgId/tournaments">
+        {() => <RequireAuth component={AdminPortal} />}
+      </Route>
+      
+      {/* Legacy admin routes - kept for backward compatibility */}
       <Route path="/admin/org/:orgId/tournament/:tournamentId/weather">
         {() => <RequireAuth component={WeatherDashboard} />}
       </Route>

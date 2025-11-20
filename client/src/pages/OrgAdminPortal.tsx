@@ -49,7 +49,7 @@ export default function OrgAdminPortal() {
 
   // Helper function to check if a feature is enabled
   const isFeatureEnabled = (featureKey: string): boolean => {
-    if (!featureFlags) return true; // Default to showing features if flags haven't loaded
+    if (!featureFlags || featureFlags.length === 0) return true; // Default to showing features if flags haven't loaded
     const flag = featureFlags.find(f => f.key === featureKey);
     return flag ? flag.effectivelyEnabled : true;
   };
@@ -61,7 +61,7 @@ export default function OrgAdminPortal() {
       title: 'Tournament Management',
       description: 'Create and manage baseball tournaments',
       icon: <Trophy className="w-5 h-5" />,
-      href: `/admin/org/${orgId}`,
+      href: `/org/${orgId}/tournaments`,
       color: 'purple',
       requiresAdmin: true,
       testId: 'card-tournaments',

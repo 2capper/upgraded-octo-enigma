@@ -146,7 +146,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
               </Button>
             </Link>
             
-            <Link href={tournament?.organizationId ? `/admin/org/${tournament.organizationId}/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
+            <Link href={tournament?.organizationId ? `/org/${tournament.organizationId}/tournaments/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
               <Button 
                 variant={currentPage === 'admin' ? 'secondary' : 'ghost'}
                 size="sm"
@@ -230,7 +230,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
                 </Button>
               </Link>
               
-              <Link href={tournament?.organizationId ? `/admin/org/${tournament.organizationId}/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
+              <Link href={tournament?.organizationId ? `/org/${tournament.organizationId}/tournaments/tournament/${tournamentId}` : `/admin-portal/${tournamentId}`}>
                 <Button
                   variant="ghost"
                   size="lg"
