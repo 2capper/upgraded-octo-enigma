@@ -24,12 +24,13 @@ describe('Playoff End-to-End Workflow', () => {
     cy.visit(`/admin/tournament/${testData.tournamentId}/playoffs`);
     
     // Select Division
-    cy.get('[data-testid="select-division-main"]').click();
+    cy.get('[data-testid="select-age-division"]').click();
     cy.contains(testData.divisionName).click();
 
     // Schedule Quarterfinal 1
     cy.get('[data-testid="input-r1-g1-date"]').type('2025-07-20');
-    cy.get('[data-testid="input-r1-g1-time"]').type('09:00');
+    cy.get('[data-testid="select-r1-g1-time"]').click();
+    cy.contains('09:00').click();
     cy.get('[data-testid="button-save-playoff-schedule"]').click();
     
     // Verify Save
