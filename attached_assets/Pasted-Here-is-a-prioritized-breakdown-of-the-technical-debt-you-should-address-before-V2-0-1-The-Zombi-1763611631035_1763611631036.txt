@@ -1,0 +1,65 @@
+Here is a prioritized breakdown of the technical debt you should address before V2.0.
+
+1. The "Zombie Code" (High Priority)
+You have multiple versions of core components co-existing. This is dangerous because a new developer (or even you in 2 weeks) might edit the wrong file.
+
+Admin Portal: You have both admin-portal.tsx and admin-portal-new.tsx.
+
+Debt: It’s unclear which is the "live" version. If new is the winner, rename it to admin-portal.tsx and delete the old one.
+
+Score Submission: You have score-submission.tsx, score-submission-new.tsx, AND hierarchical-score-input.tsx.
+
+Debt: hierarchical-score-input.tsx seems to be the "modern" component we fixed. The other two are likely dead code that will confuse your routing logic.
+
+Navigation: You have navigation.tsx and simple-navigation.tsx.
+
+Debt: Inconsistent UI. Pick one (likely simple-navigation if you want the cleaner look) and delete the other.
+
+2. The "God Object" Backend (Medium Priority)
+Your server/storage.ts is becoming massive. It handles everything: users, orgs, tournaments, games, teams, brackets, and scraping logic.
+
+The Problem: It’s over 1,500 lines long. If you want to change how "Teams" work, you risk breaking "Tournaments" because they share the same massive class.
+
+The Fix: Split this into domain-specific services.
+
+server/services/tournamentService.ts
+
+server/services/teamService.ts
+
+server/services/gameService.ts
+
+server/services/userService.ts
+
+Your routes.ts would then import these services instead of calling storage.method() directly.
+
+3. Fragile External Dependencies (Medium Priority)
+Your roster import relies on 7 different Python scripts in the server/ folder.
+
+The Debt: You are shelling out to Python (spawn('python', ...)) from Node.js. This is brittle.
+
+If the Python environment on the server changes (missing pip package, wrong python version), your app crashes.
+
+Error handling between Node and Python stdout is tricky.
+
+The Fix: If possible, rewrite the scraping logic in TypeScript (using cheerio or puppeteer) to keep the stack unified. If Python is strictly required for specific libraries, isolate it into a proper microservice with a defined API, rather than spawn commands scattered in routes.ts.
+
+4. Hardcoded Logic in Shared Files
+Bracket Structure: shared/bracketStructure.ts contains hardcoded pairing logic. While we fixed it for top_8, adding new formats requires code changes.
+
+Debt: This limits you to only the formats you've manually coded.
+
+Future Fix: Move bracket templates to the database (bracket_templates table) so you can add/edit formats without redeploying the code.
+
+5. "Any" Type Casting
+In server/storage.ts, specifically in generatePlayoffBracket, there are aggressive uses of as any:
+
+TypeScript
+
+// line 1376 in storage.ts
+if (source.type === 'winner') {
+  newGame.team1Source = { ... } as any; // <--- This hides bugs
+}
+Debt: This defeats the purpose of TypeScript. If the team1Source schema doesn't match the object you're saving, you should update the schema type definition in shared/schema.ts, not force it with any.
+
+Summary Recommendation
+Clean up the frontend first. Deleting *-new.tsx files is low-risk and high-reward for clarity. Then, refactor storage.ts before you build the V2.0 Communications Suite, or that file will become unmanageable.
