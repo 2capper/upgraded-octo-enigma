@@ -93,11 +93,11 @@ export default function WeatherSettings() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <Button
         variant="ghost"
-        onClick={() => navigate(`/booking/${orgId}`)}
+        onClick={() => navigate(`/org/${orgId}/admin`)}
         className="mb-4"
         data-testid="button-back-home"
       >
-        ← Back to Home
+        ← Back to Admin Portal
       </Button>
 
       <div className="mb-6">
@@ -190,7 +190,7 @@ export default function WeatherSettings() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate(`/booking/${orgId}`)}
+                    onClick={() => navigate(`/org/${orgId}/admin`)}
                     data-testid="button-cancel"
                   >
                     Cancel

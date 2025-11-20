@@ -35,6 +35,7 @@ import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
 import OrganizationSelector from "@/pages/organization-selector";
 import { WelcomePage } from "@/pages/welcome";
 import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
+import OrgAdminPortal from "@/pages/OrgAdminPortal";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -178,6 +179,31 @@ function Router() {
       <Route path="/coming-soon/tournament-registration" component={TournamentRegistrationComingSoon} />
       <Route path="/coming-soon/tournament-comms" component={TournamentCommsComingSoon} />
       <Route path="/coming-soon/schedule-builder" component={ScheduleBuilderComingSoon} />
+      
+      {/* Organization Admin Portal - NEW modular landing page */}
+      <Route path="/org/:orgId/admin">
+        {() => <RequireAuth component={OrgAdminPortal} />}
+      </Route>
+      
+      {/* New modular feature routes */}
+      <Route path="/org/:orgId/communications">
+        {() => <RequireAuth component={Communications} />}
+      </Route>
+      <Route path="/org/:orgId/weather">
+        {() => <RequireAuth component={WeatherDashboard} />}
+      </Route>
+      <Route path="/org/:orgId/teams">
+        {() => <RequireAuth component={TeamManagementPage} />}
+      </Route>
+      <Route path="/org/:orgId/reports">
+        {() => <RequireAuth component={BookingReportsPage} />}
+      </Route>
+      <Route path="/org/:orgId/settings">
+        {() => <RequireAuth component={BookingSettingsPage} />}
+      </Route>
+      <Route path="/org/:orgId/booking">
+        {() => <RequireAuth component={BookingDashboard} />}
+      </Route>
       
       {/* Booking module routes - protected (specific routes first) */}
       <Route path="/booking/:orgId/calendar">
