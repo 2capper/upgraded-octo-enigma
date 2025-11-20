@@ -1,4 +1,5 @@
-import { storage } from '../storage';
+import { organizationService } from './organizationService';
+import { diamondService } from './diamondService';
 import { fetchAndParseICalFeed } from '../utils/ics-parser';
 import type { InsertExternalCalendarEvent } from '@shared/schema';
 
@@ -6,13 +7,13 @@ export async function syncAllCalendarFeeds() {
   console.log('[Calendar Sync] Starting sync for all organizations...');
   
   try {
-    const allOrgs = await storage.getOrganizations();
+    const allOrgs = await organizationService.getOrganizations();
     let totalSynced = 0;
     let totalErrors = 0;
     
     for (const org of allOrgs) {
       try {
-        const feeds = await storage.getOrganizationIcalFeeds(org.id);
+        const feeds = await diamondService.getOrganizationIcalFeeds(org.id);
         
         if (feeds.length === 0) {
           continue;
@@ -28,7 +29,7 @@ export async function syncAllCalendarFeeds() {
             console.error(`[Calendar Sync] Error syncing feed ${feed.id}:`, error);
             totalErrors++;
             
-            await storage.updateOrganizationIcalFeed(feed.id, {
+            await diamondService.updateOrganizationIcalFeed(feed.id, {
               lastSyncError: error instanceof Error ? error.message : 'Unknown error',
             }, org.id);
           }
@@ -47,7 +48,7 @@ export async function syncAllCalendarFeeds() {
 }
 
 export async function syncSingleFeed(feedId: string, organizationId: string, timezone: string) {
-  const feed = await storage.getOrganizationIcalFeed(feedId, organizationId);
+  const feed = await diamondService.getOrganizationIcalFeed(feedId, organizationId);
   
   if (!feed) {
     throw new Error(`Feed ${feedId} not found`);
@@ -79,7 +80,7 @@ export async function syncSingleFeed(feedId: string, organizationId: string, tim
         lastSyncedAt: new Date(),
       };
       
-      await storage.upsertExternalCalendarEvent(externalEvent);
+      await diamondService.upsertExternalCalendarEvent(externalEvent);
       upsertedCount++;
     } catch (error) {
       console.error(`[Calendar Sync] Error upserting event ${event.uid}:`, error);
@@ -87,7 +88,7 @@ export async function syncSingleFeed(feedId: string, organizationId: string, tim
     }
   }
   
-  await storage.updateOrganizationIcalFeed(feedId, {
+  await diamondService.updateOrganizationIcalFeed(feedId, {
     lastSyncedAt: new Date(),
     lastSyncError: errorCount > 0 ? `${errorCount} events failed to sync` : null,
   }, organizationId);

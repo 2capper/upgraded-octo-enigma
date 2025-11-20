@@ -6,7 +6,9 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
-import { storage } from "./storage";
+import { userService } from "./services/userService";
+import { organizationService } from "./services/organizationService";
+import { tournamentService } from "./services/tournamentService";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -57,7 +59,7 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  await userService.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
@@ -127,9 +129,8 @@ export async function setupAuth(app: Express) {
 
         try {
           // Check user's organizations to determine redirect
-          const { storage } = await import("./storage");
           const userId = user.claims.sub;
-          const dbUser = await storage.getUser(userId);
+          const dbUser = await userService.getUser(userId);
           
           if (!dbUser) {
             // New user - let them go through onboarding
@@ -141,7 +142,7 @@ export async function setupAuth(app: Express) {
             return res.redirect("/select-organization");
           } else if (dbUser.isAdmin) {
             // Regular admin - get their organizations
-            const userOrgs = await storage.getUserOrganizations(userId);
+            const userOrgs = await userService.getUserOrganizations(userId);
             
             if (userOrgs.length === 0) {
               // Admin with no orgs - redirect to homepage
@@ -158,11 +159,11 @@ export async function setupAuth(app: Express) {
             const orgIds = new Set<string>();
             
             // Check accepted coach invitations
-            const acceptedCoachInvites = await storage.getAcceptedCoachInvitations(userId);
+            const acceptedCoachInvites = await organizationService.getAcceptedCoachInvitations(userId);
             acceptedCoachInvites.forEach(inv => orgIds.add(inv.organizationId));
             
             // Check coordinator assignments
-            const coordinatorAssignments = await storage.getUserCoordinatorAssignments(userId);
+            const coordinatorAssignments = await organizationService.getUserCoordinatorAssignments(userId);
             coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
             
             const orgs = Array.from(orgIds);
@@ -254,9 +255,8 @@ export const requireAdmin: RequestHandler = async (req, res, next) => {
 
   // Check if user has admin privileges
   try {
-    const { storage } = await import("./storage");
     const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await userService.getUser(userId);
     
     if (!dbUser || !dbUser.isAdmin) {
       return res.status(403).json({ message: "Forbidden - Admin access required" });
@@ -296,9 +296,8 @@ export const requireSuperAdmin: RequestHandler = async (req, res, next) => {
 
   // Check if user has super admin privileges
   try {
-    const { storage } = await import("./storage");
     const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await userService.getUser(userId);
     
     if (!dbUser || !dbUser.isSuperAdmin) {
       return res.status(403).json({ message: "Forbidden - Super admin access required" });
@@ -340,9 +339,8 @@ export const requireOrgAdmin: RequestHandler = async (req, res, next) => {
 
   // Check organization admin permissions
   try {
-    const { storage } = await import("./storage");
     const userId = user.claims.sub;
-    const dbUser = await storage.getUser(userId);
+    const dbUser = await userService.getUser(userId);
     
     if (!dbUser) {
       return res.status(403).json({ message: "Forbidden - User not found" });
@@ -358,7 +356,7 @@ export const requireOrgAdmin: RequestHandler = async (req, res, next) => {
 
     // If not directly provided, try to get it from tournament
     if (!organizationId && req.params.tournamentId) {
-      const tournament = await storage.getTournament(req.params.tournamentId);
+      const tournament = await tournamentService.getTournament(req.params.tournamentId);
       organizationId = tournament?.organizationId;
     }
 
@@ -367,7 +365,7 @@ export const requireOrgAdmin: RequestHandler = async (req, res, next) => {
     }
 
     // Check if user is an admin of this organization
-    const isOrgAdmin = await storage.isOrganizationAdmin(userId, organizationId);
+    const isOrgAdmin = await userService.isOrganizationAdmin(userId, organizationId);
     
     if (!isOrgAdmin) {
       return res.status(403).json({ message: "Forbidden - Organization admin access required" });
@@ -409,7 +407,6 @@ export const requireDiamondBooking: RequestHandler = async (req, res, next) => {
 
   // Check if organization has diamond booking enabled
   try {
-    const { storage } = await import("./storage");
     
     // Extract organizationId from request params
     const organizationId = req.params.organizationId || req.params.orgId;
@@ -418,7 +415,7 @@ export const requireDiamondBooking: RequestHandler = async (req, res, next) => {
       return res.status(400).json({ message: "Organization ID required" });
     }
 
-    const organization = await storage.getOrganization(organizationId);
+    const organization = await organizationService.getOrganization(organizationId);
     
     if (!organization) {
       return res.status(404).json({ message: "Organization not found" });
