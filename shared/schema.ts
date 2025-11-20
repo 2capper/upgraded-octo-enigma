@@ -224,6 +224,7 @@ export const games = pgTable("games", {
   playoffBracket: text("playoff_bracket"), // 'winners' | 'losers' | 'championship'
   team1Source: jsonb("team1_source"), // { gameNumber: number, position: 'winner' | 'loser' }
   team2Source: jsonb("team2_source"), // { gameNumber: number, position: 'winner' | 'loser' }
+  weatherStatus: text("weather_status").default("normal"), // "normal" | "watch" | "warning" | "cancelled" - Weather safety status
 });
 
 // Audit log table for tracking score changes and administrative actions
@@ -677,6 +678,69 @@ export const outboundSmsMessages = pgTable("outbound_sms_messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Weather API settings for organizations
+export const organizationWeatherSettings = pgTable("organization_weather_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // WeatherAPI.com credentials
+  apiKey: text("api_key").notNull(),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  
+  // Alert thresholds (baseball safety guidelines)
+  lightningRadiusMiles: integer("lightning_radius_miles").notNull().default(10), // Stop play when lightning within this radius
+  heatIndexThresholdF: integer("heat_index_threshold_f").notNull().default(94), // Heat illness risk threshold
+  windSpeedThresholdMph: integer("wind_speed_threshold_mph").notNull().default(25), // High wind alert
+  precipitationThresholdPct: integer("precipitation_threshold_pct").notNull().default(70), // Rain probability alert
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Weather forecast cache for games
+export const weatherForecasts = pgTable("weather_forecasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: text("game_id").notNull().references(() => games.id, { onDelete: "cascade" }),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Location (from game's diamond)
+  latitude: decimal("latitude").notNull(),
+  longitude: decimal("longitude").notNull(),
+  
+  // Forecast data (for game time)
+  forecastTime: timestamp("forecast_time").notNull(), // When the forecast is for
+  temperatureF: decimal("temperature_f"),
+  feelsLikeF: decimal("feels_like_f"),
+  heatIndexF: decimal("heat_index_f"),
+  precipitationProbability: integer("precipitation_probability"), // 0-100%
+  precipitationInches: decimal("precipitation_inches"),
+  windSpeedMph: decimal("wind_speed_mph"),
+  windGustMph: decimal("wind_gust_mph"),
+  humidity: integer("humidity"), // 0-100%
+  uvIndex: decimal("uv_index"),
+  visibility: decimal("visibility_miles"),
+  condition: text("condition"), // "Sunny" | "Cloudy" | "Rain" | etc
+  conditionIcon: text("condition_icon"), // WeatherAPI icon code
+  
+  // Safety alerts
+  hasLightningAlert: boolean("has_lightning_alert").notNull().default(false),
+  hasHeatAlert: boolean("has_heat_alert").notNull().default(false),
+  hasWindAlert: boolean("has_wind_alert").notNull().default(false),
+  hasPrecipitationAlert: boolean("has_precipitation_alert").notNull().default(false),
+  hasSevereWeatherAlert: boolean("has_severe_weather_alert").notNull().default(false),
+  alertMessage: text("alert_message"), // Combined alert text for display
+  
+  // Raw API response for debugging
+  rawResponse: jsonb("raw_response"),
+  
+  // Fetch tracking
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("weather_forecasts_game_idx").on(table.gameId),
+  index("weather_forecasts_forecast_time_idx").on(table.forecastTime),
+]);
 
 // Admin invitations for adding organization admins
 export const adminInvitations = pgTable("admin_invitations", {
@@ -1185,3 +1249,19 @@ export type InsertOrganizationTwilioSettings = z.infer<typeof insertOrganization
 export const insertOutboundSmsMessageSchema = createInsertSchema(outboundSmsMessages);
 export type OutboundSmsMessage = typeof outboundSmsMessages.$inferSelect;
 export type InsertOutboundSmsMessage = z.infer<typeof insertOutboundSmsMessageSchema>;
+
+export const insertOrganizationWeatherSettingsSchema = createInsertSchema(organizationWeatherSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OrganizationWeatherSettings = typeof organizationWeatherSettings.$inferSelect;
+export type InsertOrganizationWeatherSettings = z.infer<typeof insertOrganizationWeatherSettingsSchema>;
+
+export const insertWeatherForecastSchema = createInsertSchema(weatherForecasts).omit({
+  id: true,
+  fetchedAt: true,
+  updatedAt: true,
+});
+export type WeatherForecast = typeof weatherForecasts.$inferSelect;
+export type InsertWeatherForecast = z.infer<typeof insertWeatherForecastSchema>;
