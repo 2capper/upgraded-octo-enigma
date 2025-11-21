@@ -156,7 +156,7 @@ export class PlayoffService {
     slots: Record<string, { date: string; time: string; diamondId: string; }>
   ): Promise<Game[]> {
     const { getBracketStructure } = await import('@shared/bracketStructure');
-    const { NotFoundError, ValidationError } = await import('./errors');
+    const { NotFoundError, ValidationError } = await import('../errors');
     
     const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, tournamentId));
     if (!tournament) {
