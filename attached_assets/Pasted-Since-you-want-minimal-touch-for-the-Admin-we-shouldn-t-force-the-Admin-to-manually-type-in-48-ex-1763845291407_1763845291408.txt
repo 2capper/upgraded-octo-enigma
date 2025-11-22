@@ -1,0 +1,58 @@
+Since you want "minimal touch" for the Admin, we shouldn't force the Admin to manually type in 48 extra phone numbers. That's the opposite of efficient.
+
+We should crowdsource this data.
+
+The Head Coach is the single source of truth. We already have their number from the CSV. We should use that connection to get the rest of the staff.
+
+🚀 The "Minimal Touch" Strategy: The Coach Update Link
+Instead of you typing data, we build a feature where you text the Head Coach a link, and they fill in their staff's contact info.
+
+The Workflow:
+
+Import: You import the Head Coaches via CSV (as you do now).
+
+Blast: You go to the "Communications" tab and click a new button: "Request Staff Contacts".
+
+SMS: The system sends a text to every Head Coach:
+
+"Forest Glade Tournament: Please click here to add your Manager and Assistant Coach mobile numbers for urgent alerts: dugoutdesk.ca/team/update/[UNIQUE_TOKEN]"
+
+Action: The Coach clicks the link on their phone. A simple form appears. They type in the names and numbers.
+
+Sync: They click "Save." Your database updates instantly.
+
+Result: When you send your next rainout alert, it automatically includes these new people.
+
+You do zero typing.
+
+The Build Plan (Revised for Missing CSV Data)
+This changes our Phase 2 slightly. We aren't parsing CSV columns anymore; we are building a public-facing form.
+
+1. Database Schema (Still Required)
+We still need the places to put the data.
+
+Modify teams table: Add managerName, managerPhone, assistantName, assistantPhone.
+
+Modify teams table: Add a managementToken (a unique, secure string generated on import) to secure the public link.
+
+2. The "Coach Self-Service" Page
+Create a new public route: /team/update/:token.
+
+UI: A simple, mobile-friendly form.
+
+Fields:
+
+Head Coach (Read-Only)
+
+Team Manager Name & Phone
+
+Assistant Coach Name & Phone
+
+Submit: Updates the teams record directly.
+
+3. The Admin "Request" Button
+Add a button to your Team Management or Communications page.
+
+Action: Triggers the SMS blast with the unique link for each team.
+
+This solves the data gap without creating work for you.
