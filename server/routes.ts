@@ -1,6 +1,8 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import passport from "passport";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 import { userService } from "./services/userService";
 import { organizationService } from "./services/organizationService";
 import { diamondService } from "./services/diamondService";
@@ -21,7 +23,10 @@ import {
   insertAdminRequestSchema,
   insertOrganizationCoordinatorSchema,
   insertCoachInvitationSchema,
-  insertAdminInvitationSchema
+  insertAdminInvitationSchema,
+  tournamentMessages,
+  communicationTemplates,
+  insertCommunicationTemplateSchema
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking } from "./replitAuth";
 import { generateValidationReport } from "./validationReport";
@@ -5515,6 +5520,219 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error updating team staff contacts:", error);
       res.status(500).json({ error: "Failed to update team information" });
+    }
+  });
+
+  // Template CRUD routes
+  
+  // Create communication template
+  app.post('/api/organizations/:orgId/templates', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      
+      // Validate and parse input
+      const templateData = insertCommunicationTemplateSchema.parse({
+        ...req.body,
+        organizationId: orgId,
+      });
+
+      const [template] = await db.insert(communicationTemplates).values(templateData).returning();
+      res.json(template);
+    } catch (error: any) {
+      // Handle Zod validation errors with 400
+      if (error.name === 'ZodError') {
+        console.error("Template validation error:", error);
+        return res.status(400).json({ 
+          error: "Invalid template data", 
+          details: error.errors 
+        });
+      }
+      
+      // All other errors are 500
+      console.error("Error creating template:", error);
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  // Get all templates for an organization
+  app.get('/api/organizations/:orgId/templates', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const templates = await db.select()
+        .from(communicationTemplates)
+        .where(eq(communicationTemplates.organizationId, orgId))
+        .orderBy(communicationTemplates.createdAt);
+      
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Update template
+  app.patch('/api/organizations/:orgId/templates/:templateId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, templateId } = req.params;
+      const { name, content } = req.body;
+
+      // Validate input
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: "Template name is required and cannot be empty" });
+      }
+
+      if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        return res.status(400).json({ error: "Template content is required and cannot be empty" });
+      }
+
+      // Update and verify template belongs to organization in one query
+      const [updated] = await db.update(communicationTemplates)
+        .set({
+          name,
+          content,
+        })
+        .where(
+          and(
+            eq(communicationTemplates.id, templateId),
+            eq(communicationTemplates.organizationId, orgId)
+          )
+        )
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating template:", error);
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  // Delete template
+  app.delete('/api/organizations/:orgId/templates/:templateId', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, templateId } = req.params;
+
+      // Delete and verify template belongs to organization in one query
+      const result = await db.delete(communicationTemplates)
+        .where(
+          and(
+            eq(communicationTemplates.id, templateId),
+            eq(communicationTemplates.organizationId, orgId)
+          )
+        )
+        .returning();
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Send tournament-specific message to coaches and/or staff
+  app.post('/api/organizations/:orgId/tournaments/:tournamentId/send-message', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, tournamentId } = req.params;
+      const { content, recipientType } = req.body;
+
+      // Validate content is non-empty
+      if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        return res.status(400).json({ error: "Message content is required and cannot be empty" });
+      }
+
+      // Validate recipient type
+      if (!recipientType || !["coaches_only", "all_staff"].includes(recipientType)) {
+        return res.status(400).json({ error: "Invalid recipient type. Must be 'coaches_only' or 'all_staff'" });
+      }
+
+      // Verify organization exists
+      const organization = await organizationService.getOrganization(orgId);
+      if (!organization) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      // CRITICAL: Verify tournament belongs to the organization
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      if (tournament.organizationId !== orgId) {
+        return res.status(403).json({ error: "Access denied: Tournament does not belong to this organization" });
+      }
+
+      // Get all teams for the tournament
+      const teams = await teamService.getTeams(tournamentId);
+      
+      // Collect recipient phone numbers
+      const recipients = new Set<string>();
+      for (const team of teams) {
+        // Always include coach
+        if (team.coachPhone) {
+          recipients.add(team.coachPhone);
+        }
+
+        // Include staff if recipientType is all_staff
+        if (recipientType === "all_staff") {
+          if (team.managerPhone) {
+            recipients.add(team.managerPhone);
+          }
+          if (team.assistantPhone) {
+            recipients.add(team.assistantPhone);
+          }
+        }
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Send SMS to all recipients
+      for (const phone of recipients) {
+        try {
+          await smsService.sendSMS({
+            organizationId: orgId,
+            to: phone,
+            message: `${tournament.name}: ${content}`,
+          });
+          successCount++;
+        } catch (smsError: any) {
+          console.error(`Error sending SMS to ${phone}:`, smsError);
+          errorCount++;
+          errors.push(`${phone}: ${smsError.message}`);
+        }
+      }
+
+      // Log the message to tournament_messages table
+      const userId = req.user?.claims?.sub;
+      if (userId) {
+        await db.insert(tournamentMessages).values({
+          tournamentId,
+          sentBy: userId,
+          content,
+          recipientType,
+          recipientCount: successCount,
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Message sent to ${successCount} recipient(s)`,
+        totalRecipients: recipients.size,
+        sentCount: successCount,
+        errorCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error) {
+      console.error("Error sending tournament message:", error);
+      res.status(500).json({ error: "Failed to send message" });
     }
   });
 
