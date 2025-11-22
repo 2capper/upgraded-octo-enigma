@@ -4664,6 +4664,19 @@ Waterdown 10U AA
   });
 
   // Coach Invitation Routes
+  
+  // Get accepted coach invitations for current user
+  app.get("/api/coach-invitations/accepted", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const invitations = await organizationService.getAcceptedCoachInvitations(userId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching accepted coach invitations:", error);
+      res.status(500).json({ message: "Failed to fetch accepted coach invitations" });
+    }
+  });
+  
   app.get('/api/organizations/:orgId/invitations', requireDiamondBooking, requireAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;

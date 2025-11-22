@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import type { Organization, Tournament } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp, Shield, BarChart3, Smartphone } from "lucide-react";
 import { format } from "date-fns";
 import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png";
@@ -45,14 +46,7 @@ export default function Home() {
 
   // Show loading state while checking authentication
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--light-gray)' }}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--field-green)', borderTopColor: 'transparent' }}></div>
-          <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Verifying your identity..." />;
   }
 
   // Show login page for unauthenticated users

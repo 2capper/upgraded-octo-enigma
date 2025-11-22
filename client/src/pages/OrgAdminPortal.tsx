@@ -33,6 +33,10 @@ export default function OrgAdminPortal() {
     queryKey: [`/api/organizations/${orgId}`],
   });
 
+  const { data: userData } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+  });
+
   const { data: userRole, isLoading: roleLoading } = useQuery({
     queryKey: [`/api/organizations/${orgId}/user-role`],
   });
@@ -169,6 +173,22 @@ export default function OrgAdminPortal() {
     );
   }
 
+  // Authorization guard: coaches cannot access admin portal
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the admin portal.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -184,7 +204,7 @@ export default function OrgAdminPortal() {
           )}
           <h1 className="text-4xl font-bold mb-2">{organization?.name || 'Loading...'}</h1>
           <p className="text-gray-300 text-lg">
-            Welcome{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
+            Welcome back{userData?.firstName ? `, ${userData.firstName}` : ''}!
           </p>
           {isAdmin && (
             <p className="text-green-400 text-sm mt-1">Organization Administrator</p>

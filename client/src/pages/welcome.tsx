@@ -1,23 +1,28 @@
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Trophy, Sparkles, ArrowRight } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 
 export function WelcomePage() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+
+  // Fetch full user data to get firstName
+  const { data: userData } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+  });
 
   const handleCreateOrg = () => {
     setLocation('/onboarding/create-organization');
   };
 
-  const userEmail = (user as any)?.email || '';
+  // Use actual firstName from database, fallback to parsing email, then default to 'there'
   let firstName = 'there';
   
-  if (userEmail) {
-    const emailPrefix = userEmail.split('@')[0];
-    // Skip generic prefixes like admin, info, contact, etc.
+  if (userData?.firstName) {
+    firstName = userData.firstName;
+  } else if (userData?.email) {
+    const emailPrefix = userData.email.split('@')[0];
     if (emailPrefix && !['admin', 'info', 'contact', 'support', 'help'].includes(emailPrefix.toLowerCase())) {
       const namePart = emailPrefix.split('.')[0];
       if (namePart && namePart.length > 0) {

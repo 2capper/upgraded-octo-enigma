@@ -15,6 +15,10 @@ export default function BookingDashboard() {
     queryKey: [`/api/organizations/${orgId}`],
   });
 
+  const { data: userData } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+  });
+
   const { data: userRole, isLoading: roleLoading } = useQuery({
     queryKey: [`/api/organizations/${orgId}/user-role`],
   });
@@ -51,7 +55,7 @@ export default function BookingDashboard() {
             />
           )}
           <h1 className="text-4xl font-bold mb-2">{organization?.name || 'Loading...'}</h1>
-          <p className="text-gray-300 text-lg">Welcome{user?.email ? `, ${user.email.split('@')[0]}` : ''}!</p>
+          <p className="text-gray-300 text-lg">Welcome{userData?.firstName ? `, ${userData.firstName}` : ''}!</p>
         </div>
       </div>
 

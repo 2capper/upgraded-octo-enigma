@@ -44,6 +44,11 @@ export default function OrganizationSelector() {
     queryKey: ['/api/auth/user'],
   });
 
+  // Fetch accepted coach invitations to determine if user is a coach
+  const { data: coachInvites } = useQuery<Array<{ organizationId: string }>>({
+    queryKey: ['/api/coach-invitations/accepted'],
+  });
+
   const handleDeleteClick = (e: React.MouseEvent, org: Organization) => {
     e.stopPropagation(); // Prevent card click
     setOrgToDelete(org);
@@ -86,15 +91,18 @@ export default function OrganizationSelector() {
   };
 
   useEffect(() => {
-    if (!isLoading && organizations && !user?.isSuperAdmin) {
+    if (!isLoading && organizations && !user?.isSuperAdmin && coachInvites !== undefined) {
       // Auto-redirect if user has exactly one organization (skip for super admins)
       if (organizations.length === 1) {
         const org = organizations[0];
-        // Route to organization admin portal
-        setLocation(`/org/${org.id}/admin`);
+        // Check if user is a coach for this org (not an admin)
+        const isCoach = coachInvites.some(inv => inv.organizationId === org.id);
+        // Route coaches to booking, admins to admin portal
+        const destination = isCoach ? `/org/${org.id}/booking` : `/org/${org.id}/admin`;
+        setLocation(destination);
       }
     }
-  }, [organizations, isLoading, user, setLocation]);
+  }, [organizations, isLoading, user, coachInvites, setLocation]);
 
   if (isLoading) {
     return (
@@ -168,7 +176,10 @@ export default function OrganizationSelector() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {organizations.map((org) => {
-            const destinationUrl = `/org/${org.id}/admin`;
+            // Check if user is a coach for this org (not an admin)
+            const isCoach = coachInvites?.some(inv => inv.organizationId === org.id) || false;
+            // Route coaches to booking, admins to admin portal
+            const destinationUrl = isCoach ? `/org/${org.id}/booking` : `/org/${org.id}/admin`;
             
             return (
               <Card 
@@ -220,7 +231,9 @@ export default function OrganizationSelector() {
                     style={{ backgroundColor: org.primaryColor }}
                     data-testid={`button-select-${org.id}`}
                   >
-                    Open Dashboard
+                    {coachInvites?.some(inv => inv.organizationId === org.id) 
+                      ? 'Open Booking Dashboard' 
+                      : 'Open Admin Portal'}
                   </Button>
                 </CardContent>
               </Card>

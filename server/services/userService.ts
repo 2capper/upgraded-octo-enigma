@@ -55,6 +55,16 @@ export class UserService {
       .where(inArray(organizations.id, orgIds));
   }
 
+  async isOrganizationAdmin(userId: string, organizationId: string): Promise<boolean> {
+    const [record] = await db
+      .select()
+      .from(organizationAdmins)
+      .where(
+        sql`${organizationAdmins.userId} = ${userId} AND ${organizationAdmins.organizationId} = ${organizationId}`
+      );
+    return !!record;
+  }
+
   async getUserAdminRequest(userId: string): Promise<AdminRequest | undefined> {
     const [request] = await db.select().from(adminRequests)
       .where(eq(adminRequests.userId, userId))

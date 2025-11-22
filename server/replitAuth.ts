@@ -155,28 +155,18 @@ export async function setupAuth(app: Express) {
               return res.redirect("/select-organization");
             }
           } else {
-            // Regular user (coach, coordinator) - collect all organization memberships
-            const orgIds = new Set<string>();
-            
-            // Check accepted coach invitations
+            // Regular user (coach) - check accepted coach invitations
             const acceptedCoachInvites = await organizationService.getAcceptedCoachInvitations(userId);
-            acceptedCoachInvites.forEach(inv => orgIds.add(inv.organizationId));
             
-            // Check coordinator assignments
-            const coordinatorAssignments = await organizationService.getUserCoordinatorAssignments(userId);
-            coordinatorAssignments.forEach(assignment => orgIds.add(assignment.organizationId));
-            
-            const orgs = Array.from(orgIds);
-            
-            if (orgs.length === 1) {
-              // User belongs to one org - redirect to admin portal
-              return res.redirect(`/org/${orgs[0]}/admin`);
-            } else if (orgs.length > 1) {
-              // User belongs to multiple orgs - let them choose
+            if (acceptedCoachInvites.length === 1) {
+              // Coach with single org - redirect to booking dashboard
+              return res.redirect(`/org/${acceptedCoachInvites[0].organizationId}/booking`);
+            } else if (acceptedCoachInvites.length > 1) {
+              // Coach with multiple orgs - let them choose
               return res.redirect("/select-organization");
             } else {
-              // User with no affiliations - redirect to homepage (will go to /welcome)
-              return res.redirect("/");
+              // User with no affiliations - redirect to onboarding
+              return res.redirect("/welcome");
             }
           }
         } catch (error) {
