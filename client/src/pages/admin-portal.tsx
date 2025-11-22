@@ -838,8 +838,8 @@ export default function AdminPortal() {
                   <Button 
                     className="w-full"
                     onClick={() => {
-                      const url = currentOrganization?.id && currentTournamentId 
-                        ? `/org/${currentOrganization.id}/tournaments/tournament/${currentTournamentId}/communications`
+                      const url = orgId && currentTournamentId 
+                        ? `/org/${orgId}/tournaments/tournament/${currentTournamentId}/communications`
                         : `/admin/${currentTournamentId}/communications`;
                       window.location.href = url;
                     }}
