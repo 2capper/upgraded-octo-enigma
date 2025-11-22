@@ -33,6 +33,7 @@ import WeatherDashboard from "@/pages/WeatherDashboard";
 import Communications from "@/pages/Communications";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
+import TeamUpdate from "@/pages/TeamUpdate";
 import OrganizationSelector from "@/pages/organization-selector";
 import { WelcomePage } from "@/pages/welcome";
 import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
@@ -166,6 +167,7 @@ function Router() {
       {/* Invitation acceptance - public routes */}
       <Route path="/invite/:token" component={InviteAcceptance} />
       <Route path="/admin-invite/:token" component={AdminInviteAcceptance} />
+      <Route path="/team/update/:token" component={TeamUpdate} />
       
       {/* Onboarding flow for new users without an organization */}
       <Route path="/welcome">

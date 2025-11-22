@@ -5389,6 +5389,207 @@ Waterdown 10U AA
     }
   });
 
+  // Public route: Get team information by management token
+  app.get('/api/team/update/:token', async (req: any, res) => {
+    try {
+      const { token } = req.params;
+
+      // Find team by management token
+      const team = await teamService.getTeamByManagementToken(token);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found or invalid token" });
+      }
+
+      // Get tournament info for context
+      const tournament = await tournamentService.getTournament(team.tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Get organization for context
+      const organization = await organizationService.getOrganization(tournament.organizationId);
+      if (!organization) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      // Return team info (excluding sensitive fields)
+      res.json({
+        id: team.id,
+        name: team.name,
+        division: team.division,
+        coachFirstName: team.coachFirstName,
+        coachLastName: team.coachLastName,
+        coachPhone: team.coachPhone,
+        managerName: team.managerName,
+        managerPhone: team.managerPhone,
+        assistantName: team.assistantName,
+        assistantPhone: team.assistantPhone,
+        tournament: {
+          id: tournament.id,
+          name: tournament.name,
+        },
+        organization: {
+          id: organization.id,
+          name: organization.name,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching team by token:", error);
+      res.status(500).json({ error: "Failed to fetch team information" });
+    }
+  });
+
+  // Public route: Update team staff contacts by management token
+  app.post('/api/team/update/:token', async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const { managerName, managerPhone, assistantName, assistantPhone } = req.body;
+
+      // Find team by management token
+      const team = await teamService.getTeamByManagementToken(token);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found or invalid token" });
+      }
+
+      // Update team staff contacts
+      const updatedTeam = await teamService.updateTeam(team.id, {
+        managerName: managerName || null,
+        managerPhone: managerPhone || null,
+        assistantName: assistantName || null,
+        assistantPhone: assistantPhone || null,
+      });
+
+      // Get tournament and organization info for SMS notifications
+      const tournament = await tournamentService.getTournament(team.tournamentId);
+      const organization = tournament ? await organizationService.getOrganization(tournament.organizationId) : null;
+
+      // Send SMS confirmation to newly added staff members
+      if (organization && tournament) {
+        const newStaff = [];
+        
+        // Check if manager was newly added (has phone and wasn't previously set)
+        if (managerPhone && managerPhone !== team.managerPhone) {
+          newStaff.push({
+            name: managerName,
+            phone: managerPhone,
+            role: 'Team Manager',
+          });
+        }
+        
+        // Check if assistant was newly added (has phone and wasn't previously set)
+        if (assistantPhone && assistantPhone !== team.assistantPhone) {
+          newStaff.push({
+            name: assistantName,
+            phone: assistantPhone,
+            role: 'Assistant Coach',
+          });
+        }
+
+        // Send welcome messages to new staff
+        for (const staff of newStaff) {
+          try {
+            await smsService.sendSMS({
+              organizationId: organization.id,
+              to: staff.phone,
+              message: `Welcome! You've been added as ${staff.role} for ${team.name} in the ${tournament.name}. You'll receive tournament updates at this number.`,
+            });
+          } catch (smsError) {
+            console.error(`Failed to send welcome SMS to ${staff.phone}:`, smsError);
+            // Continue even if SMS fails - don't block the update
+          }
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Team staff contacts updated successfully",
+        team: {
+          id: updatedTeam.id,
+          name: updatedTeam.name,
+          managerName: updatedTeam.managerName,
+          managerPhone: updatedTeam.managerPhone,
+          assistantName: updatedTeam.assistantName,
+          assistantPhone: updatedTeam.assistantPhone,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating team staff contacts:", error);
+      res.status(500).json({ error: "Failed to update team information" });
+    }
+  });
+
+  // Request staff contacts from coaches via SMS
+  app.post('/api/organizations/:orgId/tournaments/:tournamentId/request-staff-contacts', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, tournamentId } = req.params;
+
+      // Verify organization access
+      const organization = await organizationService.getOrganization(orgId);
+      if (!organization) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      // Verify tournament belongs to organization
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament || tournament.organizationId !== orgId) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Get all teams for the tournament
+      const teams = await teamService.getTeams(tournamentId);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each team
+      for (const team of teams) {
+        try {
+          // Skip teams without coach phone
+          if (!team.coachPhone) {
+            console.log(`Skipping team ${team.name} - no coach phone`);
+            continue;
+          }
+
+          // Generate management token if team doesn't have one
+          let token = team.managementToken;
+          if (!token) {
+            token = nanoid(32); // Generate secure token
+            await teamService.updateTeam(team.id, { managementToken: token });
+          }
+
+          // Build update URL
+          const updateUrl = `${req.protocol}://${req.get('host')}/team/update/${token}`;
+
+          // Send SMS to coach
+          await smsService.sendSMS({
+            organizationId: orgId,
+            to: team.coachPhone,
+            message: `${tournament.name}: Please add your Team Manager and Assistant Coach contacts for ${team.name}. Click here: ${updateUrl}`,
+          });
+
+          successCount++;
+        } catch (teamError: any) {
+          console.error(`Error sending SMS to team ${team.name}:`, teamError);
+          errorCount++;
+          errors.push(`${team.name}: ${teamError.message}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Staff contact requests sent to ${successCount} coach(es)`,
+        totalTeams: teams.length,
+        sentCount: successCount,
+        errorCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error) {
+      console.error("Error requesting staff contacts:", error);
+      res.status(500).json({ error: "Failed to request staff contacts" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

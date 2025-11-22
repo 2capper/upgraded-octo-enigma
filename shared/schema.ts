@@ -181,6 +181,11 @@ export const teams = pgTable("teams", {
   registrationStatus: text("registration_status"), // "Registered" | "Approved" | "Waitlisted" - from CSV import
   paymentStatus: text("payment_status"), // Payment status from registration CSV
   isPlaceholder: boolean("is_placeholder").notNull().default(false), // True for seed label teams that will be replaced after pool play
+  managerName: text("manager_name"), // Team manager name added via coach self-service form
+  managerPhone: text("manager_phone"), // Team manager phone (normalized E.164 format)
+  assistantName: text("assistant_name"), // Assistant coach name added via coach self-service form
+  assistantPhone: text("assistant_phone"), // Assistant coach phone (normalized E.164 format)
+  managementToken: text("management_token").unique(), // Secure token for coach to update team staff contacts
 });
 
 export const matchups = pgTable("matchups", {
@@ -266,6 +271,28 @@ export const adminRequests = pgTable("admin_requests", {
   reviewedAt: timestamp("reviewed_at"),
   createdOrganizationId: varchar("created_organization_id").references(() => organizations.id), // Set upon approval
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Communication templates for reusable message templates
+export const communicationTemplates = pgTable("communication_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // "Weather Delay" | "Field Change" | "Game Cancelled"
+  content: text("content").notNull(), // Template message with optional variables like {team_name}, {game_time}, {diamond}
+  category: text("category"), // "weather" | "schedule" | "general" - for filtering in UI
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Tournament messages for tracking message history
+export const tournamentMessages = pgTable("tournament_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  sentBy: varchar("sent_by").notNull().references(() => users.id), // User who sent the message
+  content: text("content").notNull(), // The message content that was sent
+  recipientType: text("recipient_type").notNull(), // "coaches_only" | "all_staff" - indicates who received the message
+  recipientCount: integer("recipient_count").notNull(), // Number of recipients who received the message
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
 });
 
 // Feature flags table for controlling feature availability
@@ -1265,3 +1292,18 @@ export const insertWeatherForecastSchema = createInsertSchema(weatherForecasts).
 });
 export type WeatherForecast = typeof weatherForecasts.$inferSelect;
 export type InsertWeatherForecast = z.infer<typeof insertWeatherForecastSchema>;
+
+export const insertCommunicationTemplateSchema = createInsertSchema(communicationTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommunicationTemplate = typeof communicationTemplates.$inferSelect;
+export type InsertCommunicationTemplate = z.infer<typeof insertCommunicationTemplateSchema>;
+
+export const insertTournamentMessageSchema = createInsertSchema(tournamentMessages).omit({
+  id: true,
+  sentAt: true,
+});
+export type TournamentMessage = typeof tournamentMessages.$inferSelect;
+export type InsertTournamentMessage = z.infer<typeof insertTournamentMessageSchema>;

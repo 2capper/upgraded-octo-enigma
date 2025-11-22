@@ -38,6 +38,11 @@ export class TeamService {
     return team || undefined;
   }
 
+  async getTeamByManagementToken(token: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.managementToken, token));
+    return team || undefined;
+  }
+
   async createTeam(team: InsertTeam): Promise<Team> {
     const [result] = await db.insert(teams).values(team).returning();
     return result;
