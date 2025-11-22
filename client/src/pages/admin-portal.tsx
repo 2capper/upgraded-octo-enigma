@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3, LogOut, Settings, Menu, Trophy, FileInput, Edit, Target, FileText } from 'lucide-react';
+import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3, LogOut, Settings, Menu, Trophy, FileInput, Edit, Target, FileText, MessageSquare, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -348,6 +348,7 @@ export default function AdminPortal() {
                     {activeTab === 'games' && 'Edit Games'}
                     {activeTab === 'playoffs' && 'Playoffs'}
                     {activeTab === 'reports' && 'Reports'}
+                    {activeTab === 'communications' && 'Communications'}
                     {activeTab === 'create-org' && 'Create Org'}
                     {activeTab === 'org-settings' && 'Org Settings'}
                     {activeTab === 'org-admins' && 'Org Admins'}
@@ -431,6 +432,16 @@ export default function AdminPortal() {
                     <FileText className="w-5 h-5" />
                     Reports
                   </TabsTrigger>
+                  <TabsTrigger 
+                    value="communications" 
+                    className="flex items-center gap-3 px-4 py-3 justify-start w-full data-[state=active]:text-white"
+                    style={activeTab === 'communications' ? { backgroundColor: 'var(--clay-red)' } : {}}
+                    onClick={() => setMobileMenuOpen(false)}
+                    data-testid="nav-communications"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    Communications
+                  </TabsTrigger>
                   {(user as any)?.isSuperAdmin && (
                     <>
                       <div className="h-px bg-gray-200 my-2" />
@@ -507,6 +518,7 @@ export default function AdminPortal() {
               <TabsTrigger value="games" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-games">Edit Games</TabsTrigger>
               <TabsTrigger value="playoffs" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-playoffs">Playoffs</TabsTrigger>
               <TabsTrigger value="reports" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-reports">Reports</TabsTrigger>
+              <TabsTrigger value="communications" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-communications">Communications</TabsTrigger>
               {(user as any)?.isSuperAdmin && (
                 <>
                   <div className="w-full h-0 basis-full" />
@@ -755,6 +767,88 @@ export default function AdminPortal() {
                       </Button>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="communications" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Tournament Communications
+                </CardTitle>
+                <CardDescription>
+                  Send messages to coaches and team staff
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Use the communications portal to send tournament announcements, game updates, and important information 
+                    to your coaches and team staff. You can request additional staff contacts and send targeted messages 
+                    to specific groups.
+                  </p>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
+                      <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>
+                        Features
+                      </h4>
+                      <ul className="text-sm text-[var(--text-secondary)] space-y-2">
+                        <li className="flex items-start gap-2">
+                          <Users className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Send to coaches only or all staff (managers + assistants)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Use reusable message templates</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Request staff contacts from coaches</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>View message history and delivery status</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
+                      <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>
+                        Quick Stats
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Registered Teams</span>
+                          <span className="font-semibold" style={{ color: 'var(--deep-navy)' }}>{teams.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[var(--text-secondary)]">Coaches</span>
+                          <span className="font-semibold" style={{ color: 'var(--deep-navy)' }}>
+                            {teams.filter(t => t.coachPhone).length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    className="w-full"
+                    onClick={() => {
+                      const url = currentOrganization?.id && currentTournamentId 
+                        ? `/org/${currentOrganization.id}/tournaments/tournament/${currentTournamentId}/communications`
+                        : `/admin/${currentTournamentId}/communications`;
+                      window.location.href = url;
+                    }}
+                    disabled={!currentTournamentId}
+                    data-testid="button-open-communications"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Open Communications Portal
+                  </Button>
                 </div>
               </CardContent>
             </Card>

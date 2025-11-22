@@ -31,6 +31,7 @@ import TwilioSettings from "@/pages/TwilioSettings";
 import WeatherSettings from "@/pages/WeatherSettings";
 import WeatherDashboard from "@/pages/WeatherDashboard";
 import Communications from "@/pages/Communications";
+import TournamentCommunications from "@/pages/TournamentCommunications";
 import InviteAcceptance from "@/pages/invite-acceptance";
 import AdminInviteAcceptance from "@/pages/admin-invite-acceptance";
 import TeamUpdate from "@/pages/TeamUpdate";
@@ -248,6 +249,9 @@ function Router() {
       </Route>
       
       {/* Protected admin routes - NEW org-scoped routes */}
+      <Route path="/org/:orgId/tournaments/tournament/:tournamentId/communications">
+        {() => <RequireAuth component={TournamentCommunications} />}
+      </Route>
       <Route path="/org/:orgId/tournaments/tournament/:tournamentId/weather">
         {() => <RequireAuth component={WeatherDashboard} />}
       </Route>

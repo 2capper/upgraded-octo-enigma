@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { userService } from "./services/userService";
 import { organizationService } from "./services/organizationService";
 import { diamondService } from "./services/diamondService";
@@ -5633,6 +5633,34 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error deleting template:", error);
       res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Get message history for a tournament
+  app.get('/api/organizations/:orgId/tournaments/:tournamentId/messages', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId, tournamentId } = req.params;
+
+      // Verify tournament belongs to organization
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
+      if (tournament.organizationId !== orgId) {
+        return res.status(403).json({ error: "Access denied: Tournament does not belong to this organization" });
+      }
+
+      // Fetch messages ordered by most recent first
+      const messages = await db.select()
+        .from(tournamentMessages)
+        .where(eq(tournamentMessages.tournamentId, tournamentId))
+        .orderBy(sql`${tournamentMessages.sentAt} DESC`);
+
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching tournament messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
 

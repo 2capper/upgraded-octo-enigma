@@ -9,21 +9,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle, FileText, Edit, Trash2, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatPhoneForDisplay } from "@shared/phoneUtils";
 import type { Team } from "@shared/schema";
 
-interface Coach {
+interface StaffMember {
+  id: string; // unique identifier for this staff member
   teamId: string;
   teamName: string;
-  coachName: string;
-  coachPhone: string | null;
+  name: string;
+  phone: string | null;
+  role: "Coach" | "Manager" | "Assistant";
   division?: string;
   tournamentId: string;
   tournamentName: string;
+}
+
+interface CommunicationTemplate {
+  id: string;
+  organizationId: string;
+  name: string;
+  content: string;
+  createdAt: string;
 }
 
 export default function Communications() {
@@ -35,6 +53,12 @@ export default function Communications() {
   const [selectedCoaches, setSelectedCoaches] = useState<Set<string>>(new Set());
   const [tournamentFilter, setTournamentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Template management state
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<CommunicationTemplate | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateContent, setTemplateContent] = useState("");
 
   const { data: orgTournaments = [] } = useQuery({
     queryKey: [`/api/organizations/${orgId}/tournaments-with-teams`],
@@ -51,18 +75,54 @@ export default function Communications() {
     enabled: !!orgId,
   });
 
-  const coaches: Coach[] = [];
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<CommunicationTemplate[]>({
+    queryKey: [`/api/organizations/${orgId}/templates`],
+    enabled: !!orgId,
+  });
+
+  const staffMembers: StaffMember[] = [];
   orgTournaments.forEach((tournament: any) => {
     const tournamentTeams = tournament.teams || [];
     tournamentTeams.forEach((team: Team) => {
+      // Add coach
       if (team.coachPhone) {
-        coaches.push({
+        staffMembers.push({
+          id: `${team.id}-coach`,
           teamId: team.id,
           teamName: team.name,
-          coachName: team.coachFirstName && team.coachLastName 
+          name: team.coachFirstName && team.coachLastName 
             ? `${team.coachFirstName} ${team.coachLastName}`
             : team.coach || "Unknown Coach",
-          coachPhone: team.coachPhone,
+          phone: team.coachPhone,
+          role: "Coach",
+          division: team.division || undefined,
+          tournamentId: tournament.id,
+          tournamentName: tournament.name,
+        });
+      }
+      // Add manager
+      if (team.managerPhone && team.managerName) {
+        staffMembers.push({
+          id: `${team.id}-manager`,
+          teamId: team.id,
+          teamName: team.name,
+          name: team.managerName,
+          phone: team.managerPhone,
+          role: "Manager",
+          division: team.division || undefined,
+          tournamentId: tournament.id,
+          tournamentName: tournament.name,
+        });
+      }
+      // Add assistant
+      if (team.assistantPhone && team.assistantName) {
+        staffMembers.push({
+          id: `${team.id}-assistant`,
+          teamId: team.id,
+          teamName: team.name,
+          name: team.assistantName,
+          phone: team.assistantPhone,
+          role: "Assistant",
           division: team.division || undefined,
           tournamentId: tournament.id,
           tournamentName: tournament.name,
@@ -71,11 +131,12 @@ export default function Communications() {
     });
   });
 
-  const filteredCoaches = coaches.filter(coach => {
-    const matchesTournament = tournamentFilter === "all" || coach.tournamentId === tournamentFilter;
+  const filteredStaffMembers = staffMembers.filter(staff => {
+    const matchesTournament = tournamentFilter === "all" || staff.tournamentId === tournamentFilter;
     const matchesSearch = searchQuery === "" || 
-      coach.coachName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coach.teamName.toLowerCase().includes(searchQuery.toLowerCase());
+      staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      staff.teamName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      staff.role.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTournament && matchesSearch;
   });
 
@@ -106,7 +167,7 @@ export default function Communications() {
     if (selectedCoaches.size === 0) {
       toast({
         title: "No recipients",
-        description: "Please select at least one coach to send the message to",
+        description: "Please select at least one staff member to send the message to",
         variant: "destructive",
       });
       return;
@@ -125,12 +186,12 @@ export default function Communications() {
       return;
     }
 
-    const recipients = filteredCoaches
-      .filter(coach => selectedCoaches.has(coach.teamId))
-      .map(coach => ({
-        phone: coach.coachPhone!,
-        name: coach.coachName,
-        teamId: coach.teamId,
+    const recipients = filteredStaffMembers
+      .filter(staff => selectedCoaches.has(staff.id))
+      .map(staff => ({
+        phone: staff.phone!,
+        name: staff.name,
+        teamId: staff.teamId,
       }));
 
     sendMutation.mutate({
@@ -140,18 +201,18 @@ export default function Communications() {
     });
   };
 
-  const toggleCoach = (teamId: string) => {
+  const toggleStaff = (staffId: string) => {
     const newSelected = new Set(selectedCoaches);
-    if (newSelected.has(teamId)) {
-      newSelected.delete(teamId);
+    if (newSelected.has(staffId)) {
+      newSelected.delete(staffId);
     } else {
-      newSelected.add(teamId);
+      newSelected.add(staffId);
     }
     setSelectedCoaches(newSelected);
   };
 
   const selectAll = () => {
-    setSelectedCoaches(new Set(filteredCoaches.map(c => c.teamId)));
+    setSelectedCoaches(new Set(filteredStaffMembers.map(s => s.id)));
   };
 
   const clearSelection = () => {
@@ -160,6 +221,123 @@ export default function Communications() {
 
   const characterCount = messageBody.length;
   const segmentCount = characterCount === 0 ? 0 : characterCount <= 160 ? 1 : Math.ceil(characterCount / 153);
+
+  // Template mutations
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; content: string }) => {
+      return apiRequest("POST", `/api/organizations/${orgId}/templates`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/templates`] });
+      toast({
+        title: "Template Created",
+        description: "Message template has been saved successfully",
+      });
+      setTemplateDialogOpen(false);
+      setTemplateName("");
+      setTemplateContent("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async (data: { id: string; name: string; content: string }) => {
+      return apiRequest("PATCH", `/api/organizations/${orgId}/templates/${data.id}`, {
+        name: data.name,
+        content: data.content,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/templates`] });
+      toast({
+        title: "Template Updated",
+        description: "Message template has been updated successfully",
+      });
+      setTemplateDialogOpen(false);
+      setEditingTemplate(null);
+      setTemplateName("");
+      setTemplateContent("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      return apiRequest("DELETE", `/api/organizations/${orgId}/templates/${templateId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/templates`] });
+      toast({
+        title: "Template Deleted",
+        description: "Message template has been removed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateName("");
+    setTemplateContent("");
+    setTemplateDialogOpen(true);
+  };
+
+  const handleEditTemplate = (template: CommunicationTemplate) => {
+    setEditingTemplate(template);
+    setTemplateName(template.name);
+    setTemplateContent(template.content);
+    setTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!templateName.trim() || !templateContent.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template name and content are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({
+        id: editingTemplate.id,
+        name: templateName,
+        content: templateContent,
+      });
+    } else {
+      createTemplateMutation.mutate({
+        name: templateName,
+        content: templateContent,
+      });
+    }
+  };
+
+  const handleUseTemplate = (template: CommunicationTemplate) => {
+    setMessageBody(template.content);
+    toast({
+      title: "Template Applied",
+      description: `"${template.name}" has been loaded into the message editor`,
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -179,7 +357,7 @@ export default function Communications() {
           SMS Communications
         </h1>
         <p className="text-muted-foreground mt-1">
-          Send text messages to coaches and team managers
+          Send text messages to coaches, managers, and assistants
         </p>
       </div>
 
@@ -204,6 +382,7 @@ export default function Communications() {
       <Tabs defaultValue="compose" className="space-y-4">
         <TabsList>
           <TabsTrigger value="compose">Compose Message</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="history">Message History</TabsTrigger>
         </TabsList>
 
@@ -236,13 +415,13 @@ export default function Communications() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="search-coaches">Search Coaches</Label>
+                  <Label htmlFor="search-staff">Search Staff</Label>
                   <Input
-                    id="search-coaches"
-                    placeholder="Search by name or team..."
+                    id="search-staff"
+                    placeholder="Search by name, team, or role..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="input-search-coaches"
+                    data-testid="input-search-staff"
                   />
                 </div>
 
@@ -251,10 +430,10 @@ export default function Communications() {
                     variant="outline"
                     size="sm"
                     onClick={selectAll}
-                    disabled={filteredCoaches.length === 0}
+                    disabled={filteredStaffMembers.length === 0}
                     data-testid="button-select-all"
                   >
-                    Select All ({filteredCoaches.length})
+                    Select All ({filteredStaffMembers.length})
                   </Button>
                   <Button
                     variant="outline"
@@ -268,27 +447,32 @@ export default function Communications() {
                 </div>
 
                 <div className="max-h-96 overflow-y-auto space-y-2 border rounded-md p-3">
-                  {filteredCoaches.length === 0 ? (
+                  {filteredStaffMembers.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      No coaches with phone numbers found
+                      No staff members with phone numbers found
                     </p>
                   ) : (
-                    filteredCoaches.map(coach => (
+                    filteredStaffMembers.map(staff => (
                       <div
-                        key={coach.teamId}
+                        key={staff.id}
                         className="flex items-start space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer"
-                        onClick={() => toggleCoach(coach.teamId)}
-                        data-testid={`coach-item-${coach.teamId}`}
+                        onClick={() => toggleStaff(staff.id)}
+                        data-testid={`staff-item-${staff.id}`}
                       >
                         <Checkbox
-                          checked={selectedCoaches.has(coach.teamId)}
-                          onCheckedChange={() => toggleCoach(coach.teamId)}
+                          checked={selectedCoaches.has(staff.id)}
+                          onCheckedChange={() => toggleStaff(staff.id)}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{coach.coachName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{coach.teamName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{staff.name}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {staff.role}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{staff.teamName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatPhoneForDisplay(coach.coachPhone)}
+                            {formatPhoneForDisplay(staff.phone)}
                           </p>
                         </div>
                       </div>
@@ -341,6 +525,95 @@ export default function Communications() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Message Templates
+                  </CardTitle>
+                  <CardDescription>
+                    Create reusable message templates for common communications
+                  </CardDescription>
+                </div>
+                <Button onClick={handleCreateTemplate} data-testid="button-create-template">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Template
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {templatesLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading templates...
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No templates yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create templates for messages you send frequently
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="border rounded-lg p-4 space-y-2"
+                      data-testid={`template-${template.id}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{template.name}</h4>
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                            {template.content}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUseTemplate(template)}
+                            data-testid={`button-use-template-${template.id}`}
+                          >
+                            Use
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditTemplate(template)}
+                            data-testid={`button-edit-template-${template.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Delete template "${template.name}"?`)) {
+                                deleteTemplateMutation.mutate(template.id);
+                              }
+                            }}
+                            data-testid={`button-delete-template-${template.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Created {new Date(template.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="history">
@@ -411,6 +684,72 @@ export default function Communications() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Template Create/Edit Dialog */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingTemplate ? "Edit Template" : "Create Template"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingTemplate
+                ? "Update the template name and content"
+                : "Create a new message template for reuse"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                placeholder="e.g., Game Delay Notification"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                data-testid="input-template-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="template-content">Message Content</Label>
+              <Textarea
+                id="template-content"
+                placeholder="Enter the template message..."
+                value={templateContent}
+                onChange={(e) => setTemplateContent(e.target.value)}
+                rows={8}
+                data-testid="textarea-template-content"
+              />
+              <div className="text-xs text-muted-foreground">
+                {templateContent.length} characters
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTemplateDialogOpen(false);
+                setEditingTemplate(null);
+                setTemplateName("");
+                setTemplateContent("");
+              }}
+              data-testid="button-cancel-template"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+              data-testid="button-save-template"
+            >
+              {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              )}
+              {editingTemplate ? "Update" : "Create"} Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
