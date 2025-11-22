@@ -31,9 +31,7 @@ export function CalendarSubscription({
         ? `/api/organizations/${organizationId}/house-league-teams/${entityId}/generate-calendar-token`
         : `/api/organizations/${organizationId}/generate-calendar-token`;
       
-      return await apiRequest(endpoint, {
-        method: 'POST',
-      });
+      return await apiRequest('POST', endpoint, {});
     },
     onSuccess: () => {
       if (type === 'team') {

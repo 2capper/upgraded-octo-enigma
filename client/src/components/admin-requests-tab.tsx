@@ -17,9 +17,7 @@ export function AdminRequestsTab() {
 
   const approveMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      return await apiRequest(`/api/admin-requests/${requestId}/approve`, {
-        method: 'PUT',
-      });
+      return await apiRequest('PUT', `/api/admin-requests/${requestId}/approve`, {});
     },
     onSuccess: () => {
       toast({
@@ -39,9 +37,7 @@ export function AdminRequestsTab() {
 
   const rejectMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      return await apiRequest(`/api/admin-requests/${requestId}/reject`, {
-        method: 'PUT',
-      });
+      return await apiRequest('PUT', `/api/admin-requests/${requestId}/reject`, {});
     },
     onSuccess: () => {
       toast({

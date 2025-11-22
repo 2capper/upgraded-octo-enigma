@@ -49,10 +49,7 @@ export default function OrgSettings() {
 
   const toggleFeatureMutation = useMutation({
     mutationFn: async ({ featureFlagId, isEnabled }: { featureFlagId: string; isEnabled: boolean }) => {
-      return apiRequest(`/api/organizations/${orgId}/feature-flags/${featureFlagId}`, {
-        method: "POST",
-        body: JSON.stringify({ isEnabled }),
-      });
+      return apiRequest("POST", `/api/organizations/${orgId}/feature-flags/${featureFlagId}`, { isEnabled });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/feature-flags`] });

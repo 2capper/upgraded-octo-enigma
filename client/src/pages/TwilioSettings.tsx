@@ -53,10 +53,7 @@ export default function TwilioSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: TwilioSettingsForm) => {
-      return apiRequest(`/api/organizations/${orgId}/twilio-settings`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", `/api/organizations/${orgId}/twilio-settings`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/twilio-settings`] });

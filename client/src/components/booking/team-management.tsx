@@ -63,10 +63,7 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TeamFormData) => {
-      return await apiRequest(`/api/organizations/${organizationId}/house-league-teams`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", `/api/organizations/${organizationId}/house-league-teams`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/house-league-teams`] });
@@ -88,10 +85,7 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: TeamFormData }) => {
-      return await apiRequest(`/api/organizations/${organizationId}/house-league-teams/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PATCH", `/api/organizations/${organizationId}/house-league-teams/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/house-league-teams`] });
@@ -114,9 +108,7 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/organizations/${organizationId}/house-league-teams/${id}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/organizations/${organizationId}/house-league-teams/${id}`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/house-league-teams`] });

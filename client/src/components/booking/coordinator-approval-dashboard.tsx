@@ -66,12 +66,9 @@ export function CoordinatorApprovalDashboard({ organizationId, userRole }: Coord
 
   const approveMutation = useMutation({
     mutationFn: async ({ requestId, approved }: { requestId: string; approved: boolean }) => {
-      return await apiRequest(`/api/organizations/${organizationId}/booking-requests/${requestId}/approve`, {
-        method: "POST",
-        body: JSON.stringify({
-          approved,
-          notes: approvalNotes,
-        }),
+      return await apiRequest("POST", `/api/organizations/${organizationId}/booking-requests/${requestId}/approve`, {
+        approved,
+        notes: approvalNotes,
       });
     },
     onSuccess: (_, { approved }) => {

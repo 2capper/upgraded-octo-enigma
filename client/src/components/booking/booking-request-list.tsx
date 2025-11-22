@@ -71,7 +71,7 @@ export function BookingRequestList({ organizationId }: BookingRequestListProps) 
 
   const cancelMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      return await apiRequest(`/api/organizations/${organizationId}/booking-requests/${requestId}/cancel`, "POST", {});
+      return await apiRequest("POST", `/api/organizations/${organizationId}/booking-requests/${requestId}/cancel`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${organizationId}/booking-requests`] });

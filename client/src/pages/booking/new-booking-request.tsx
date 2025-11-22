@@ -158,14 +158,11 @@ export default function NewBookingRequest() {
       const endTime = new Date(`2000-01-01T${data.endTime}`);
       const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       
-      return await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...data,
-          bookingType: data.purpose,
-          durationMinutes,
-          status: "draft",
-        }),
+      return await apiRequest("POST", `/api/organizations/${orgId}/booking-requests`, {
+        ...data,
+        bookingType: data.purpose,
+        durationMinutes,
+        status: "draft",
       });
     },
     onSuccess: () => {
@@ -193,28 +190,22 @@ export default function NewBookingRequest() {
       const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       
       try {
-        const request = await apiRequest(`/api/organizations/${orgId}/booking-requests`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...data,
-            bookingType: data.purpose,
-            durationMinutes,
-            status: "draft",
-          }),
+        const response = await apiRequest("POST", `/api/organizations/${orgId}/booking-requests`, {
+          ...data,
+          bookingType: data.purpose,
+          durationMinutes,
+          status: "draft",
         });
         
+        const request = await response.json();
         draftRequestId = request.id;
         
-        return await apiRequest(`/api/organizations/${orgId}/booking-requests/${request.id}/submit`, {
-          method: "POST",
-        });
+        return await apiRequest("POST", `/api/organizations/${orgId}/booking-requests/${request.id}/submit`, {});
       } catch (error) {
         // Clean up draft if submission failed
         if (draftRequestId) {
           try {
-            await apiRequest(`/api/organizations/${orgId}/booking-requests/${draftRequestId}/cancel`, {
-              method: "POST",
-            });
+            await apiRequest("POST", `/api/organizations/${orgId}/booking-requests/${draftRequestId}/cancel`, {});
           } catch (cleanupError) {
             console.error("Failed to clean up draft:", cleanupError);
           }

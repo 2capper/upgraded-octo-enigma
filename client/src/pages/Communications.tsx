@@ -81,10 +81,7 @@ export default function Communications() {
 
   const sendMutation = useMutation({
     mutationFn: async (data: { recipients: any[]; messageBody: string; tournamentId?: string }) => {
-      return apiRequest(`/api/organizations/${orgId}/sms/send-bulk`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", `/api/organizations/${orgId}/sms/send-bulk`, data);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/sms/messages`] });
