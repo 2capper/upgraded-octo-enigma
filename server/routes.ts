@@ -4608,7 +4608,7 @@ Waterdown 10U AA
   });
 
   // Organization Coordinator Routes
-  app.get('/api/organizations/:orgId/coordinators', requireAdmin, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/coordinators', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const { role } = req.query;
@@ -4621,7 +4621,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/coordinators', requireAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/coordinators', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const validatedData = insertOrganizationCoordinatorSchema.parse(req.body);
@@ -4639,7 +4639,7 @@ Waterdown 10U AA
     }
   });
 
-  app.put('/api/organizations/:orgId/coordinators/:coordinatorId', requireAdmin, async (req: any, res) => {
+  app.put('/api/organizations/:orgId/coordinators/:coordinatorId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, coordinatorId } = req.params;
       const validatedData = insertOrganizationCoordinatorSchema.partial().parse(req.body);
@@ -4652,7 +4652,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete('/api/organizations/:orgId/coordinators/:coordinatorId', requireAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/coordinators/:coordinatorId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, coordinatorId } = req.params;
       await organizationService.deleteOrganizationCoordinator(coordinatorId, orgId);
@@ -4677,7 +4677,7 @@ Waterdown 10U AA
     }
   });
   
-  app.get('/api/organizations/:orgId/invitations', requireDiamondBooking, requireAdmin, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/invitations', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const { status } = req.query;
@@ -4690,7 +4690,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/invitations', requireDiamondBooking, requireAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/invitations', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const userId = req.user.claims.sub;
@@ -4736,7 +4736,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete('/api/organizations/:orgId/invitations/:invitationId', requireDiamondBooking, requireAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/invitations/:invitationId', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, invitationId } = req.params;
       await organizationService.revokeCoachInvitation(invitationId, orgId);
@@ -4809,7 +4809,7 @@ Waterdown 10U AA
   });
 
   // Admin Invitation Routes
-  app.get('/api/organizations/:orgId/admin-invitations', requireAdmin, async (req: any, res) => {
+  app.get('/api/organizations/:orgId/admin-invitations', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const { status } = req.query;
@@ -4822,7 +4822,7 @@ Waterdown 10U AA
     }
   });
 
-  app.post('/api/organizations/:orgId/admin-invitations', requireAdmin, async (req: any, res) => {
+  app.post('/api/organizations/:orgId/admin-invitations', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
       const userId = req.user.claims.sub;
@@ -4868,7 +4868,7 @@ Waterdown 10U AA
     }
   });
 
-  app.delete('/api/organizations/:orgId/admin-invitations/:invitationId', requireAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/admin-invitations/:invitationId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, invitationId } = req.params;
       await organizationService.revokeAdminInvitation(invitationId, orgId);
@@ -4945,7 +4945,7 @@ Waterdown 10U AA
   });
 
   // Remove organization admin
-  app.delete('/api/organizations/:orgId/admins/:userId', requireAdmin, async (req: any, res) => {
+  app.delete('/api/organizations/:orgId/admins/:userId', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, userId } = req.params;
       

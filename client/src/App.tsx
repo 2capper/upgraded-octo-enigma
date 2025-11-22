@@ -39,6 +39,10 @@ import OnboardingCreateOrganization from "@/pages/onboarding-create-organization
 import OrgAdminPortal from "@/pages/OrgAdminPortal";
 import OrgSettings from "@/pages/OrgSettings";
 import NotFound from "@/pages/not-found";
+import LoginPage from "@/pages/login";
+import NotFoundPage from "@/pages/error-pages/404";
+import UnauthorizedPage from "@/pages/error-pages/401";
+import ServerErrorPage from "@/pages/error-pages/500";
 import { useEffect } from "react";
 
 function RequireAuth({ component: Component }: { component: any }) {
@@ -286,7 +290,13 @@ function Router() {
         {() => <RequireAuth component={ValidationReport} />}
       </Route>
       
-      <Route component={NotFound} />
+      {/* Error Pages */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/401" component={UnauthorizedPage} />
+      <Route path="/500" component={ServerErrorPage} />
+      <Route path="/404" component={NotFoundPage} />
+      
+      <Route component={NotFoundPage} />
     </Switch>
   );
 }

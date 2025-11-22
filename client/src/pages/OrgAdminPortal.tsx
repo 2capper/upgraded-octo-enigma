@@ -2,6 +2,8 @@ import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useTour } from "@/hooks/useTour";
 import { 
   Calendar, 
   Trophy, 
@@ -10,8 +12,10 @@ import {
   Cloud, 
   Users, 
   Settings,
-  BarChart3 
+  BarChart3,
+  Compass
 } from "lucide-react";
+import { useEffect } from "react";
 
 interface FeatureCard {
   id: string;
@@ -28,6 +32,7 @@ interface FeatureCard {
 export default function OrgAdminPortal() {
   const { orgId } = useParams<{ orgId: string }>();
   const { user } = useAuth();
+  const { isCompleted, startTour } = useTour('admin-portal');
 
   const { data: organization } = useQuery({
     queryKey: [`/api/organizations/${orgId}`],
@@ -71,6 +76,16 @@ export default function OrgAdminPortal() {
       testId: 'card-tournaments',
     },
     {
+      id: 'teams',
+      title: 'Team Management',
+      description: 'Manage house league teams and rosters',
+      icon: <Users className="w-5 h-5" />,
+      href: `/org/${orgId}/teams`,
+      color: 'orange',
+      requiresAdmin: true,
+      testId: 'card-teams',
+    },
+    {
       id: 'booking',
       title: 'Diamond Booking',
       description: 'Calendar, requests, and approvals',
@@ -101,16 +116,6 @@ export default function OrgAdminPortal() {
       featureKey: 'weather',
       requiresAdmin: true,
       testId: 'card-weather',
-    },
-    {
-      id: 'teams',
-      title: 'Team Management',
-      description: 'Manage house league teams and rosters',
-      icon: <Users className="w-5 h-5" />,
-      href: `/org/${orgId}/teams`,
-      color: 'orange',
-      requiresAdmin: true,
-      testId: 'card-teams',
     },
     {
       id: 'reports',
@@ -214,16 +219,32 @@ export default function OrgAdminPortal() {
 
       {/* Feature Cards */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold mb-6">Your Features</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold" data-tour="tournaments-section">Your Features</h2>
+          {!isCompleted && (
+            <Button
+              onClick={startTour}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              data-testid="button-start-tour"
+            >
+              <Compass className="w-4 h-4" />
+              Take a Tour
+            </Button>
+          )}
+        </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleFeatures.map(feature => {
+          {visibleFeatures.map((feature, index) => {
             const colors = getColorClasses(feature.color);
+            const tourDataId = ['tournaments-tab', 'teams-tab', 'booking-tab', 'sms-tab', 'weather-tab', 'reports-tab', 'settings-tab'][index];
             return (
               <Link key={feature.id} href={feature.href}>
                 <Card 
                   className={`cursor-pointer hover:shadow-lg transition-shadow border-2 ${colors.border}`}
                   data-testid={feature.testId}
+                  data-tour={tourDataId}
                 >
                   <CardHeader>
                     <div className="flex items-center justify-between">
