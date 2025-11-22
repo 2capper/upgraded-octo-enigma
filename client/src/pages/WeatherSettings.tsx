@@ -14,13 +14,26 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Cloud, CloudRain, Wind, Zap, Thermometer, AlertTriangle } from "lucide-react";
 
 const weatherSettingsSchema = z.object({
-  apiKey: z.string().min(1, "API key is required"),
+  apiKey: z.string().optional(),
   isEnabled: z.boolean().default(true),
   lightningRadiusMiles: z.number().int().min(1).max(50).default(10),
   heatIndexThresholdF: z.number().int().min(70).max(120).default(94),
   windSpeedThresholdMph: z.number().int().min(10).max(60).default(25),
   precipitationThresholdPct: z.number().int().min(10).max(100).default(70),
 });
+
+interface WeatherSettingsResponse {
+  id: string;
+  organizationId: string;
+  isEnabled?: boolean;
+  lightningRadiusMiles?: number;
+  heatIndexThresholdF?: number;
+  windSpeedThresholdMph?: number;
+  precipitationThresholdPct?: number;
+  apiKeyConfigured?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 type WeatherSettingsForm = z.infer<typeof weatherSettingsSchema>;
 
@@ -30,7 +43,7 @@ export default function WeatherSettings() {
   const { toast } = useToast();
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading } = useQuery<WeatherSettingsResponse>({
     queryKey: [`/api/organizations/${orgId}/weather-settings`],
     enabled: !!orgId,
   });
@@ -56,10 +69,7 @@ export default function WeatherSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: WeatherSettingsForm) => {
-      return apiRequest(`/api/organizations/${orgId}/weather-settings`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", `/api/organizations/${orgId}/weather-settings`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/weather-settings`] });

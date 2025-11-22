@@ -5201,18 +5201,28 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { apiKey, isEnabled, lightningRadiusMiles, heatIndexThresholdF, windSpeedThresholdMph, precipitationThresholdPct } = req.body;
 
-      if (!apiKey) {
-        return res.status(400).json({ error: "API key is required" });
+      // Get existing settings to check if key is configured
+      const existingSettings = await weatherService.getWeatherSettings(orgId);
+      
+      // Only require API key if this is first-time setup
+      if (!apiKey && !existingSettings) {
+        return res.status(400).json({ error: "API key is required for first-time setup" });
       }
 
-      const settings = await weatherService.saveWeatherSettings(orgId, {
-        apiKey,
+      // Build update object - only include apiKey if provided
+      const updateData: any = {
         isEnabled,
         lightningRadiusMiles,
         heatIndexThresholdF,
         windSpeedThresholdMph,
         precipitationThresholdPct,
-      });
+      };
+      
+      if (apiKey) {
+        updateData.apiKey = apiKey;
+      }
+
+      const settings = await weatherService.saveWeatherSettings(orgId, updateData);
 
       const { apiKey: _, ...safeSettings } = settings;
       res.json({ ...safeSettings, apiKeyConfigured: true });
