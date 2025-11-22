@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Settings, Calendar, MessageSquare, Cloud, Trophy } from "lucide-react";
+import { ArrowLeft, Settings, Calendar, MessageSquare, Cloud, Trophy, RotateCcw } from "lucide-react";
 import { useEffect } from "react";
+import { useTour } from "@/hooks/useTour";
 
 interface FeatureFlag {
   id: string;
@@ -23,6 +24,7 @@ export default function OrgSettings() {
   const { orgId } = useParams<{ orgId: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { resetTour } = useTour('admin-portal');
 
   const { data: organization } = useQuery({
     queryKey: [`/api/organizations/${orgId}`],
@@ -192,6 +194,34 @@ export default function OrgSettings() {
                 Booking & Calendar Settings
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+
+        {/* Help & Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Help & Preferences</CardTitle>
+            <CardDescription>
+              Manage your user preferences and access help resources
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                resetTour();
+                navigate(`/org/${orgId}/admin`);
+                toast({
+                  title: "Tour Reset",
+                  description: "Return to the admin portal to start the tour again",
+                });
+              }}
+              data-testid="button-restart-tour"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restart Admin Portal Tour
+            </Button>
           </CardContent>
         </Card>
       </div>
