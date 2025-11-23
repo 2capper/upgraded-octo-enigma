@@ -719,8 +719,10 @@ function AffectedGamesModal({
   const { toast } = useToast();
   const [sendingSMS, setSendingSMS] = useState(false);
 
+  const safeAffectedGames = Array.isArray(affectedGames) ? affectedGames : [];
+  
   const uniqueCoaches = new Set<string>();
-  (affectedGames || []).forEach(game => {
+  safeAffectedGames.forEach(game => {
     if (game.homeTeam?.coachPhone) uniqueCoaches.add(game.homeTeam.coachPhone);
     if (game.homeTeam?.managerPhone) uniqueCoaches.add(game.homeTeam.managerPhone);
     if (game.homeTeam?.assistantPhone) uniqueCoaches.add(game.homeTeam.assistantPhone);
@@ -733,7 +735,7 @@ function AffectedGamesModal({
     setSendingSMS(true);
     try {
       const response = await apiRequest('POST', `/api/diamonds/${diamond.id}/send-field-alert`, {
-        games: affectedGames,
+        games: safeAffectedGames,
       });
       
       toast({
@@ -759,8 +761,8 @@ function AffectedGamesModal({
           <DialogDescription>
             {loadingGames ? (
               "Checking for affected games..."
-            ) : affectedGames.length > 0 ? (
-              `${affectedGames.length} game${affectedGames.length !== 1 ? 's' : ''} scheduled today/tomorrow on this field`
+            ) : safeAffectedGames.length > 0 ? (
+              `${safeAffectedGames.length} game${safeAffectedGames.length !== 1 ? 's' : ''} scheduled today/tomorrow on this field`
             ) : (
               "No games scheduled today or tomorrow on this field"
             )}
@@ -784,10 +786,10 @@ function AffectedGamesModal({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-          ) : affectedGames.length > 0 ? (
+          ) : safeAffectedGames.length > 0 ? (
             <>
               <div className="border rounded-lg p-4 space-y-3 max-h-[300px] overflow-y-auto">
-                {affectedGames.map((game, idx) => (
+                {safeAffectedGames.map((game, idx) => (
                   <div key={game.id} className="border-b last:border-0 pb-3 last:pb-0">
                     <div className="font-medium text-sm">
                       {game.tournament?.name || 'Tournament'}
@@ -821,7 +823,7 @@ function AffectedGamesModal({
           >
             Cancel
           </Button>
-          {affectedGames.length > 0 && (
+          {safeAffectedGames.length > 0 && (
             <Button
               variant="outline"
               onClick={handleSendSMS}
