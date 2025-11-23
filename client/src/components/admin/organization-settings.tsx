@@ -720,7 +720,7 @@ function AffectedGamesModal({
   const [sendingSMS, setSendingSMS] = useState(false);
 
   const uniqueCoaches = new Set<string>();
-  affectedGames.forEach(game => {
+  (affectedGames || []).forEach(game => {
     if (game.homeTeam?.coachPhone) uniqueCoaches.add(game.homeTeam.coachPhone);
     if (game.homeTeam?.managerPhone) uniqueCoaches.add(game.homeTeam.managerPhone);
     if (game.homeTeam?.assistantPhone) uniqueCoaches.add(game.homeTeam.assistantPhone);
