@@ -5177,6 +5177,34 @@ Waterdown 10U AA
     }
   });
 
+  // Get inbound message inbox for organization (Smart Concierge)
+  app.get('/api/organizations/:orgId/sms/inbound', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const messages = await smsService.getInboundMessages(orgId, limit, offset);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching inbound messages:", error);
+      res.status(500).json({ error: "Failed to fetch inbound messages" });
+    }
+  });
+
+  // Mark an inbound message as read
+  app.post('/api/organizations/:orgId/sms/inbound/:messageId/mark-read', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { messageId } = req.params;
+
+      await smsService.markInboundMessageRead(messageId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+
   // =============================================
   // WEATHER INTEGRATION ROUTES
   // =============================================
