@@ -77,6 +77,8 @@ export const diamonds = pgTable("diamonds", {
   availableStartTime: text("available_start_time").notNull().default("08:00"),
   availableEndTime: text("available_end_time").notNull().default("20:00"),
   hasLights: boolean("has_lights").notNull().default(false),
+  status: text("status").notNull().default("open"), // "open" | "closed" | "delayed" | "tbd"
+  statusMessage: text("status_message"), // Custom message about field status (e.g., "Under water - evaluating at 10 AM")
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
