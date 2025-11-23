@@ -55,6 +55,30 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
     return null;
   };
 
+  const getDiamondStatusBadge = (diamond: Diamond | undefined) => {
+    if (!diamond || diamond.status === 'open') return null;
+    
+    const statusConfig = {
+      closed: { color: 'bg-red-500 text-white', label: 'Field Closed' },
+      delayed: { color: 'bg-yellow-500 text-white', label: 'Delayed' },
+      tbd: { color: 'bg-gray-500 text-white', label: 'Status TBD' },
+    };
+    
+    const config = statusConfig[diamond.status as keyof typeof statusConfig];
+    if (!config) return null;
+    
+    return (
+      <div className="flex flex-col gap-1" data-testid={`diamond-status-${diamond.status}`}>
+        <Badge className={`${config.color} text-xs`}>
+          {config.label}
+        </Badge>
+        {diamond.statusMessage && (
+          <span className="text-xs text-gray-600 italic">{diamond.statusMessage}</span>
+        )}
+      </div>
+    );
+  };
+
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
   
   const getTeamDivision = (teamId: string) => {
@@ -331,6 +355,22 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
                             </div>
                           </div>
                         )}
+                        
+                        {/* Diamond Status (if not open) */}
+                        {(() => {
+                          const diamond = diamonds.find(d => d.id === game.diamondId);
+                          const statusBadge = getDiamondStatusBadge(diamond);
+                          if (!statusBadge) return null;
+                          
+                          return (
+                            <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-md">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                {statusBadge}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         
                         {/* Teams and Score */}
                         <div className="space-y-2">

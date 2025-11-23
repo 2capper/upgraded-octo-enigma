@@ -1,6 +1,6 @@
 import { useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Calendar, Users, Trophy, TrendingUp, FileText, Lock } from 'lucide-react';
+import { Loader2, Calendar, Users, Trophy, TrendingUp, FileText, Lock, MapPin, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +14,7 @@ import { QRCodeShare } from '@/components/tournament/qr-code-share';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diamond } from '@shared/schema';
+import { useMemo } from 'react';
 
 export default function TournamentDashboard() {
   const params = useParams();
@@ -181,7 +182,78 @@ export default function TournamentDashboard() {
           </div>
         </div>
 
+        {/* Field Conditions Section */}
+        {(() => {
+          // Get all unique diamonds used in this tournament's games
+          const usedDiamondIds = useMemo(() => {
+            const ids = new Set<string>();
+            games.forEach(game => {
+              if (game.diamondId) ids.add(game.diamondId);
+            });
+            return Array.from(ids);
+          }, [games]);
 
+          const tournamentDiamonds = useMemo(() => {
+            return diamonds.filter(d => usedDiamondIds.includes(d.id));
+          }, [diamonds, usedDiamondIds]);
+
+          // Only show section if there are diamonds with status issues
+          const diamondsWithIssues = tournamentDiamonds.filter(d => d.status !== 'open');
+          
+          if (diamondsWithIssues.length === 0) return null;
+
+          return (
+            <Card className="mb-6 border-l-4 border-l-orange-500" data-testid="field-conditions-section">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  Field Conditions Alert
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {diamondsWithIssues.map(diamond => {
+                    const statusConfig = {
+                      closed: { color: 'bg-red-500 text-white border-red-600', icon: '🔴', label: 'Closed' },
+                      delayed: { color: 'bg-yellow-500 text-white border-yellow-600', icon: '⚠️', label: 'Delayed' },
+                      tbd: { color: 'bg-gray-500 text-white border-gray-600', icon: '❓', label: 'Status TBD' },
+                    };
+                    
+                    const config = statusConfig[diamond.status as keyof typeof statusConfig];
+                    if (!config) return null;
+
+                    return (
+                      <div
+                        key={diamond.id}
+                        className="border-2 rounded-lg p-4 bg-white shadow-sm"
+                        style={{ borderColor: config.color.split(' ')[0].replace('bg-', '') }}
+                        data-testid={`field-status-${diamond.id}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900 mb-1">{diamond.name}</div>
+                            {diamond.location && (
+                              <div className="text-xs text-gray-600 mb-2">{diamond.location}</div>
+                            )}
+                            <Badge className={`${config.color} text-xs mb-2`}>
+                              {config.icon} {config.label}
+                            </Badge>
+                            {diamond.statusMessage && (
+                              <div className="text-sm text-gray-700 italic mt-2 p-2 bg-gray-50 rounded">
+                                {diamond.statusMessage}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="standings" className="mt-6">

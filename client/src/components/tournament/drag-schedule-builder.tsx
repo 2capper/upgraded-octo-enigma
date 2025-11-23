@@ -128,6 +128,7 @@ function DraggableGameCard({
   onRemove,
   onResize,
   showToast,
+  diamonds = [],
 }: {
   game: Game;
   gridRowStart: number;
@@ -144,6 +145,7 @@ function DraggableGameCard({
     description: string;
     variant?: "default" | "destructive";
   }) => void;
+  diamonds?: Diamond[];
 }) {
   // useDraggable hook at component top level (not in loop)
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -183,6 +185,7 @@ function DraggableGameCard({
         onRemove={onRemove}
         onResize={onResize}
         showToast={showToast}
+        diamonds={diamonds}
       />
     </div>
   );
@@ -198,6 +201,7 @@ function GameCard({
   onRemove,
   onResize,
   showToast,
+  diamonds = [],
 }: {
   game: Game;
   teams: Team[];
@@ -211,10 +215,12 @@ function GameCard({
     description: string;
     variant?: "default" | "destructive";
   }) => void;
+  diamonds?: Diamond[];
 }) {
   const homeTeam = teams.find((t) => t.id === game.homeTeamId);
   const awayTeam = teams.find((t) => t.id === game.awayTeamId);
   const pool = pools.find((p) => p.id === game.poolId);
+  const diamond = diamonds.find((d) => d.id === game.diamondId);
 
   return (
     <div
@@ -342,6 +348,27 @@ function GameCard({
           </span>
         )}
       </div>
+      {diamond && diamond.status !== 'open' && (
+        <div className="mb-1">
+          <Badge 
+            className={`text-[9px] px-1 py-0 ${
+              diamond.status === 'closed' ? 'bg-red-500 text-white' :
+              diamond.status === 'delayed' ? 'bg-yellow-500 text-white' :
+              'bg-gray-500 text-white'
+            }`}
+            data-testid={`diamond-status-${diamond.status}`}
+          >
+            {diamond.status === 'closed' ? '🔴 Closed' :
+             diamond.status === 'delayed' ? '⚠️ Delayed' :
+             '❓ TBD'}
+          </Badge>
+          {diamond.statusMessage && (
+            <div className="text-[9px] text-gray-600 dark:text-gray-400 italic mt-0.5">
+              {diamond.statusMessage}
+            </div>
+          )}
+        </div>
+      )}
       <div
         className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
         data-testid={`resize-handle-${game.id}`}
@@ -1403,6 +1430,7 @@ export function DragScheduleBuilder({
                                 })
                               }
                               showToast={toast}
+                              diamonds={diamonds}
                             />
                           );
                         })}
@@ -1435,6 +1463,7 @@ export function DragScheduleBuilder({
               onRemove={() => {}}
               onResize={() => {}}
               showToast={toast}
+              diamonds={diamonds}
             />
           </div>
         )}

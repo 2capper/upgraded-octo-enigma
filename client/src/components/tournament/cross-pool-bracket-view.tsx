@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Trophy, Medal, ChevronDown, ArrowRight, MapPin } from 'lucide-react';
+import { Trophy, Medal, ChevronDown, ArrowRight, MapPin, AlertTriangle } from 'lucide-react';
 import { Game, Team, Diamond } from '@shared/schema';
 import { getTeamSourceLabel } from '@shared/seedLabels';
+import { Badge } from '@/components/ui/badge';
 import {
   Accordion,
   AccordionContent,
@@ -171,6 +172,36 @@ export function CrossPoolBracketView({
 
   const poolNames = Object.keys(poolStandings).sort();
 
+  // Diamond status badge helper
+  const getDiamondStatusBadge = (diamondId: string | null) => {
+    if (!diamondId) return null;
+    const diamond = diamonds.find(d => d.id === diamondId);
+    if (!diamond || diamond.status === 'open') return null;
+    
+    const statusConfig = {
+      closed: { color: 'bg-red-500 text-white', label: 'Field Closed' },
+      delayed: { color: 'bg-yellow-500 text-white', label: 'Delayed' },
+      tbd: { color: 'bg-gray-500 text-white', label: 'Status TBD' },
+    };
+    
+    const config = statusConfig[diamond.status as keyof typeof statusConfig];
+    if (!config) return null;
+    
+    return (
+      <div className="flex items-center gap-2 mt-1" data-testid={`diamond-status-${diamond.status}`}>
+        <AlertTriangle className="w-3 h-3 text-white" />
+        <div className="flex flex-col gap-0.5">
+          <Badge className={`${config.color} text-xs`}>
+            {config.label}
+          </Badge>
+          {diamond.statusMessage && (
+            <span className="text-xs text-white/90 italic">{diamond.statusMessage}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Reusable game card component
   const GameCard = ({ game, isFinals = false }: { game: Game; isFinals?: boolean }) => {
     const isCompleted = game.status === 'completed';
@@ -266,6 +297,7 @@ export function CrossPoolBracketView({
                     </span>
                   </div>
                 )}
+                {getDiamondStatusBadge(game.diamondId)}
               </>
             ) : (
               'TBD'
