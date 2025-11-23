@@ -29,6 +29,7 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesT
 
   const getGameDivision = (game: Game) => {
     // Get division from home team (both teams should be in same division)
+    if (!game.homeTeamId) return null;
     return getTeamDivision(game.homeTeamId);
   };
 
@@ -51,8 +52,8 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesT
     games.forEach(game => {
       const gameDivision = getGameDivision(game);
       if (gameDivision?.id === divisionFilter) {
-        divisionTeamIds.add(game.homeTeamId);
-        divisionTeamIds.add(game.awayTeamId);
+        if (game.homeTeamId) divisionTeamIds.add(game.homeTeamId);
+        if (game.awayTeamId) divisionTeamIds.add(game.awayTeamId);
       }
     });
     
@@ -246,13 +247,13 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesT
                         {/* Teams and Score */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm truncate mr-2">{homeTeamName}</span>
+                            <span className="font-medium text-sm truncate mr-2">{game.homeTeamId ? homeTeamName : 'TBD'}</span>
                             {game.status === 'completed' && (
                               <span className="font-bold text-lg">{game.homeScore}</span>
                             )}
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm truncate mr-2">{awayTeamName}</span>
+                            <span className="font-medium text-sm truncate mr-2">{game.awayTeamId ? awayTeamName : 'TBD'}</span>
                             {game.status === 'completed' && (
                               <span className="font-bold text-lg">{game.awayScore}</span>
                             )}
