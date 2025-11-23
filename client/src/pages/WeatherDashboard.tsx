@@ -27,7 +27,8 @@ export default function WeatherDashboard() {
 
   const bulkFetchMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/tournaments/${tournamentId}/weather/bulk-fetch`, {});
+      const res = await apiRequest("POST", `/api/tournaments/${tournamentId}/weather/bulk-fetch`, {});
+      return res.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/weather/alerts`] });
