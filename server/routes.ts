@@ -5416,9 +5416,21 @@ Waterdown 10U AA
           forecast.hasPrecipitationAlert ||
           forecast.hasSevereWeatherAlert
         )) {
+          // Fetch diamond details to include coordinates
+          let diamond = null;
+          if (game.diamondId) {
+            diamond = await diamondService.getDiamond(game.diamondId);
+          }
+          
           gamesWithAlerts.push({
             game,
             forecast,
+            diamond: diamond ? {
+              id: diamond.id,
+              name: diamond.name,
+              latitude: diamond.latitude,
+              longitude: diamond.longitude,
+            } : null,
           });
         }
       }

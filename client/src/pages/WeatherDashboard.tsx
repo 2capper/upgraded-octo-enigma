@@ -1,23 +1,35 @@
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Cloud, RefreshCw, Zap, Thermometer, Wind, CloudRain, AlertTriangle, Calendar, MapPin, Clock } from "lucide-react";
+import { Cloud, RefreshCw, Zap, Thermometer, Wind, CloudRain, AlertTriangle, Calendar, MapPin, Clock, List, Map as MapIcon } from "lucide-react";
 import { format } from "date-fns";
 import type { Game, WeatherForecast } from "@shared/schema";
+import { WeatherMap } from "@/components/weather/WeatherMap";
+
+interface Diamond {
+  id: string;
+  name: string;
+  latitude: string | null;
+  longitude: string | null;
+}
 
 interface GameWithWeather {
   game: Game;
   forecast: WeatherForecast;
+  diamond: Diamond | null;
 }
 
 export default function WeatherDashboard() {
   const { orgId, tournamentId } = useParams<{ orgId: string; tournamentId: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("list");
 
   const { data: gamesWithAlerts, isLoading } = useQuery<GameWithWeather[]>({
     queryKey: [`/api/tournaments/${tournamentId}/weather/alerts`],
@@ -149,16 +161,35 @@ export default function WeatherDashboard() {
             </div>
           </div>
 
-          {gamesWithAlerts.map(({ game, forecast }) => (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="list" data-testid="tab-list">
+                <List className="h-4 w-4 mr-2" />
+                List View
+              </TabsTrigger>
+              <TabsTrigger value="map" data-testid="tab-map">
+                <MapIcon className="h-4 w-4 mr-2" />
+                Map View
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="list" className="space-y-4 mt-4">
+              {gamesWithAlerts.map(({ game, forecast, diamond }) => (
             <Card key={game.id} className={getSeverityColor(forecast)}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <CardTitle className="text-lg">
                         Game {game.id}
                       </CardTitle>
                       {getSeverityBadge(forecast)}
+                      {!diamond || !diamond.latitude || !diamond.longitude ? (
+                        <Badge variant="outline" className="border-gray-400 text-gray-600">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          No GPS
+                        </Badge>
+                      ) : null}
                     </div>
                     <CardDescription className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -183,10 +214,10 @@ export default function WeatherDashboard() {
                     />
                     <div className="text-right">
                       <div className="text-2xl font-bold">
-                        {Math.round(parseFloat(forecast.temperatureF || "0"))}°F
+                        {forecast.temperatureF ? `${Math.round(parseFloat(forecast.temperatureF))}°F` : 'N/A'}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {forecast.condition}
+                        {forecast.condition || 'N/A'}
                       </div>
                     </div>
                   </div>
@@ -213,7 +244,9 @@ export default function WeatherDashboard() {
                     <CloudRain className={`h-4 w-4 ${forecast.hasPrecipitationAlert ? 'text-red-500' : 'text-blue-500'}`} />
                     <div>
                       <div className="text-xs text-gray-500">Precipitation</div>
-                      <div className="font-semibold">{forecast.precipitationProbability}%</div>
+                      <div className="font-semibold">
+                        {forecast.precipitationProbability != null ? `${forecast.precipitationProbability}%` : 'N/A'}
+                      </div>
                     </div>
                   </div>
 
@@ -222,18 +255,18 @@ export default function WeatherDashboard() {
                     <div>
                       <div className="text-xs text-gray-500">Wind</div>
                       <div className="font-semibold">
-                        {Math.round(parseFloat(forecast.windSpeedMph || "0"))} mph
+                        {forecast.windSpeedMph != null ? `${Math.round(parseFloat(forecast.windSpeedMph))} mph` : 'N/A'}
                       </div>
                     </div>
                   </div>
 
-                  {forecast.heatIndexF && parseFloat(forecast.heatIndexF) > parseFloat(forecast.temperatureF || "0") + 2 && (
+                  {forecast.hasHeatAlert && (
                     <div className="flex items-center gap-2">
                       <Thermometer className={`h-4 w-4 ${forecast.hasHeatAlert ? 'text-red-500' : 'text-orange-500'}`} />
                       <div>
                         <div className="text-xs text-gray-500">Heat Index</div>
                         <div className="font-semibold">
-                          {Math.round(parseFloat(forecast.heatIndexF))}°F
+                          {forecast.heatIndexF != null ? `${Math.round(parseFloat(forecast.heatIndexF))}°F` : 'N/A'}
                         </div>
                       </div>
                     </div>
@@ -259,6 +292,12 @@ export default function WeatherDashboard() {
               </CardContent>
             </Card>
           ))}
+            </TabsContent>
+
+            <TabsContent value="map" className="mt-4">
+              <WeatherMap gamesWithAlerts={gamesWithAlerts} />
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </div>
