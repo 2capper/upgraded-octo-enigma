@@ -263,6 +263,70 @@ export class SmsService {
     return results;
   }
 
+  async sendFieldStatusAlert(
+    organizationId: string,
+    diamondName: string,
+    status: string,
+    statusMessage: string | null,
+    games: any[],
+    sentBy: string
+  ): Promise<SendSmsResult[]> {
+    const uniqueCoaches = new Map<string, { phone: string; name: string; teamIds: string[] }>();
+
+    for (const game of games) {
+      const homeTeam = game.homeTeam;
+      const awayTeam = game.awayTeam;
+
+      for (const team of [homeTeam, awayTeam]) {
+        if (!team) continue;
+
+        const phones: { phone: string; role: string }[] = [];
+        if (team.coachPhone) phones.push({ phone: team.coachPhone, role: 'coach' });
+        if (team.managerPhone) phones.push({ phone: team.managerPhone, role: 'manager' });
+        if (team.assistantPhone) phones.push({ phone: team.assistantPhone, role: 'assistant' });
+
+        for (const { phone, role } of phones) {
+          if (!uniqueCoaches.has(phone)) {
+            const name = role === 'coach' 
+              ? `${team.coachFirstName || ''} ${team.coachLastName || ''}`.trim() || team.coach || team.name
+              : role === 'manager'
+              ? team.managerName || team.name
+              : team.assistantName || team.name;
+            
+            uniqueCoaches.set(phone, { phone, name, teamIds: [team.id] });
+          } else {
+            const existing = uniqueCoaches.get(phone)!;
+            if (!existing.teamIds.includes(team.id)) {
+              existing.teamIds.push(team.id);
+            }
+          }
+        }
+      }
+    }
+
+    const statusText = status === 'closed' ? 'CLOSED' : 
+                       status === 'delayed' ? 'DELAYED' : 
+                       status === 'tbd' ? 'TBD' : 
+                       'updated';
+
+    const messageBody = statusMessage
+      ? `FIELD ALERT: ${diamondName} is ${statusText}. ${statusMessage} Check app for details.`
+      : `FIELD ALERT: ${diamondName} is ${statusText}. Check app for details.`;
+
+    const messagesToSend: SendSmsOptions[] = [];
+    for (const coach of uniqueCoaches.values()) {
+      messagesToSend.push({
+        organizationId,
+        recipientPhone: coach.phone,
+        recipientName: coach.name,
+        messageBody,
+        sentBy,
+      });
+    }
+
+    return this.bulkSendSms(messagesToSend);
+  }
+
   async getMessageHistory(
     organizationId: string,
     limit: number = 100,

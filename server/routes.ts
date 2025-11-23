@@ -730,6 +730,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/diamonds/:id/send-field-alert", requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { games, startDate, endDate } = req.body;
+      
+      const diamond = await diamondService.getDiamond(id);
+      if (!diamond) {
+        return res.status(404).json({ error: "Diamond not found" });
+      }
+
+      const results = await smsService.sendFieldStatusAlert(
+        diamond.organizationId,
+        diamond.name,
+        diamond.status,
+        diamond.statusMessage,
+        games,
+        req.user.id
+      );
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
+      res.json({
+        success: true,
+        totalSent: successCount,
+        totalFailed: failureCount,
+        results,
+      });
+    } catch (error) {
+      console.error("Error sending field alert:", error);
+      res.status(500).json({ error: "Failed to send field alert" });
+    }
+  });
+
   // Diamond Restrictions routes
   app.get("/api/organizations/:organizationId/diamond-restrictions", isAuthenticated, async (req, res) => {
     try {
