@@ -56,7 +56,8 @@ export class SmsService {
     authToken: string,
     phoneNumber: string,
     dailyLimit?: number,
-    rateLimit?: number
+    rateLimit?: number,
+    autoReplyMessage?: string
   ): Promise<OrganizationTwilioSettings> {
     const existing = await this.getTwilioSettings(organizationId);
 
@@ -69,6 +70,7 @@ export class SmsService {
           phoneNumber,
           dailyLimit: dailyLimit ?? existing.dailyLimit,
           rateLimit: rateLimit ?? existing.rateLimit,
+          autoReplyMessage: autoReplyMessage ?? existing.autoReplyMessage,
           updatedAt: new Date(),
         })
         .where(eq(organizationTwilioSettings.organizationId, organizationId))
@@ -86,6 +88,7 @@ export class SmsService {
         phoneNumber,
         dailyLimit: dailyLimit ?? 100,
         rateLimit: rateLimit ?? 100,
+        autoReplyMessage: autoReplyMessage || null,
       })
       .returning();
 

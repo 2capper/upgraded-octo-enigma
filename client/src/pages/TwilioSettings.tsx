@@ -10,7 +10,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Save, Shield } from "lucide-react";
+import { ArrowLeft, Save, Shield, MessageCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 const twilioSettingsSchema = z.object({
   accountSid: z.string().min(1, "Account SID is required"),
@@ -18,6 +19,7 @@ const twilioSettingsSchema = z.object({
   phoneNumber: z.string().min(1, "Phone number is required").regex(/^\+\d{10,15}$/, "Must be in E.164 format (+1234567890)"),
   dailyLimit: z.number().min(1).max(1000).default(100),
   rateLimit: z.number().min(1).max(500).default(100),
+  autoReplyMessage: z.string().optional(),
 });
 
 type TwilioSettingsForm = z.infer<typeof twilioSettingsSchema>;
@@ -41,6 +43,7 @@ export default function TwilioSettings() {
       phoneNumber: settings?.phoneNumber || "",
       dailyLimit: settings?.dailyLimit || 100,
       rateLimit: settings?.rateLimit || 100,
+      autoReplyMessage: settings?.autoReplyMessage || "",
     },
     values: settings ? {
       accountSid: settings.accountSid,
@@ -48,6 +51,7 @@ export default function TwilioSettings() {
       phoneNumber: settings.phoneNumber,
       dailyLimit: settings.dailyLimit,
       rateLimit: settings.rateLimit,
+      autoReplyMessage: settings.autoReplyMessage || "",
     } : undefined,
   });
 
@@ -179,6 +183,33 @@ export default function TwilioSettings() {
                     </FormControl>
                     <FormDescription>
                       Must be in E.164 format (e.g., +15551234567). This is the number messages will be sent from.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="autoReplyMessage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4" />
+                      Smart Concierge Auto-Reply (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="This is an automated system. Please contact your Tournament Director directly."
+                        rows={3}
+                        maxLength={320}
+                        data-testid="textarea-auto-reply-message"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      This message is sent when someone texts your Twilio number but we can't identify them.
+                      If blank, a default message will be used. Coaches we recognize automatically receive their tournament dashboard link.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

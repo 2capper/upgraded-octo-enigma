@@ -5037,7 +5037,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/twilio-settings', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const { accountSid, authToken, phoneNumber, dailyLimit, rateLimit } = req.body;
+      const { accountSid, authToken, phoneNumber, dailyLimit, rateLimit, autoReplyMessage } = req.body;
 
       if (!accountSid || !authToken || !phoneNumber) {
         return res.status(400).json({ error: "Account SID, Auth Token, and Phone Number are required" });
@@ -5049,7 +5049,8 @@ Waterdown 10U AA
         authToken,
         phoneNumber,
         dailyLimit,
-        rateLimit
+        rateLimit,
+        autoReplyMessage
       );
 
       const { authToken: _, ...safeSettings } = settings;
