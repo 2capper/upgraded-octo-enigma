@@ -693,6 +693,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/diamonds/:id/affected-games", requireOrgAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const allGames = await gameService.getAllGames();
+      const filteredGames = allGames.filter(game => {
+        if (game.diamondId !== id) return false;
+        
+        if (startDate && game.date < (startDate as string)) return false;
+        if (endDate && game.date > (endDate as string)) return false;
+        
+        return true;
+      });
+
+      const tournaments = await tournamentService.getAllTournaments();
+      const tournamentMap = new Map(tournaments.map(t => [t.id, t]));
+      
+      const teamsPromises = filteredGames.map(game => teamService.getTeams(game.tournamentId));
+      const allTeamsArrays = await Promise.all(teamsPromises);
+      const allTeams = allTeamsArrays.flat();
+      const teamMap = new Map(allTeams.map(t => [t.id, t]));
+
+      const gamesWithDetails = filteredGames.map(game => ({
+        ...game,
+        tournament: tournamentMap.get(game.tournamentId),
+        homeTeam: game.homeTeamId ? teamMap.get(game.homeTeamId) : null,
+        awayTeam: game.awayTeamId ? teamMap.get(game.awayTeamId) : null,
+      }));
+
+      res.json(gamesWithDetails);
+    } catch (error) {
+      console.error("Error fetching affected games:", error);
+      res.status(500).json({ error: "Failed to fetch affected games" });
+    }
+  });
+
   // Diamond Restrictions routes
   app.get("/api/organizations/:organizationId/diamond-restrictions", isAuthenticated, async (req, res) => {
     try {
