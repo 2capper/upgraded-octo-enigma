@@ -5039,8 +5039,14 @@ Waterdown 10U AA
       const { orgId } = req.params;
       const { accountSid, authToken, phoneNumber, dailyLimit, rateLimit, autoReplyMessage } = req.body;
 
-      if (!accountSid || !authToken || !phoneNumber) {
-        return res.status(400).json({ error: "Account SID, Auth Token, and Phone Number are required" });
+      if (!accountSid || !phoneNumber) {
+        return res.status(400).json({ error: "Account SID and Phone Number are required" });
+      }
+
+      // Check if this is a new configuration (requires authToken) or an update (authToken optional)
+      const existing = await smsService.getTwilioSettings(orgId);
+      if (!existing && !authToken) {
+        return res.status(400).json({ error: "Auth Token is required for initial setup" });
       }
 
       const settings = await smsService.saveTwilioSettings(

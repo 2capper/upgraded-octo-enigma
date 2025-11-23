@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const twilioSettingsSchema = z.object({
   accountSid: z.string().min(1, "Account SID is required"),
-  authToken: z.string().min(1, "Auth Token is required"),
+  authToken: z.string().optional(), // Optional - only required for new settings
   phoneNumber: z.string().min(1, "Phone number is required").regex(/^\+\d{10,15}$/, "Must be in E.164 format (+1234567890)"),
   dailyLimit: z.number().min(1).max(1000).default(100),
   rateLimit: z.number().min(1).max(500).default(100),

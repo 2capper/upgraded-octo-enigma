@@ -65,6 +65,7 @@ Preferred communication style: Simple, everyday language.
 - **Coach Invitation System**: Email-based invitation workflow with secure tokens for coaches to access booking features.
 - **Booking Time Constraints**: Booking form enforces 30-minute intervals.
 - **SMS Communications**: Twilio integration for organization admins to send bulk SMS to coaches.
+- **Smart Concierge SMS Webhook**: Bidirectional SMS system that intelligently responds to inbound texts. When coaches text the organization's Twilio number, the system identifies them by phone lookup across coach/manager/assistant fields, auto-replies with a personalized tournament dashboard link (with `?chat=open` for future AI integration), and logs all messages in an admin inbox. Unknown numbers receive a configurable fallback message.
 - **Weather Integration**: WeatherAPI.com for dynamic forecasts, player safety alerts, and a dedicated weather dashboard with configurable safety thresholds.
 
 ## External Dependencies

@@ -53,7 +53,7 @@ export class SmsService {
   async saveTwilioSettings(
     organizationId: string,
     accountSid: string,
-    authToken: string,
+    authToken: string | undefined,
     phoneNumber: string,
     dailyLimit?: number,
     rateLimit?: number,
@@ -62,11 +62,12 @@ export class SmsService {
     const existing = await this.getTwilioSettings(organizationId);
 
     if (existing) {
+      // For updates, preserve existing authToken if none provided
       const [updated] = await db
         .update(organizationTwilioSettings)
         .set({
           accountSid,
-          authToken,
+          authToken: authToken || existing.authToken, // Preserve existing if not provided
           phoneNumber,
           dailyLimit: dailyLimit ?? existing.dailyLimit,
           rateLimit: rateLimit ?? existing.rateLimit,
@@ -79,12 +80,13 @@ export class SmsService {
       return updated;
     }
 
+    // For new settings, authToken is required (enforced at route level)
     const [created] = await db
       .insert(organizationTwilioSettings)
       .values({
         organizationId,
         accountSid,
-        authToken,
+        authToken: authToken!, // Safe because route validates this
         phoneNumber,
         dailyLimit: dailyLimit ?? 100,
         rateLimit: rateLimit ?? 100,
