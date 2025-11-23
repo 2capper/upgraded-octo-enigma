@@ -708,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return true;
       });
 
-      const tournaments = await tournamentService.getAllTournaments();
+      const tournaments = await tournamentService.getTournaments();
       const tournamentMap = new Map(tournaments.map(t => [t.id, t]));
       
       const teamsPromises = filteredGames.map(game => teamService.getTeams(game.tournamentId));
