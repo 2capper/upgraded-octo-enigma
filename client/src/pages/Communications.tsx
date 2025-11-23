@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle, FileText, Edit, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle, FileText, Edit, Trash2, Plus, Inbox, Mail, MailOpen } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -77,6 +77,11 @@ export default function Communications() {
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<CommunicationTemplate[]>({
     queryKey: [`/api/organizations/${orgId}/templates`],
+    enabled: !!orgId,
+  });
+
+  const { data: inboundMessages = [], isLoading: inboxLoading } = useQuery({
+    queryKey: [`/api/organizations/${orgId}/sms/inbound`],
     enabled: !!orgId,
   });
 
@@ -339,6 +344,24 @@ export default function Communications() {
     });
   };
 
+  const markReadMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      return apiRequest("POST", `/api/organizations/${orgId}/sms/inbound/${messageId}/mark-read`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/organizations/${orgId}/sms/inbound`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark message as read",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unreadCount = inboundMessages.filter((msg: any) => !msg.isRead).length;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Button
@@ -384,6 +407,16 @@ export default function Communications() {
           <TabsTrigger value="compose">Compose Message</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="history">Message History</TabsTrigger>
+          <TabsTrigger value="inbox">
+            <div className="flex items-center gap-2">
+              Inbox
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
+            </div>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="compose" className="space-y-4">
@@ -676,6 +709,110 @@ export default function Communications() {
                           </AlertDescription>
                         </Alert>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inbox">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Inbox className="h-5 w-5" />
+                Smart Concierge Inbox
+              </CardTitle>
+              <CardDescription>
+                Messages received from coaches via SMS auto-reply system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {inboxLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading inbox...
+                </div>
+              ) : inboundMessages.length === 0 ? (
+                <div className="text-center py-8">
+                  <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No messages yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    When coaches text your Twilio number, their messages will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {inboundMessages.map((message: any) => (
+                    <div
+                      key={message.id}
+                      className={`border rounded-lg p-4 space-y-2 ${
+                        !message.isRead ? "bg-muted/50" : ""
+                      }`}
+                      data-testid={`inbound-message-${message.id}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            {message.isRead ? (
+                              <MailOpen className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Mail className="h-4 w-4 text-primary" />
+                            )}
+                            <p className="font-medium">
+                              {formatPhoneForDisplay(message.fromNumber)}
+                            </p>
+                            {!message.isRead && (
+                              <Badge variant="default" className="text-xs">
+                                New
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* Smart Context - Show if we matched a team/tournament */}
+                          {message.matchedTeamId && (
+                            <div className="mt-2 flex items-center gap-2 text-sm">
+                              <Badge variant="outline" className="text-xs">
+                                {message.matchedRole || "staff"}
+                              </Badge>
+                              <span className="text-muted-foreground">
+                                Tournament: {message.tournament?.name || "Unknown"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {!message.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markReadMutation.mutate(message.id)}
+                            data-testid={`button-mark-read-${message.id}`}
+                          >
+                            Mark as Read
+                          </Button>
+                        )}
+                      </div>
+
+                      <p className="text-sm bg-background rounded-md p-3 border">
+                        {message.messageBody}
+                      </p>
+
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>
+                          Received {new Date(message.createdAt).toLocaleString()}
+                        </span>
+                        {message.matchedTeamId && (
+                          <span className="text-green-600 dark:text-green-400">
+                            ✓ Auto-replied with dashboard link
+                          </span>
+                        )}
+                        {!message.matchedTeamId && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            ⚠ Unknown sender - sent fallback message
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
