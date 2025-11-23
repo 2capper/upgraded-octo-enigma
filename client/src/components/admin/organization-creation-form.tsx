@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useLocation } from 'wouter';
 import { Building2, Plus, Loader2, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ type FormSchema = z.infer<typeof formSchema>;
 
 export const OrganizationCreationForm = () => {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [showForm, setShowForm] = useState(false);
   const [logoPreviewError, setLogoPreviewError] = useState(false);
 
@@ -47,14 +49,17 @@ export const OrganizationCreationForm = () => {
     mutationFn: async (data: FormSchema) => {
       return apiRequest('POST', '/api/organizations', data);
     },
-    onSuccess: () => {
+    onSuccess: (newOrg: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
       toast({
         title: 'Organization Created',
-        description: 'The organization has been successfully created.',
+        description: "Now let's create your first tournament!",
       });
       form.reset();
       setShowForm(false);
+      // Redirect to new org's admin portal with firstTime flag to auto-open tournament creation
+      setLocation(`/org/${newOrg.id}/tournaments?firstTime=true`);
     },
     onError: (error: any) => {
       toast({
