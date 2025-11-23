@@ -580,6 +580,287 @@ function DiamondFormDialog({ organizationId, diamond, isOpen, onOpenChange }: Di
   );
 }
 
+interface DiamondStatusControlProps {
+  diamond: Diamond;
+  organizationId: string;
+}
+
+function DiamondStatusControl({ diamond, organizationId }: DiamondStatusControlProps) {
+  const { toast } = useToast();
+  const [showAffectedGames, setShowAffectedGames] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState(diamond.statusMessage || '');
+  
+  const { data: affectedGames, isLoading: loadingGames } = useQuery({
+    queryKey: ['/api/diamonds', diamond.id, 'affected-games', pendingStatus],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      const response = await fetch(
+        `/api/diamonds/${diamond.id}/affected-games?startDate=${today}&endDate=${tomorrow}`
+      );
+      return response.json();
+    },
+    enabled: !!pendingStatus && pendingStatus !== 'open',
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { status: string; statusMessage: string | null }) => {
+      return apiRequest('PUT', `/api/diamonds/${diamond.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId, 'diamonds'] });
+      toast({
+        title: "Status Updated",
+        description: `${diamond.name} status has been updated.`,
+      });
+      setPendingStatus(null);
+      setShowAffectedGames(false);
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update diamond status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === 'open') {
+      updateMutation.mutate({ status: newStatus, statusMessage: null });
+      setStatusMessage('');
+    } else {
+      setPendingStatus(newStatus);
+      setShowAffectedGames(true);
+    }
+  };
+
+  const handleConfirmStatusChange = () => {
+    if (pendingStatus) {
+      updateMutation.mutate({ 
+        status: pendingStatus, 
+        statusMessage: statusMessage || null 
+      });
+    }
+  };
+
+  const statusBadgeClass = diamond.status === 'open' 
+    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    : diamond.status === 'closed'
+    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+    : diamond.status === 'delayed'
+    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+
+  return (
+    <>
+      <Select value={diamond.status} onValueChange={handleStatusChange}>
+        <SelectTrigger className="w-[130px]" data-testid={`select-diamond-status-${diamond.id}`}>
+          <SelectValue>
+            <Badge variant="outline" className={statusBadgeClass}>
+              {diamond.status.toUpperCase()}
+            </Badge>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="open">Open</SelectItem>
+          <SelectItem value="closed">Closed</SelectItem>
+          <SelectItem value="delayed">Delayed</SelectItem>
+          <SelectItem value="tbd">TBD</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <AffectedGamesModal
+        diamond={diamond}
+        isOpen={showAffectedGames}
+        onOpenChange={setShowAffectedGames}
+        affectedGames={affectedGames || []}
+        loadingGames={loadingGames}
+        statusMessage={statusMessage}
+        onStatusMessageChange={setStatusMessage}
+        onConfirm={handleConfirmStatusChange}
+        onCancel={() => {
+          setPendingStatus(null);
+          setShowAffectedGames(false);
+          setStatusMessage(diamond.statusMessage || '');
+        }}
+        isPending={updateMutation.isPending}
+      />
+    </>
+  );
+}
+
+interface AffectedGamesModalProps {
+  diamond: Diamond;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  affectedGames: any[];
+  loadingGames: boolean;
+  statusMessage: string;
+  onStatusMessageChange: (message: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}
+
+function AffectedGamesModal({
+  diamond,
+  isOpen,
+  onOpenChange,
+  affectedGames,
+  loadingGames,
+  statusMessage,
+  onStatusMessageChange,
+  onConfirm,
+  onCancel,
+  isPending,
+}: AffectedGamesModalProps) {
+  const { toast } = useToast();
+  const [sendingSMS, setSendingSMS] = useState(false);
+
+  const uniqueCoaches = new Set<string>();
+  affectedGames.forEach(game => {
+    if (game.homeTeam?.coachPhone) uniqueCoaches.add(game.homeTeam.coachPhone);
+    if (game.homeTeam?.managerPhone) uniqueCoaches.add(game.homeTeam.managerPhone);
+    if (game.homeTeam?.assistantPhone) uniqueCoaches.add(game.homeTeam.assistantPhone);
+    if (game.awayTeam?.coachPhone) uniqueCoaches.add(game.awayTeam.coachPhone);
+    if (game.awayTeam?.managerPhone) uniqueCoaches.add(game.awayTeam.managerPhone);
+    if (game.awayTeam?.assistantPhone) uniqueCoaches.add(game.awayTeam.assistantPhone);
+  });
+
+  const handleSendSMS = async () => {
+    setSendingSMS(true);
+    try {
+      const response = await apiRequest('POST', `/api/diamonds/${diamond.id}/send-field-alert`, {
+        games: affectedGames,
+      });
+      
+      toast({
+        title: "Alerts Sent",
+        description: `Successfully sent ${response.totalSent} SMS alerts to coaches.`,
+      });
+    } catch (error) {
+      toast({
+        title: "SMS Failed",
+        description: "Failed to send SMS alerts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingSMS(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Update Field Status: {diamond.name}</DialogTitle>
+          <DialogDescription>
+            {loadingGames ? (
+              "Checking for affected games..."
+            ) : affectedGames.length > 0 ? (
+              `${affectedGames.length} game${affectedGames.length !== 1 ? 's' : ''} scheduled today/tomorrow on this field`
+            ) : (
+              "No games scheduled today or tomorrow on this field"
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 flex-1 overflow-y-auto">
+          <div className="space-y-2">
+            <Label htmlFor="statusMessage">Status Message (Optional)</Label>
+            <Textarea
+              id="statusMessage"
+              placeholder="e.g., Under water - evaluating at 10 AM"
+              value={statusMessage}
+              onChange={(e) => onStatusMessageChange(e.target.value)}
+              rows={2}
+              data-testid="textarea-status-message"
+            />
+          </div>
+
+          {loadingGames ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : affectedGames.length > 0 ? (
+            <>
+              <div className="border rounded-lg p-4 space-y-3 max-h-[300px] overflow-y-auto">
+                {affectedGames.map((game, idx) => (
+                  <div key={game.id} className="border-b last:border-0 pb-3 last:pb-0">
+                    <div className="font-medium text-sm">
+                      {game.tournament?.name || 'Tournament'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {game.homeTeam?.name || 'Home'} vs {game.awayTeam?.name || 'Away'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {game.date} at {game.time}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>{uniqueCoaches.size} coach contacts</strong> will be notified if you send SMS alerts
+                </AlertDescription>
+              </Alert>
+            </>
+          ) : null}
+        </div>
+
+        <DialogFooter className="flex-shrink-0 gap-2">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={isPending || sendingSMS}
+            data-testid="button-cancel-status-change"
+          >
+            Cancel
+          </Button>
+          {affectedGames.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleSendSMS}
+              disabled={isPending || sendingSMS}
+              data-testid="button-send-sms"
+            >
+              {sendingSMS ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send SMS Alerts
+                </>
+              )}
+            </Button>
+          )}
+          <Button
+            onClick={onConfirm}
+            disabled={isPending || sendingSMS}
+            data-testid="button-confirm-status-change"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Update Status'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface DiamondManagementProps {
   organizationId: string;
   organizationSlug: string;
@@ -659,6 +940,7 @@ function DiamondManagement({ organizationId, organizationSlug }: DiamondManageme
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Location</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Available Hours</TableHead>
                 <TableHead className="text-center">Has Lights</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -674,6 +956,12 @@ function DiamondManagement({ organizationId, organizationSlug }: DiamondManageme
                     {diamond.location || (
                       <span className="text-muted-foreground italic">No location</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <DiamondStatusControl 
+                      diamond={diamond} 
+                      organizationId={organizationId}
+                    />
                   </TableCell>
                   <TableCell data-testid={`text-diamond-hours-${diamond.id}`}>
                     {diamond.availableStartTime} - {diamond.availableEndTime}
