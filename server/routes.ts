@@ -698,6 +698,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { startDate, endDate } = req.query;
       
+      const diamond = await diamondService.getDiamond(id);
+      if (!diamond) {
+        return res.status(404).json({ error: "Diamond not found" });
+      }
+      
       const allGames = await gameService.getAllGames();
       const filteredGames = allGames.filter(game => {
         if (game.diamondId !== id) return false;
@@ -708,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return true;
       });
 
-      const tournaments = await tournamentService.getTournaments();
+      const tournaments = await tournamentService.getTournaments(diamond.organizationId);
       const tournamentMap = new Map(tournaments.map(t => [t.id, t]));
       
       const teamsPromises = filteredGames.map(game => teamService.getTeams(game.tournamentId));
@@ -723,7 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         awayTeam: game.awayTeamId ? teamMap.get(game.awayTeamId) : null,
       }));
 
-      res.json(gamesWithDetails);
+      res.json(gamesWithDetails || []);
     } catch (error) {
       console.error("Error fetching affected games:", error);
       res.status(500).json({ error: "Failed to fetch affected games" });
