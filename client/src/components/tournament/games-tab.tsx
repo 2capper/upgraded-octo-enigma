@@ -26,8 +26,9 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
   const [teamFilter, setTeamFilter] = useState('all');
 
   // Fetch weather alerts for all games in the tournament
+  // Guard against undefined tournamentId to prevent invalid cache keys
   const { data: gamesWithWeather = [] } = useQuery<GameWithWeather[]>({
-    queryKey: [`/api/tournaments/${tournamentId}/weather/alerts`],
+    queryKey: tournamentId ? ['/api/tournaments', tournamentId, 'weather', 'alerts'] : ['weather-disabled'],
     enabled: !!tournamentId,
     refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
   });
