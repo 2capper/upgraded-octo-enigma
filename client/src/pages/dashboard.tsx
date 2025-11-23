@@ -126,6 +126,7 @@ export default function Dashboard() {
                 pools={pools}
                 ageDivisions={ageDivisions}
                 diamonds={diamonds}
+                tournamentId={currentTournamentId}
               />
             </TabsContent>
             

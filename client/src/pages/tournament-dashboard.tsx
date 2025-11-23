@@ -238,6 +238,7 @@ export default function TournamentDashboard() {
               ageDivisions={ageDivisions}
               pools={pools}
               diamonds={diamonds}
+              tournamentId={tournamentId}
             />
           </TabsContent>
           

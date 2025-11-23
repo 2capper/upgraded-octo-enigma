@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Plus, MapPin, Navigation } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Calendar, Plus, MapPin, Navigation, Cloud, Zap, Thermometer, Wind, CloudRain, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Team, Game, Pool, AgeDivision, Diamond } from '@shared/schema';
+import { Badge } from '@/components/ui/badge';
+import type { Team, Game, Pool, AgeDivision, Diamond, WeatherForecast } from '@shared/schema';
 
 interface GamesTabProps {
   games: Game[];
@@ -11,11 +13,46 @@ interface GamesTabProps {
   pools: Pool[];
   ageDivisions: AgeDivision[];
   diamonds: Diamond[];
+  tournamentId?: string;
 }
 
-export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesTabProps) => {
+interface GameWithWeather {
+  game: Game;
+  forecast: WeatherForecast;
+}
+
+export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tournamentId }: GamesTabProps) => {
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
+
+  // Fetch weather alerts for all games in the tournament
+  const { data: gamesWithWeather = [] } = useQuery<GameWithWeather[]>({
+    queryKey: [`/api/tournaments/${tournamentId}/weather/alerts`],
+    enabled: !!tournamentId,
+    refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
+  });
+
+  // Create a map of gameId -> weather forecast for quick lookup
+  const weatherMap = useMemo(() => {
+    const map = new Map<string, WeatherForecast>();
+    gamesWithWeather.forEach(({ game, forecast }) => {
+      map.set(game.id, forecast);
+    });
+    return map;
+  }, [gamesWithWeather]);
+
+  const getSeverityBadge = (forecast: WeatherForecast) => {
+    if (forecast.hasLightningAlert || forecast.hasSevereWeatherAlert) {
+      return <Badge variant="destructive" className="text-xs">Critical</Badge>;
+    }
+    if (forecast.hasHeatAlert) {
+      return <Badge variant="destructive" className="bg-orange-500 text-xs">Warning</Badge>;
+    }
+    if (forecast.hasWindAlert || forecast.hasPrecipitationAlert) {
+      return <Badge variant="secondary" className="text-xs">Watch</Badge>;
+    }
+    return null;
+  };
 
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
   
@@ -221,6 +258,8 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesT
                       const homeTeamName = getTeamName(game.homeTeamId);
                       const awayTeamName = getTeamName(game.awayTeamId);
                   
+                  const forecast = weatherMap.get(game.id);
+                  
                   return (
                     <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       {/* Mobile optimized layout */}
@@ -233,16 +272,64 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds }: GamesT
                               {formatTime(game.time || game.location)}
                             </p>
                           </div>
-                          {game.status === 'completed' ? (
-                            <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                              FINAL
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                              SCHEDULED
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {forecast && getSeverityBadge(forecast)}
+                            {game.status === 'completed' ? (
+                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                FINAL
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                SCHEDULED
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        
+                        {/* Weather Information (if available) */}
+                        {forecast && (
+                          <div className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-md border border-gray-200">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={`https:${forecast.conditionIcon}`} 
+                                alt={forecast.condition || "Weather"} 
+                                className="w-8 h-8"
+                              />
+                              <div>
+                                <div className="font-semibold text-sm">
+                                  {Math.round(parseFloat(forecast.temperatureF || "0"))}°F
+                                </div>
+                                <div className="text-xs text-gray-600">{forecast.condition}</div>
+                              </div>
+                            </div>
+                            <div className="flex-1 flex items-center gap-3 text-xs text-gray-600">
+                              {forecast.hasPrecipitationAlert && (
+                                <div className="flex items-center gap-1" title={`${forecast.precipitationProbability}% chance of rain`}>
+                                  <CloudRain className="w-3 h-3" />
+                                  <span>{forecast.precipitationProbability}%</span>
+                                </div>
+                              )}
+                              {forecast.hasWindAlert && (
+                                <div className="flex items-center gap-1" title={`Wind: ${forecast.windSpeed} mph`}>
+                                  <Wind className="w-3 h-3" />
+                                  <span>{forecast.windSpeed} mph</span>
+                                </div>
+                              )}
+                              {forecast.hasLightningAlert && (
+                                <div className="flex items-center gap-1 text-red-600 font-medium" title="Lightning detected">
+                                  <Zap className="w-3 h-3" />
+                                  <span>Lightning</span>
+                                </div>
+                              )}
+                              {forecast.hasHeatAlert && (
+                                <div className="flex items-center gap-1 text-orange-600 font-medium" title={`Heat Index: ${forecast.heatIndex}°F`}>
+                                  <Thermometer className="w-3 h-3" />
+                                  <span>{forecast.heatIndex}°F</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Teams and Score */}
                         <div className="space-y-2">
