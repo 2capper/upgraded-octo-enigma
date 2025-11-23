@@ -2,13 +2,18 @@ import { db } from "../db";
 import {
   organizationTwilioSettings,
   outboundSmsMessages,
+  inboundSmsMessages,
+  teams,
+  tournaments,
   type OrganizationTwilioSettings,
   type OutboundSmsMessage,
   type InsertOutboundSmsMessage,
+  type InsertInboundSmsMessage,
 } from "@shared/schema";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, or } from "drizzle-orm";
 import { isValidE164 } from "@shared/phoneUtils";
 import twilio from "twilio";
+import { nanoid } from "nanoid";
 
 export interface SendSmsOptions {
   organizationId: string;
@@ -284,6 +289,139 @@ export class SmsService {
         updatedAt: new Date(),
       })
       .where(eq(outboundSmsMessages.twilioMessageSid, twilioMessageSid));
+  }
+
+  /**
+   * Smart Concierge: Handle inbound SMS webhook from Twilio
+   * Identifies the sender by phone, generates personalized reply, and logs the message
+   */
+  async handleInboundMessage(
+    fromNumber: string,
+    toNumber: string,
+    messageBody: string
+  ): Promise<string> {
+    let responseText = "";
+    let orgId: string | null = null;
+    let matchedTeamId: string | null = null;
+    let matchedTournamentId: string | null = null;
+    let matchedRole: string | null = null;
+
+    // Step 1: THE INVESTIGATION - Who is this person?
+    // Check coach, manager, and assistant phone columns
+    const teamMatches = await db
+      .select()
+      .from(teams)
+      .where(
+        or(
+          eq(teams.coachPhone, fromNumber),
+          eq(teams.managerPhone, fromNumber),
+          eq(teams.assistantPhone, fromNumber)
+        )
+      )
+      .limit(1);
+
+    const teamMatch = teamMatches[0];
+
+    if (teamMatch) {
+      // Step 2a: SUCCESS - We found them!
+      // Identify which role matched
+      if (teamMatch.coachPhone === fromNumber) {
+        matchedRole = "coach";
+      } else if (teamMatch.managerPhone === fromNumber) {
+        matchedRole = "manager";
+      } else if (teamMatch.assistantPhone === fromNumber) {
+        matchedRole = "assistant";
+      }
+
+      // Get the tournament details
+      const [tournament] = await db
+        .select()
+        .from(tournaments)
+        .where(eq(tournaments.id, teamMatch.tournamentId));
+
+      if (tournament) {
+        orgId = tournament.organizationId;
+        matchedTeamId = teamMatch.id;
+        matchedTournamentId = tournament.id;
+
+        // Generate the "Magic Link" to their dashboard
+        // Future-proofing with ?chat=open for AI integration
+        const dashboardUrl = `https://app.dugoutdesk.ca/tournament/${tournament.id}?chat=open`;
+
+        responseText = `Hi ${teamMatch.name} Staff! For live scores, schedules, and support for ${tournament.name}, please visit: ${dashboardUrl}`;
+      }
+    }
+
+    // Step 2b: FAILURE - Unknown number, use fallback message
+    if (!responseText) {
+      // Try to find the organization by matching the Twilio phone number
+      const [orgSettings] = await db
+        .select()
+        .from(organizationTwilioSettings)
+        .where(eq(organizationTwilioSettings.phoneNumber, toNumber))
+        .limit(1);
+
+      if (orgSettings) {
+        orgId = orgSettings.organizationId;
+        responseText =
+          orgSettings.autoReplyMessage ||
+          "This is an automated system. Please contact your Tournament Director directly.";
+      } else {
+        // Last resort: generic fallback
+        responseText =
+          "This is an automated system. Please contact your Tournament Director directly.";
+      }
+    }
+
+    // Step 3: THE LOG - Save to admin inbox
+    const messageRecord: InsertInboundSmsMessage = {
+      organizationId: orgId,
+      fromNumber,
+      toNumber,
+      messageBody,
+      matchedTeamId,
+      matchedTournamentId,
+      matchedRole,
+      isRead: false,
+    };
+
+    await db.insert(inboundSmsMessages).values(messageRecord);
+
+    // Step 4: THE REPLY - Generate TwiML response
+    const MessagingResponse = twilio.twiml.MessagingResponse;
+    const twiml = new MessagingResponse();
+    twiml.message(responseText);
+
+    return twiml.toString();
+  }
+
+  /**
+   * Get inbound message inbox for an organization
+   */
+  async getInboundMessages(
+    organizationId: string,
+    limit: number = 100,
+    offset: number = 0
+  ) {
+    const messages = await db
+      .select()
+      .from(inboundSmsMessages)
+      .where(eq(inboundSmsMessages.organizationId, organizationId))
+      .orderBy(sql`${inboundSmsMessages.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
+
+    return messages;
+  }
+
+  /**
+   * Mark an inbound message as read
+   */
+  async markInboundMessageRead(messageId: string): Promise<void> {
+    await db
+      .update(inboundSmsMessages)
+      .set({ isRead: true })
+      .where(eq(inboundSmsMessages.id, messageId));
   }
 }
 
