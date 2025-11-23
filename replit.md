@@ -67,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - **SMS Communications**: Twilio integration for organization admins to send bulk SMS to coaches.
 - **Smart Concierge SMS Webhook**: Bidirectional SMS system that intelligently responds to inbound texts. When coaches text the organization's Twilio number, the system identifies them by phone lookup across coach/manager/assistant fields, auto-replies with a personalized tournament dashboard link (with `?chat=open` for future AI integration), and logs all messages in an admin inbox. Unknown numbers receive a configurable fallback message.
 - **Weather Integration**: WeatherAPI.com for dynamic forecasts, player safety alerts, and a dedicated weather dashboard with configurable safety thresholds.
+- **Weather Map Visualization**: Interactive Leaflet-based map displaying weather alerts across all diamond locations with severity-coded markers (red/orange/yellow) and detailed popups. Integrated as a tab view in the Weather Dashboard alongside the list view, with shared data and mobile-optimized design.
 
 ## External Dependencies
 
@@ -80,4 +81,5 @@ Preferred communication style: Simple, everyday language.
 - **Authentication**: `openid-client`, `passport`, `memoizee`
 - **SMS**: Twilio
 - **Weather**: WeatherAPI.com
+- **Maps**: Leaflet, React-Leaflet for interactive weather visualization
 - **Web Scraping**: Python-based service for OBA roster data
