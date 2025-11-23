@@ -39,6 +39,7 @@ import { getBracketStructure } from "@shared/bracketStructure";
 import { generateICSFile, type CalendarEvent } from "./utils/ics-generator";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { notificationService } from "./lib/notificationService";
+import twilio from "twilio";
 
 // Helper function to get all organization IDs a user has access to
 async function getUserOrganizationIds(userId: string): Promise<Set<string>> {
@@ -5833,6 +5834,41 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error requesting staff contacts:", error);
       res.status(500).json({ error: "Failed to request staff contacts" });
+    }
+  });
+
+  // ==================== SMART CONCIERGE WEBHOOK ====================
+  // Public webhook for Twilio inbound SMS (no auth required)
+  app.post("/api/webhooks/twilio/inbound", async (req, res) => {
+    try {
+      const fromNumber = req.body.From;
+      const toNumber = req.body.To;
+      const messageBody = req.body.Body || "";
+
+      if (!fromNumber || !toNumber) {
+        return res.status(400).send("Missing required fields: From or To");
+      }
+
+      // Smart Concierge: Identify sender, generate reply, log message
+      const twimlResponse = await smsService.handleInboundMessage(
+        fromNumber,
+        toNumber,
+        messageBody
+      );
+
+      // Return TwiML to Twilio
+      res.type("text/xml");
+      res.send(twimlResponse);
+    } catch (error) {
+      console.error("Error handling inbound SMS:", error);
+      
+      // Return generic error TwiML
+      const MessagingResponse = twilio.twiml.MessagingResponse;
+      const twiml = new MessagingResponse();
+      twiml.message("We're experiencing technical difficulties. Please try again later.");
+      
+      res.type("text/xml");
+      res.send(twiml.toString());
     }
   });
 
