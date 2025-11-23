@@ -43,6 +43,19 @@ export default function TournamentDashboard() {
     enabled: !!currentTournament?.organizationId,
   });
 
+  // Get all unique diamonds used in this tournament's games
+  const usedDiamondIds = useMemo(() => {
+    const ids = new Set<string>();
+    games.forEach(game => {
+      if (game.diamondId) ids.add(game.diamondId);
+    });
+    return Array.from(ids);
+  }, [games]);
+
+  const tournamentDiamonds = useMemo(() => {
+    return diamonds.filter(d => usedDiamondIds.includes(d.id));
+  }, [diamonds, usedDiamondIds]);
+
   if (tournamentLoading || isLoading || authLoading || diamondsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,19 +197,6 @@ export default function TournamentDashboard() {
 
         {/* Field Conditions Section */}
         {(() => {
-          // Get all unique diamonds used in this tournament's games
-          const usedDiamondIds = useMemo(() => {
-            const ids = new Set<string>();
-            games.forEach(game => {
-              if (game.diamondId) ids.add(game.diamondId);
-            });
-            return Array.from(ids);
-          }, [games]);
-
-          const tournamentDiamonds = useMemo(() => {
-            return diamonds.filter(d => usedDiamondIds.includes(d.id));
-          }, [diamonds, usedDiamondIds]);
-
           // Only show section if there are diamonds with status issues
           const diamondsWithIssues = tournamentDiamonds.filter(d => d.status !== 'open');
           
