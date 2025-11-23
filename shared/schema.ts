@@ -675,6 +675,9 @@ export const organizationTwilioSettings = pgTable("organization_twilio_settings"
   dailyLimit: integer("daily_limit").notNull().default(100), // Max messages per day
   rateLimit: integer("rate_limit").notNull().default(100), // Max messages per 15 minutes
   
+  // Auto-reply message for inbound SMS (Smart Concierge fallback)
+  autoReplyMessage: text("auto_reply_message").default("This is an automated alert system. Please contact your Tournament Director directly."),
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -704,6 +707,27 @@ export const outboundSmsMessages = pgTable("outbound_sms_messages", {
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Inbound SMS message log for Smart Concierge webhook (admin inbox)
+export const inboundSmsMessages = pgTable("inbound_sms_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }), // Linked if org is identified
+  
+  // Message details
+  fromNumber: text("from_number").notNull(), // Sender's phone in E.164 format
+  toNumber: text("to_number").notNull(), // Twilio number that received the message
+  messageBody: text("message_body").notNull(),
+  
+  // Smart Context (filled if we identify the sender)
+  matchedTeamId: text("matched_team_id").references(() => teams.id, { onDelete: "set null" }),
+  matchedTournamentId: text("matched_tournament_id").references(() => tournaments.id, { onDelete: "set null" }),
+  matchedRole: text("matched_role"), // "coach" | "manager" | "assistant" - which role matched
+  
+  // Admin inbox management
+  isRead: boolean("is_read").notNull().default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Weather API settings for organizations
@@ -1307,3 +1331,10 @@ export const insertTournamentMessageSchema = createInsertSchema(tournamentMessag
 });
 export type TournamentMessage = typeof tournamentMessages.$inferSelect;
 export type InsertTournamentMessage = z.infer<typeof insertTournamentMessageSchema>;
+
+export const insertInboundSmsMessageSchema = createInsertSchema(inboundSmsMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InboundSmsMessage = typeof inboundSmsMessages.$inferSelect;
+export type InsertInboundSmsMessage = z.infer<typeof insertInboundSmsMessageSchema>;
