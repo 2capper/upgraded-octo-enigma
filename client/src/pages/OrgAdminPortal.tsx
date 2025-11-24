@@ -87,6 +87,7 @@ export default function OrgAdminPortal() {
       href: `/booking/${orgId}/hub`,
       color: 'green',
       featureKey: 'booking',
+      requiresAdmin: true,
       testId: 'card-booking',
     },
     {

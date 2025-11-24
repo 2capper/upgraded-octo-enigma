@@ -232,9 +232,7 @@ export default function OrganizationSelector() {
                     style={{ backgroundColor: org.primaryColor }}
                     data-testid={`button-select-${org.id}`}
                   >
-                    {coachInvites?.some(inv => inv.organizationId === org.id) 
-                      ? 'Open Booking Dashboard' 
-                      : 'Open Admin Portal'}
+                    Open Admin Portal
                   </Button>
                 </CardContent>
               </Card>
