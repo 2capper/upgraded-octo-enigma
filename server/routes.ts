@@ -245,8 +245,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (resetData) {
         // TODO: Send email with reset link
-        // For now, we'll return the token (in production, only send via email)
-        console.log(`Password reset requested for ${email}. Token: ${resetData.resetToken}`);
+        // For development only - log token (NEVER in production)
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[DEV ONLY] Password reset requested for ${email}. Token: ${resetData.resetToken}`);
+        }
       }
 
       // Always return success to prevent email enumeration
