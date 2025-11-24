@@ -58,9 +58,12 @@ export default function OrgAdminPortal() {
 
   // Helper function to check if a feature is enabled
   const isFeatureEnabled = (featureKey: string): boolean => {
-    if (!featureFlags || featureFlags.length === 0) return true; // Default to showing features if flags haven't loaded
+    if (!featureFlags || featureFlags.length === 0) {
+      const defaultEnabledFeatures = ['tournaments', 'sms', 'weather'];
+      return defaultEnabledFeatures.includes(featureKey);
+    }
     const flag = featureFlags.find(f => f.key === featureKey);
-    return flag ? flag.effectivelyEnabled : true;
+    return flag ? flag.effectivelyEnabled : false;
   };
 
   // Define all available features
@@ -72,6 +75,7 @@ export default function OrgAdminPortal() {
       icon: <Trophy className="w-5 h-5" />,
       href: `/org/${orgId}/tournaments`,
       color: 'purple',
+      featureKey: 'tournaments',
       requiresAdmin: true,
       testId: 'card-tournaments',
     },
@@ -82,6 +86,7 @@ export default function OrgAdminPortal() {
       icon: <Users className="w-5 h-5" />,
       href: `/org/${orgId}/teams`,
       color: 'orange',
+      featureKey: 'teams',
       requiresAdmin: true,
       testId: 'card-teams',
     },
@@ -124,6 +129,7 @@ export default function OrgAdminPortal() {
       icon: <BarChart3 className="w-5 h-5" />,
       href: `/org/${orgId}/reports`,
       color: 'indigo',
+      featureKey: 'reports',
       requiresAdmin: true,
       testId: 'card-reports',
     },
