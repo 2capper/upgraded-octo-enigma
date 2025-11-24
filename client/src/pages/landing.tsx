@@ -4,7 +4,7 @@ import { Shield, Trophy, Users, Calendar } from 'lucide-react';
 
 export default function Landing() {
   const handleSignIn = () => {
-    window.location.href = '/api/login';
+    window.location.href = '/login';
   };
 
   return (
@@ -24,7 +24,7 @@ export default function Landing() {
               data-testid="button-signin"
             >
               <Shield className="w-4 h-4 mr-2" />
-              Sign In with Replit
+              Sign In
             </Button>
           </div>
         </div>
