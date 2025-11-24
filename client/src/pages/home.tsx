@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp, Shield, BarChart3, Smartphone } from "lucide-react";
 import { format } from "date-fns";
-import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png";
+import dugoutDeskLogo from "@assets/Gemini_Generated_Image_cj7rofcj7rofcj7r (1)_1764008382610.png";
 import { FeatureShowcase } from "@/components/feature-showcase";
 import { useHostnameContext } from "@/hooks/useHostnameContext";
 import { useAuth } from "@/hooks/useAuth";

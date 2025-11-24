@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, isPast, isFuture } from 'date-fns';
 import { useHostnameContext } from '@/hooks/useHostnameContext';
-import logoUrl from '@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png';
+import logoUrl from '@assets/Gemini_Generated_Image_cj7rofcj7rofcj7r (1)_1764008382610.png';
 
 interface PublicTournament {
   id: string;
