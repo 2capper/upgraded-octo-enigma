@@ -116,7 +116,7 @@ export default function TournamentDashboard() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button 
-              onClick={() => window.location.href = '/api/login'} 
+              onClick={() => window.location.href = '/login'} 
               className="bg-[var(--forest-green)] text-white hover:bg-[var(--forest-green)]/90"
               data-testid="button-sign-in"
             >

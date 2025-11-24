@@ -136,7 +136,7 @@ export function FeatureShowcase() {
                   View Active Tournaments
                 </button>
               </a>
-              <a href="/api/login">
+              <a href="/login">
                 <button
                   className="min-h-[48px] px-8 py-3 rounded-md text-base font-semibold border-2 transition-all hover:bg-gray-50"
                   style={{ borderColor: 'var(--field-green)', color: 'var(--field-green)' }}

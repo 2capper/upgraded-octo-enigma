@@ -79,7 +79,7 @@ export default function PublicDirectory() {
             </div>
             <div className="flex gap-2">
               {isStorefront && (
-                <a href="/api/login">
+                <a href="/login">
                   <Button
                     variant="outline"
                     className="bg-white/10 text-white border-white/30 hover:bg-white/20"
@@ -118,7 +118,7 @@ export default function PublicDirectory() {
               Get in, get it done, get back to the game.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a href="/api/login">
+              <a href="/login">
                 <Button
                   size="lg"
                   className="bg-[var(--clay-red)] text-white hover:bg-[var(--clay-red)]/90 text-lg px-8 py-6 shadow-xl"
@@ -365,7 +365,7 @@ export default function PublicDirectory() {
               Join baseball organizations across Ontario using Dugout Desk for faster, simpler tournament management.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/api/login">
+              <a href="/login">
                 <Button
                   size="lg"
                   className="bg-[var(--clay-red)] text-white hover:bg-[var(--clay-red)]/90 text-lg px-8 py-6 shadow-xl"
