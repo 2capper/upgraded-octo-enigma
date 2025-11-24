@@ -47,6 +47,7 @@ export default function OrganizationSelector() {
   // Fetch accepted coach invitations to determine if user is a coach
   const { data: coachInvites } = useQuery<Array<{ organizationId: string }>>({
     queryKey: ['/api/coach-invitations/accepted'],
+    enabled: !!user,
   });
 
   const handleDeleteClick = (e: React.MouseEvent, org: Organization) => {
