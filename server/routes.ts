@@ -709,6 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orgFlag = orgFlags.find(of => of.featureFlagId === flag.id);
         return {
           ...flag,
+          key: flag.featureKey, // Frontend expects 'key' property
           orgEnabled: orgFlag ? orgFlag.isEnabled : null, // null means org hasn't set preference
           effectivelyEnabled: flag.isEnabled && (orgFlag ? orgFlag.isEnabled : true),
         };
