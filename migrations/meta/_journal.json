@@ -43,6 +43,13 @@
       "when": 1763873617147,
       "tag": "0005_first_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763952726154,
+      "tag": "0006_wide_legion",
+      "breakpoints": true
     }
   ]
 }
