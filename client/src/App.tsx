@@ -42,6 +42,9 @@ import OrgAdminPortal from "@/pages/OrgAdminPortal";
 import OrgSettings from "@/pages/OrgSettings";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import NotFoundPage from "@/pages/error-pages/404";
 import UnauthorizedPage from "@/pages/error-pages/401";
 import ServerErrorPage from "@/pages/error-pages/500";
@@ -296,8 +299,13 @@ function Router() {
         {() => <RequireAuth component={ValidationReport} />}
       </Route>
       
-      {/* Error Pages */}
+      {/* Authentication Pages */}
       <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+      
+      {/* Error Pages */}
       <Route path="/401" component={UnauthorizedPage} />
       <Route path="/500" component={ServerErrorPage} />
       <Route path="/404" component={NotFoundPage} />

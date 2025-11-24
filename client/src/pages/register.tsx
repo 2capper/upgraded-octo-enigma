@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, LogIn, Check, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { Shield, UserPlus, Check, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,24 +9,44 @@ import { Link, useLocation } from "wouter";
 import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofcj7r_85636863_1761934089236.png";
 import { apiRequest } from '@/lib/queryClient';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Client-side validation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await apiRequest('POST', '/api/auth/login', { email, password });
+      await apiRequest('POST', '/api/auth/register', {
+        email,
+        password,
+        firstName,
+        lastName,
+      });
       // Redirect to home on success
       window.location.href = '/';
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -52,25 +72,53 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="max-w-4xl w-full">
           <div className="grid md:grid-cols-2 gap-8 items-start">
-            {/* Left Column - Sign In Card */}
+            {/* Left Column - Registration Card */}
             <Card className="backdrop-blur-sm bg-white/95">
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <Shield className="w-8 h-8 text-primary" />
                 </div>
-                <CardTitle className="text-2xl">Welcome Back</CardTitle>
+                <CardTitle className="text-2xl">Create Your Account</CardTitle>
                 <CardDescription className="text-base mt-2">
-                  Sign in to access your tournament dashboard
+                  Join Dugout Desk and start managing tournaments
                 </CardDescription>
               </CardHeader>
-              <form onSubmit={handleLogin}>
+              <form onSubmit={handleRegister}>
                 <CardContent className="space-y-4">
                   {error && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
+                      <AlertDescription data-testid="text-error">{error}</AlertDescription>
                     </Alert>
                   )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        type="text"
+                        placeholder="John"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        required
+                        disabled={isLoading}
+                        data-testid="input-firstname"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        type="text"
+                        placeholder="Doe"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required
+                        disabled={isLoading}
+                        data-testid="input-lastname"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -96,17 +144,22 @@ export default function LoginPage() {
                       disabled={isLoading}
                       data-testid="input-password"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Must be at least 8 characters long
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="text-sm p-0 h-auto"
-                      onClick={() => setLocation('/forgot-password')}
-                      data-testid="link-forgot-password"
-                    >
-                      Forgot password?
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      data-testid="input-confirmpassword"
+                    />
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4">
@@ -115,30 +168,30 @@ export default function LoginPage() {
                     size="lg"
                     className="w-full"
                     disabled={isLoading}
-                    data-testid="button-login"
+                    data-testid="button-register"
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Signing in...
+                        Creating account...
                       </>
                     ) : (
                       <>
-                        <LogIn className="w-5 h-5 mr-2" />
-                        Sign In
+                        <UserPlus className="w-5 h-5 mr-2" />
+                        Create Account
                       </>
                     )}
                   </Button>
                   <div className="text-center text-sm text-muted-foreground">
-                    Don't have an account?{' '}
+                    Already have an account?{' '}
                     <Button
                       type="button"
                       variant="link"
                       className="p-0 h-auto font-semibold"
-                      onClick={() => setLocation('/register')}
-                      data-testid="link-register"
+                      onClick={() => setLocation('/login')}
+                      data-testid="link-login"
                     >
-                      Sign up
+                      Sign in
                     </Button>
                   </div>
                 </CardFooter>
@@ -149,10 +202,10 @@ export default function LoginPage() {
             <div className="text-white space-y-6">
               <div>
                 <h2 className="text-3xl font-bold mb-3 font-['Oswald']">
-                  Your Tournament Command Center
+                  Start Managing Tournaments Today
                 </h2>
                 <p className="text-white/80 text-lg">
-                  Manage tournaments, track scores, and update standings in real-time. Built for baseball tournament directors and coaches on the go.
+                  Create your free account and experience the most intuitive tournament management platform built specifically for baseball.
                 </p>
               </div>
 
@@ -162,9 +215,9 @@ export default function LoginPage() {
                     <Check className="w-5 h-5 text-[var(--field-green)]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Real-Time Updates</h3>
+                    <h3 className="font-semibold mb-1">Quick Setup</h3>
                     <p className="text-white/70 text-sm">
-                      Update scores and standings instantly from any device. Changes sync across all users immediately.
+                      Get your first tournament running in minutes. No training required - our intuitive interface guides you every step.
                     </p>
                   </div>
                 </div>
@@ -174,9 +227,9 @@ export default function LoginPage() {
                     <Check className="w-5 h-5 text-[var(--field-green)]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Mobile-First Design</h3>
+                    <h3 className="font-semibold mb-1">Free to Start</h3>
                     <p className="text-white/70 text-sm">
-                      Optimized for coaches managing tournaments from the dugout. Get in, get it done, get back to the game.
+                      Create your account and explore all features. No credit card required to get started.
                     </p>
                   </div>
                 </div>
@@ -186,9 +239,9 @@ export default function LoginPage() {
                     <Check className="w-5 h-5 text-[var(--field-green)]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Complete Bracket Management</h3>
+                    <h3 className="font-semibold mb-1">Built for Baseball</h3>
                     <p className="text-white/70 text-sm">
-                      From pool play to playoffs, manage every aspect of your tournament with automatic seeding and bracket generation.
+                      Designed by tournament directors for tournament directors. Every feature built to solve real problems.
                     </p>
                   </div>
                 </div>
