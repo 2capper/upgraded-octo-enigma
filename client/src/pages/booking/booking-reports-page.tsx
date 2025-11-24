@@ -44,10 +44,10 @@ export default function BookingReportsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#2B3A4A] text-white py-6 shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
-          <Link href={`/booking/${orgId}`}>
+          <Link href={`/booking/${orgId}/hub`}>
             <Button variant="ghost" className="text-white hover:text-white hover:bg-white/10 mb-2" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
+              Back to Diamond Booking
             </Button>
           </Link>
           <h1 className="text-3xl font-bold">{organization?.name || 'Loading...'}</h1>

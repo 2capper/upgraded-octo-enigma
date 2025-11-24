@@ -19,6 +19,7 @@ import TournamentRegistrationComingSoon from "@/pages/coming-soon/tournament-reg
 import TournamentCommsComingSoon from "@/pages/coming-soon/tournament-comms";
 import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
 import BookingDashboard from "@/pages/booking/booking-dashboard";
+import BookingHub from "@/pages/booking/booking-hub";
 import NewBookingRequest from "@/pages/booking/new-booking-request";
 import BookingRequestDetail from "@/pages/booking/booking-request-detail";
 import { BookingCalendarPage } from "@/pages/booking/booking-calendar-page";
@@ -223,6 +224,9 @@ function Router() {
       </Route>
       
       {/* Booking module routes - protected (specific routes first) */}
+      <Route path="/booking/:orgId/hub">
+        {() => <RequireAuth component={BookingHub} />}
+      </Route>
       <Route path="/booking/:orgId/calendar">
         {() => <RequireAuth component={BookingCalendarPage} />}
       </Route>

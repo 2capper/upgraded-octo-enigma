@@ -10,9 +10,7 @@ import {
   ArrowRight, 
   MessageSquare, 
   Cloud, 
-  Users, 
   Settings,
-  BarChart3,
   Compass,
   Shield
 } from "lucide-react";
@@ -61,7 +59,7 @@ export default function OrgAdminPortal() {
   // Helper function to check if a feature is enabled
   const isFeatureEnabled = (featureKey: string): boolean => {
     if (!featureFlags || featureFlags.length === 0) {
-      const defaultEnabledFeatures = ['tournaments', 'sms', 'weather'];
+      const defaultEnabledFeatures = ['tournaments', 'sms', 'weather', 'booking'];
       return defaultEnabledFeatures.includes(featureKey);
     }
     const flag = featureFlags.find(f => f.key === featureKey);
@@ -82,22 +80,11 @@ export default function OrgAdminPortal() {
       testId: 'card-tournaments',
     },
     {
-      id: 'teams',
-      title: 'Team Management',
-      description: 'Manage house league teams and rosters',
-      icon: <Users className="w-5 h-5" />,
-      href: `/org/${orgId}/teams`,
-      color: 'orange',
-      featureKey: 'teams',
-      requiresAdmin: true,
-      testId: 'card-teams',
-    },
-    {
       id: 'booking',
       title: 'Diamond Booking',
-      description: 'Calendar, requests, and approvals',
+      description: 'Bookings, teams, and reports',
       icon: <Calendar className="w-5 h-5" />,
-      href: `/org/${orgId}/booking`,
+      href: `/booking/${orgId}/hub`,
       color: 'green',
       featureKey: 'booking',
       testId: 'card-booking',
@@ -123,17 +110,6 @@ export default function OrgAdminPortal() {
       featureKey: 'weather',
       requiresAdmin: true,
       testId: 'card-weather',
-    },
-    {
-      id: 'reports',
-      title: 'Reports & Analytics',
-      description: 'View usage and statistics',
-      icon: <BarChart3 className="w-5 h-5" />,
-      href: `/org/${orgId}/reports`,
-      color: 'indigo',
-      featureKey: 'reports',
-      requiresAdmin: true,
-      testId: 'card-reports',
     },
     {
       id: 'user-management',
@@ -260,9 +236,17 @@ export default function OrgAdminPortal() {
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visibleFeatures.map((feature, index) => {
+          {visibleFeatures.map((feature) => {
             const colors = getColorClasses(feature.color);
-            const tourDataId = ['tournaments-tab', 'teams-tab', 'booking-tab', 'sms-tab', 'weather-tab', 'reports-tab', 'settings-tab'][index];
+            const tourDataMap: Record<string, string> = {
+              'tournaments': 'tournaments-tab',
+              'booking': 'booking-tab',
+              'communications': 'sms-tab',
+              'weather': 'weather-tab',
+              'user-management': 'users-tab',
+              'settings': 'settings-tab',
+            };
+            const tourDataId = tourDataMap[feature.id];
             return (
               <Link key={feature.id} href={feature.href}>
                 <Card 
