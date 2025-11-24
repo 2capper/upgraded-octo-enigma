@@ -23,12 +23,13 @@ export default function LoginPage() {
 
     try {
       const response = await apiRequest('POST', '/api/auth/login', { email, password });
+      const data = await response.json();
       
       // Add small delay to ensure session cookie is set
       await new Promise(resolve => setTimeout(resolve, 200));
       
       // Smart redirect based on user role
-      const user = response.user;
+      const user = data.user;
       if (user?.isSuperAdmin) {
         window.location.href = '/admin';
       } else {
