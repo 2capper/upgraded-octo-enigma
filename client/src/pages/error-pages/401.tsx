@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export default function UnauthorizedPage() {
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
   };
 
   return (
@@ -20,7 +20,7 @@ export default function UnauthorizedPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center text-sm text-muted-foreground">
-          <p>Sign in with your Replit account to continue using Dugout Desk.</p>
+          <p>Sign in to continue using Dugout Desk.</p>
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button onClick={handleLogin} size="lg" data-testid="button-sign-in">

@@ -27,6 +27,7 @@ import { EndOfPoolPlayReport } from '@/components/tournament/end-of-pool-play-re
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { isUnauthorizedError } from '@/lib/authUtils';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function AdminPortal() {
   const params = useParams<{ tournamentId?: string; orgId?: string }>();
@@ -36,6 +37,16 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState('tournaments');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest('POST', '/api/auth/logout', {});
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      window.location.href = '/';
+    }
+  };
 
   // Extract orgId and tournamentId from URL params
   const orgId = params.orgId;
@@ -260,7 +271,7 @@ export default function AdminPortal() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.location.href = "/api/logout"}
+              onClick={handleLogout}
               className="ml-4"
             >
               <LogOut className="w-4 h-4 mr-2" />

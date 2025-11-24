@@ -10,10 +10,21 @@ import dugoutDeskLogo from "@assets/tinywow_Gemini_Generated_Image_cj7rofcj7rofc
 import { FeatureShowcase } from "@/components/feature-showcase";
 import { useHostnameContext } from "@/hooks/useHostnameContext";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Home() {
   const { isStorefront } = useHostnameContext();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest('POST', '/api/auth/logout', {});
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      window.location.href = '/';
+    }
+  };
   
   const { data: organizations, isLoading: orgsLoading } = useQuery<Organization[]>({
     queryKey: ['/api/organizations'],
@@ -191,17 +202,16 @@ export default function Home() {
                 <Building2 className="w-4 h-4 mr-0 sm:mr-2" />
                 <span className="hidden sm:inline">Organizations</span>
               </Button>
-              <a href="/api/logout">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/10 text-white border-white/30 hover:bg-white/20"
-                  data-testid="button-logout"
-                >
-                  <LogIn className="w-4 h-4 mr-0 sm:mr-2" />
-                  <span className="hidden sm:inline">Logout</span>
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogIn className="w-4 h-4 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
             </div>
           </div>
         </div>
