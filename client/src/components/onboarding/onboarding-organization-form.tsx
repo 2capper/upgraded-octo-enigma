@@ -49,18 +49,19 @@ export const OnboardingOrganizationForm = () => {
 
   const createMutation = useMutation({
     mutationFn: async (data: FormSchema) => {
-      return apiRequest('POST', '/api/onboarding/create-organization', data);
+      const response = await apiRequest('POST', '/api/onboarding/create-organization', data);
+      return response.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: (organization: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/organizations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
       setShowSuccess(true);
       
       // Extract org ID - API returns organization object with id field
-      const orgId = data?.id;
+      const orgId = organization?.id;
       
       if (!orgId) {
-        console.error('No organization ID in response:', data);
+        console.error('No organization ID in response:', organization);
         toast({
           title: 'Error',
           description: 'Organization created but redirect failed. Please refresh the page.',
