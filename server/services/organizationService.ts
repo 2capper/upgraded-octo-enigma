@@ -66,29 +66,54 @@ export class OrganizationService {
 
   // Organization Admin Management
   async assignOrganizationAdmin(userId: string, organizationId: string, role: string = "admin"): Promise<OrganizationAdmin> {
-    // First, ensure the user's isAdmin flag is set to true
-    await db
-      .update(users)
-      .set({ isAdmin: true })
-      .where(eq(users.id, userId));
+    // Use transaction to ensure both operations succeed or fail together
+    const result = await db.transaction(async (tx) => {
+      // First, ensure the user's isAdmin flag is set to true
+      await tx
+        .update(users)
+        .set({ isAdmin: true })
+        .where(eq(users.id, userId));
+      
+      // Then assign the organization admin role
+      const [adminRole] = await tx
+        .insert(organizationAdmins)
+        .values({ userId, organizationId, role })
+        .returning();
+      
+      return adminRole;
+    });
     
-    // Then assign the organization admin role
-    const [result] = await db
-      .insert(organizationAdmins)
-      .values({ userId, organizationId, role })
-      .returning();
     return result;
   }
 
   async removeOrganizationAdmin(userId: string, organizationId: string): Promise<void> {
-    await db
-      .delete(organizationAdmins)
-      .where(
-        and(
-          eq(organizationAdmins.userId, userId),
-          eq(organizationAdmins.organizationId, organizationId)
-        )
-      );
+    await db.transaction(async (tx) => {
+      // Remove the organization admin assignment
+      await tx
+        .delete(organizationAdmins)
+        .where(
+          and(
+            eq(organizationAdmins.userId, userId),
+            eq(organizationAdmins.organizationId, organizationId)
+          )
+        );
+      
+      // Check if user has any remaining org admin assignments
+      const remainingAdminRoles = await tx
+        .select()
+        .from(organizationAdmins)
+        .where(eq(organizationAdmins.userId, userId));
+      
+      // If no remaining admin roles, unset the isAdmin flag
+      // NOTE: Per current requirements, "all tournament users are admins"
+      // This logic ensures data consistency for future role-based access
+      if (remainingAdminRoles.length === 0) {
+        await tx
+          .update(users)
+          .set({ isAdmin: false })
+          .where(eq(users.id, userId));
+      }
+    });
   }
 
   async getOrganizationAdmins(organizationId: string): Promise<OrganizationAdmin[]> {
