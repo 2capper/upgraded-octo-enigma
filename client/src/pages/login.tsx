@@ -27,7 +27,7 @@ export default function LoginPage() {
       
       // Smart redirect based on user role
       const user = data.user;
-      if (user?.isSuperAdmin) {
+      if (user?.isAdmin) {
         window.location.href = '/select-organization';
       } else {
         window.location.href = '/';
