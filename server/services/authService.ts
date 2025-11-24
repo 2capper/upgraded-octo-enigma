@@ -81,7 +81,10 @@ export const authService = {
       .where(eq(users.id, user.id));
 
     return {
-      email: user.email,
+      user: {
+        email: user.email,
+        name: user.name,
+      },
       resetToken,
       resetExpires,
     };
