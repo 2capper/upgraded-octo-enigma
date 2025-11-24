@@ -210,14 +210,14 @@ export default function InviteAcceptance() {
                 Please sign in to accept this invitation and access the booking calendar.
               </p>
 
-              <a href="/api/login" className="block">
+              <a href="/login" className="block">
                 <Button
                   size="lg"
                   className="w-full bg-green-600 hover:bg-green-700"
                   data-testid="button-sign-in"
                 >
                   <Shield className="w-5 h-5 mr-2" />
-                  Sign In with Replit
+                  Sign In
                 </Button>
               </a>
             </div>

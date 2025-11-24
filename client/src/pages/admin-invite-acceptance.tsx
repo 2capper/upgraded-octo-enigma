@@ -176,14 +176,14 @@ export default function AdminInviteAcceptance() {
               </p>
             </div>
 
-            <a href="/api/login" className="block">
+            <a href="/login" className="block">
               <Button
                 size="lg"
                 className="w-full bg-green-600 hover:bg-green-700"
                 data-testid="button-login"
               >
                 <Shield className="w-5 h-5 mr-2" />
-                Log In with Replit
+                Log In
               </Button>
             </a>
           </CardContent>
