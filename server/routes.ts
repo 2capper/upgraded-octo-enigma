@@ -169,11 +169,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sanitize user before session serialization
       const sanitizedUser = sanitizeUser(user);
 
-      // Log the user in using Passport
+      // Log the user in using Passport and explicitly save session
       await new Promise<void>((resolve, reject) => {
         (req as any).login(sanitizedUser, (err: any) => {
           if (err) return reject(err);
-          resolve();
+          // Explicitly save session before responding
+          req.session.save((saveErr) => {
+            if (saveErr) return reject(saveErr);
+            resolve();
+          });
         });
       });
 
@@ -197,11 +201,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sanitize user before session serialization
       const sanitizedUser = sanitizeUser(user);
 
-      // Log the user in using Passport
+      // Log the user in using Passport and explicitly save session
       await new Promise<void>((resolve, reject) => {
         (req as any).login(sanitizedUser, (err: any) => {
           if (err) return reject(err);
-          resolve();
+          // Explicitly save session before responding
+          req.session.save((saveErr) => {
+            if (saveErr) return reject(saveErr);
+            resolve();
+          });
         });
       });
 

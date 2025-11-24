@@ -22,9 +22,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await apiRequest('POST', '/api/auth/login', { email, password });
-      // Redirect to home on success
-      window.location.href = '/';
+      const response = await apiRequest('POST', '/api/auth/login', { email, password });
+      
+      // Add small delay to ensure session cookie is set
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Smart redirect based on user role
+      const user = response.user;
+      if (user?.isSuperAdmin) {
+        window.location.href = '/admin';
+      } else {
+        window.location.href = '/';
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
     } finally {
