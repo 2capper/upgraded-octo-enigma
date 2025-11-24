@@ -1,0 +1,185 @@
+To make this "flawless," we aren't going to reinvent the wheel. We are going to use the industry-standard "Gold Stack" for Node.js authentication: Passport.js + Local Strategy + Bcrypt + Persistent Sessions.
+
+Your package.json shows you actually have most of these libraries installed already (passport, passport-local, bcrypt, connect-pg-simple), but we aren't using them. We're using replitAuth.ts.
+
+Here is the "Coach's Plan" to rip out Replit Auth and replace it with a professional Email/Password system.
+
+1. The "Flawless" Architecture
+To ensure this is robust and doesn't log people out every time the server restarts (a common Replit issue), we need three specific layers:
+
+Security Layer (Bcrypt): We never store passwords. We store a "hash." When a user logs in, we hash their input and match it to the stored hash.
+
+Strategy Layer (Passport-Local): This handles the logic of "lookup user by email -> check password -> return user."
+
+Persistence Layer (Connect-PG-Simple): This is the secret sauce. We store active sessions in your Postgres database, not in the server's memory. This means even if your Replit container goes to sleep, users stay logged in.
+
+🚀 Phase 1: Database Schema
+We need to update the users table to support credentials.
+
+File: shared/schema.ts
+
+TypeScript
+
+// ... existing imports
+// Add this import
+import { text, boolean, timestamp } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(), // We'll keep using text IDs (nanoid)
+  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(), // Login identifier
+  password: text("password").notNull(), // THE HASHED PASSWORD
+  
+  // Keep your existing fields
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  isAdmin: boolean("is_admin").default(false).notNull(),
+  isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  organizationId: text("organization_id"), // For single-org linking
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// You'll need to update your Zod schemas too
+export const insertUserSchema = createInsertSchema(users);
+🚀 Phase 2: The New Auth Engine
+We are going to retire replitAuth.ts and create a real auth.ts.
+
+File: server/auth.ts (New File)
+
+TypeScript
+
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import { Express } from "express";
+import session from "express-session";
+import pgSession from "connect-pg-simple";
+import bcrypt from "bcrypt";
+import { db } from "./db"; // Your DB connection
+import { users } from "@shared/schema"; // Your schema
+import { eq } from "drizzle-orm";
+import { pool } from "./db"; // You might need to export your raw PG pool from db.ts
+
+export function setupAuth(app: Express) {
+  // 1. Session Setup (The Persistence Layer)
+  const PostgresStore = pgSession(session);
+  const sessionStore = new PostgresStore({
+    pool, // The raw Postgres pool
+    createTableIfMissing: true,
+  });
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "dev_secret_key",
+      resave: false,
+      saveUninitialized: false,
+      store: sessionStore,
+      cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        secure: app.get("env") === "production", // Secure in prod
+      },
+    })
+  );
+
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // 2. The "Local Strategy" (Login Logic)
+  passport.use(
+    new LocalStrategy(async (username, password, done) => {
+      try {
+        // Find user by username OR email (good UX)
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, username))
+          .limit(1);
+
+        if (!user) {
+          return done(null, false, { message: "Incorrect username." });
+        }
+
+        // Compare hashed password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+          return done(null, false, { message: "Incorrect password." });
+        }
+
+        return done(null, user);
+      } catch (err) {
+        return done(err);
+      }
+    })
+  );
+
+  // 3. Serialization (How we store user in the session)
+  passport.serializeUser((user: any, done) => done(null, user.id));
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
+
+  // 4. Auth Routes
+  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    res.json(req.user);
+  });
+
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.redirect("/");
+    });
+  });
+  
+  // Registration Route (Critical for new users)
+  app.post("/api/register", async (req, res) => {
+    const { username, password, email } = req.body;
+    
+    // Check if user exists
+    const [existing] = await db.select().from(users).where(eq(users.username, username));
+    if (existing) return res.status(400).json({ error: "Username taken" });
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const [newUser] = await db.insert(users).values({
+      id: crypto.randomUUID(), // Or nanoid
+      username,
+      email,
+      password: hashedPassword,
+      // ... other defaults
+    }).returning();
+
+    // Login immediately
+    req.login(newUser, (err) => {
+      if (err) return res.status(500).json({ error: "Login failed" });
+      return res.json(newUser);
+    });
+  });
+}
+🚀 Phase 3: The Frontend UI
+You need a real Login page now, not just a button.
+
+File: client/src/pages/auth-page.tsx (New File)
+
+Design: A split-screen layout. Left side is a nice baseball photo/logo. Right side is a clean Card with tabs for "Login" and "Sign Up".
+
+Login Form: Username/Email + Password.
+
+Register Form: Email + Username + Password.
+
+Logic: On success, redirect to / (which triggers your App.tsx logic to send them to Dashboard or Welcome).
+
+Why This is Better
+Professionalism: No more "Replit" branding. It's your app.
+
+Reliability: Using connect-pg-simple means sessions persist even if Replit restarts your container (which happens constantly).
+
+Control: You control the password complexity, password resets (V1.5), and user data.
+
+Action: Start by updating the schema to add the password column. That's the first domino.
