@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Onboarding endpoint: allows any authenticated user to create their FIRST organization
   app.post("/api/onboarding/create-organization", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -2295,7 +2295,7 @@ Waterdown 10U AA
       
       // Get user ID from the authenticated session
       const user = req.user as any;
-      const userId = user.claims.sub;
+      const userId = user.id;
       
       // Prepare metadata for audit trail
       const metadata = {
@@ -5976,7 +5976,7 @@ Waterdown 10U AA
       }
 
       // Log the message to tournament_messages table
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.id;
       if (userId) {
         await db.insert(tournamentMessages).values({
           tournamentId,
