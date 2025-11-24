@@ -55,9 +55,21 @@ export const OnboardingOrganizationForm = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/organizations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
       setShowSuccess(true);
+      
+      // Extract org ID - API returns organization object with id field
+      const orgId = data?.id;
+      
+      if (!orgId) {
+        console.error('No organization ID in response:', data);
+        toast({
+          title: 'Error',
+          description: 'Organization created but redirect failed. Please refresh the page.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setTimeout(() => {
-        // Redirect to org admin portal with feature cards
-        const orgId = data.id || data.organizationId;
         setLocation(`/org/${orgId}/admin`);
       }, 2500);
     },
