@@ -29,7 +29,7 @@ import {
   communicationTemplates,
   insertCommunicationTemplateSchema
 } from "@shared/schema";
-import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking, sanitizeUser } from "./auth";
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
 import { nanoid } from "nanoid";
@@ -84,8 +84,9 @@ async function checkTournamentAccess(req: any, res: any, tournamentId: string): 
   }
   
   // Authorization check for authenticated users
-  if (req.user && req.user.claims) {
-    const userId = req.user.claims.sub;
+  if (req.user && req.isAuthenticated()) {
+    const user = req.user as any;
+    const userId = user.id;
     const userOrgIds = await getUserOrganizationIds(userId);
     
     // Deny access if tournament is not in user's organizations
@@ -118,33 +119,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isSuperAdmin: true,
         });
         
-        // Create Express.User object matching Replit Auth structure
-        // Set expires_at to 7 days in the future (matches session TTL)
-        const futureExpiry = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
-        
-        const expressUser: Express.User = {
-          claims: {
-            sub: user.id,
-            email: user.email,
-            name: user.name,
-          },
-          access_token: 'test-access-token',
-          refresh_token: 'test-refresh-token',
-          expires_at: futureExpiry,
-        };
+        // Sanitize user before session serialization
+        const sanitizedUser = sanitizeUser(user);
         
         // Use Passport's req.login() to properly serialize the session
         const reqWithLogin = req as any;
         await new Promise<void>((resolve, reject) => {
-          reqWithLogin.login(expressUser, (err: any) => {
+          reqWithLogin.login(sanitizedUser, (err: any) => {
             if (err) return reject(err);
-            // Also set userId for compatibility with existing code
-            reqWithLogin.session.userId = user.id;
             resolve();
           });
         });
         
-        res.json({ success: true, user });
+        res.json({ success: true, user: sanitizedUser });
       } catch (error) {
         console.error("Test login error:", error);
         res.status(500).json({ error: "Test login failed" });
@@ -179,25 +166,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await authService.register(email, password, firstName, lastName);
 
-      // Log the user in
-      const expressUser: Express.User = {
-        claims: {
-          sub: user.id,
-          email: user.email,
-        },
-        access_token: 'email-auth',
-        refresh_token: 'email-auth',
-        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
-      };
+      // Sanitize user before session serialization
+      const sanitizedUser = sanitizeUser(user);
 
+      // Log the user in using Passport
       await new Promise<void>((resolve, reject) => {
-        (req as any).login(expressUser, (err: any) => {
+        (req as any).login(sanitizedUser, (err: any) => {
           if (err) return reject(err);
           resolve();
         });
       });
 
-      res.json({ success: true, user });
+      res.json({ success: true, user: sanitizedUser });
     } catch (error: any) {
       console.error('Registration error:', error);
       res.status(400).json({ error: error.message || 'Registration failed' });
@@ -214,25 +194,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await authService.login(email, password);
 
-      // Log the user in
-      const expressUser: Express.User = {
-        claims: {
-          sub: user.id,
-          email: user.email,
-        },
-        access_token: 'email-auth',
-        refresh_token: 'email-auth',
-        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
-      };
+      // Sanitize user before session serialization
+      const sanitizedUser = sanitizeUser(user);
 
+      // Log the user in using Passport
       await new Promise<void>((resolve, reject) => {
-        (req as any).login(expressUser, (err: any) => {
+        (req as any).login(sanitizedUser, (err: any) => {
           if (err) return reject(err);
           resolve();
         });
       });
 
-      res.json({ success: true, user });
+      res.json({ success: true, user: sanitizedUser });
     } catch (error: any) {
       console.error('Login error:', error);
       res.status(401).json({ error: error.message || 'Invalid credentials' });
@@ -249,6 +222,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ success: true });
       });
     });
+  });
+
+  // Get current user info
+  app.get('/api/auth/me', (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    res.json(req.user);
   });
 
   app.post('/api/auth/request-password-reset', async (req, res) => {
@@ -296,21 +278,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await userService.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
   // Get organizations for the currently logged-in user
   app.get("/api/users/me/organizations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const user = await userService.getUser(userId);
 
       if (!user) {
@@ -365,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin request routes
   app.post('/api/admin-requests', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const user = await userService.getUser(userId);
       
       if (!user) {
@@ -427,7 +398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin-requests/my-request', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const request = await userService.getUserAdminRequest(userId);
       res.json(request || null);
     } catch (error) {
@@ -438,7 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/admin-requests/:id/approve', requireSuperAdmin, async (req: any, res) => {
     try {
-      const reviewerId = req.user.claims.sub;
+      const reviewerId = (req.user as any).id;
       const request = await organizationService.approveAdminRequest(req.params.id, reviewerId);
       res.json(request);
     } catch (error: any) {
@@ -455,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/admin-requests/:id/reject', requireSuperAdmin, async (req: any, res) => {
     try {
-      const reviewerId = req.user.claims.sub;
+      const reviewerId = (req.user as any).id;
       const request = await organizationService.rejectAdminRequest(req.params.id, reviewerId);
       res.json(request);
     } catch (error: any) {
@@ -672,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/organizations/:organizationId/user-role", isAuthenticated, async (req: any, res) => {
     try {
       const { organizationId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const admins = await organizationService.getOrganizationAdmins(organizationId);
       const userAdmin = admins.find(admin => admin.userId === userId);
@@ -693,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/users/:userId/organizations", isAuthenticated, async (req: any, res) => {
     try {
-      const requestingUserId = req.user.claims.sub;
+      const requestingUserId = (req.user as any).id;
       const targetUserId = req.params.userId;
       
       // Users can only view their own organizations unless they're a super admin
@@ -997,8 +968,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let tournaments = await tournamentService.getTournaments();
       
       // Role-aware filtering for authenticated users
-      if (req.user && req.user.claims) {
-        const userId = req.user.claims.sub;
+      if (req.user && (req.user as any)) {
+        const userId = (req.user as any).id;
         const user = await userService.getUser(userId);
         
         // Super admins see all tournaments (no filtering)
@@ -1047,8 +1018,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Authorization check for authenticated users
-      if (req.user && req.user.claims) {
-        const userId = req.user.claims.sub;
+      if (req.user && (req.user as any)) {
+        const userId = (req.user as any).id;
         const userOrgIds = await getUserOrganizationIds(userId);
         
         // If user has org affiliations and tournament is not in their orgs, deny access
@@ -1066,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tournaments", requireAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const user = await userService.getUser(userId);
       
       // Validate tournament data
@@ -1127,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/tournaments/:id", requireAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const user = await userService.getUser(userId);
       const tournament = await tournamentService.getTournament(req.params.id);
 
@@ -1150,7 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/tournaments/:id", requireAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const user = await userService.getUser(userId);
       const tournament = await tournamentService.getTournament(req.params.id);
 
@@ -4087,7 +4058,7 @@ Waterdown 10U AA
   app.get('/api/organizations/:orgId/booking-requests/:requestId', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const request = await diamondService.getBookingRequest(requestId, orgId);
       
       if (!request) {
@@ -4124,7 +4095,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/booking-requests', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       // Validate diamond restrictions
       const team = await diamondService.getHouseLeagueTeam(req.body.houseLeagueTeamId);
@@ -4175,7 +4146,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/booking-requests/:requestId/submit', requireDiamondBooking, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const request = await diamondService.submitBookingRequest(requestId, userId, orgId);
       
@@ -4211,7 +4182,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/booking-requests/:requestId/approve', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId, requestId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const { approved, notes } = req.body;
       
       // Server-side validation: Get user's actual role from database
@@ -4882,7 +4853,7 @@ Waterdown 10U AA
   // Get accepted coach invitations for current user
   app.get("/api/coach-invitations/accepted", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const invitations = await organizationService.getAcceptedCoachInvitations(userId);
       res.json(invitations);
     } catch (error) {
@@ -4907,7 +4878,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/invitations', requireDiamondBooking, requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const token = nanoid(32);
       const expiresAt = new Date();
@@ -4998,7 +4969,7 @@ Waterdown 10U AA
   app.post('/api/invitations/:token/accept', isAuthenticated, async (req: any, res) => {
     try {
       const { token } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const invitation = await organizationService.getCoachInvitationByToken(token);
       
@@ -5039,7 +5010,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/admin-invitations', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const token = nanoid(32);
       const expiresAt = new Date();
@@ -5129,7 +5100,7 @@ Waterdown 10U AA
   app.post('/api/admin-invitations/:token/accept', isAuthenticated, async (req: any, res) => {
     try {
       const { token } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       
       const invitation = await organizationService.getAdminInvitationByToken(token);
       
@@ -5291,7 +5262,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/sms/send', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const { recipientPhone, recipientName, messageBody, tournamentId, teamId } = req.body;
 
       if (!recipientPhone || !messageBody) {
@@ -5323,7 +5294,7 @@ Waterdown 10U AA
   app.post('/api/organizations/:orgId/sms/send-bulk', requireOrgAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any).id;
       const { recipients, messageBody, tournamentId } = req.body;
 
       if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
