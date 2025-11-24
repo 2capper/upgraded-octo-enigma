@@ -13,7 +13,8 @@ import {
   Users, 
   Settings,
   BarChart3,
-  Compass
+  Compass,
+  Shield
 } from "lucide-react";
 import { useEffect } from "react";
 
@@ -26,6 +27,7 @@ interface FeatureCard {
   color: string;
   featureKey?: string; // Key to check in feature flags
   requiresAdmin?: boolean;
+  requiresSuperAdmin?: boolean; // Only super admins can see this
   testId: string;
 }
 
@@ -134,6 +136,16 @@ export default function OrgAdminPortal() {
       testId: 'card-reports',
     },
     {
+      id: 'user-management',
+      title: 'User Management',
+      description: 'Manage users and permissions across the platform',
+      icon: <Shield className="w-5 h-5" />,
+      href: `/org/${orgId}/admin/users`,
+      color: 'red',
+      requiresSuperAdmin: true,
+      testId: 'card-user-management',
+    },
+    {
       id: 'settings',
       title: 'Organization Settings',
       description: 'Configure organization preferences',
@@ -147,6 +159,11 @@ export default function OrgAdminPortal() {
 
   // Filter features based on user role and feature flags
   const visibleFeatures = allFeatures.filter(feature => {
+    // Check super admin requirement
+    if (feature.requiresSuperAdmin && !userData?.isSuperAdmin) {
+      return false;
+    }
+
     // Check admin requirement
     if (feature.requiresAdmin && !isAdmin) {
       return false;
@@ -168,6 +185,7 @@ export default function OrgAdminPortal() {
       sky: { bg: 'bg-sky-100', text: 'text-sky-600', border: 'hover:border-sky-600' },
       orange: { bg: 'bg-orange-100', text: 'text-orange-600', border: 'hover:border-orange-600' },
       indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'hover:border-indigo-600' },
+      red: { bg: 'bg-red-100', text: 'text-red-600', border: 'hover:border-red-600' },
       gray: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'hover:border-gray-600' },
     };
     return colorMap[color] || colorMap.gray;

@@ -40,6 +40,7 @@ import { WelcomePage } from "@/pages/welcome";
 import OnboardingCreateOrganization from "@/pages/onboarding-create-organization";
 import OrgAdminPortal from "@/pages/OrgAdminPortal";
 import OrgSettings from "@/pages/OrgSettings";
+import UserManagement from "@/pages/user-management";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -194,6 +195,11 @@ function Router() {
       {/* Organization Admin Portal - NEW modular landing page */}
       <Route path="/org/:orgId/admin">
         {() => <RequireAuth component={OrgAdminPortal} />}
+      </Route>
+      
+      {/* User Management - Super Admin Only */}
+      <Route path="/org/:orgId/admin/users">
+        {() => <RequireAuth component={UserManagement} />}
       </Route>
       
       {/* New modular feature routes */}

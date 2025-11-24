@@ -78,6 +78,53 @@ export class UserService {
       eq(organizationCoordinators.userId, userId)
     );
   }
+
+  async updateUserAdminStatus(userId: string, isAdmin: boolean): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ isAdmin, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
+
+  async updateUserSuperAdminStatus(userId: string, isSuperAdmin: boolean): Promise<User> {
+    // When promoting to super admin, set isAdmin=true
+    // When demoting from super admin, check if user has any org admin roles
+    let shouldBeAdmin = isSuperAdmin;
+    
+    if (!isSuperAdmin) {
+      // Check if user is admin of any organization
+      const orgAdminCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(organizationAdmins)
+        .where(eq(organizationAdmins.userId, userId));
+      
+      // Keep isAdmin=true if they're still admin of at least one org
+      shouldBeAdmin = orgAdminCount[0]?.count > 0;
+    }
+    
+    const [user] = await db
+      .update(users)
+      .set({ 
+        isSuperAdmin, 
+        isAdmin: shouldBeAdmin, // Explicitly set true or false
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
 }
 
 export const userService = new UserService();

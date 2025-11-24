@@ -343,6 +343,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle admin status - super admin only
+  app.patch('/api/users/:userId/admin-status', requireSuperAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isAdmin } = req.body;
+
+      if (typeof isAdmin !== 'boolean') {
+        return res.status(400).json({ error: "isAdmin must be a boolean" });
+      }
+
+      const user = await userService.updateUserAdminStatus(userId, isAdmin);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating admin status:", error);
+      res.status(500).json({ error: "Failed to update admin status" });
+    }
+  });
+
+  // Toggle super admin status - super admin only
+  app.patch('/api/users/:userId/super-admin-status', requireSuperAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isSuperAdmin } = req.body;
+
+      if (typeof isSuperAdmin !== 'boolean') {
+        return res.status(400).json({ error: "isSuperAdmin must be a boolean" });
+      }
+
+      const user = await userService.updateUserSuperAdminStatus(userId, isSuperAdmin);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating super admin status:", error);
+      res.status(500).json({ error: "Failed to update super admin status" });
+    }
+  });
+
+  // Get all organization admins - super admin only
+  app.get('/api/all-organization-admins', requireSuperAdmin, async (req, res) => {
+    try {
+      const admins = await organizationService.getAllOrganizationAdmins();
+      res.json(admins);
+    } catch (error) {
+      console.error("Error fetching all organization admins:", error);
+      res.status(500).json({ error: "Failed to fetch organization admins" });
+    }
+  });
+
   // Admin request routes
   app.post('/api/admin-requests', isAuthenticated, async (req: any, res) => {
     try {

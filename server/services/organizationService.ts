@@ -136,6 +136,10 @@ export class OrganizationService {
     return !!result;
   }
 
+  async getAllOrganizationAdmins(): Promise<OrganizationAdmin[]> {
+    return await db.select().from(organizationAdmins);
+  }
+
   // Feature Flag Management
   async getFeatureFlags(): Promise<FeatureFlag[]> {
     return await db.select().from(featureFlags);
