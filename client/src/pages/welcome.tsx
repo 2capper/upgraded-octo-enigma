@@ -9,7 +9,7 @@ export function WelcomePage() {
 
   // Fetch full user data to get firstName
   const { data: userData } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
   });
 
   const handleCreateOrg = () => {

@@ -50,7 +50,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
 
   // Fetch current user to check if super admin
   const { data: user } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
   });
 
   // Fetch user's admin organizations

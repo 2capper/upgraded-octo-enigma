@@ -41,7 +41,7 @@ export default function OrganizationSelector() {
   });
 
   const { data: user } = useQuery<{ isSuperAdmin?: boolean }>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
   });
 
   // Fetch accepted coach invitations to determine if user is a coach

@@ -56,7 +56,7 @@ function RequireAuth({ component: Component }: { component: any }) {
 
   // Fetch user data for super admin check
   const { data: userData, isLoading: isUserLoading } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
     enabled: isAuthenticated,
   });
 
@@ -120,7 +120,7 @@ function HostnameAwareHome() {
 
   // Fetch user data for authenticated users
   const { data: user, isLoading: userLoading } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
     enabled: isAuthenticated,
   });
 

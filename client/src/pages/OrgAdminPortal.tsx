@@ -39,7 +39,7 @@ export default function OrgAdminPortal() {
   });
 
   const { data: userData } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
+    queryKey: ['/api/auth/me'],
   });
 
   const { data: userRole, isLoading: roleLoading } = useQuery({
