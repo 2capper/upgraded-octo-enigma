@@ -1,11 +1,13 @@
+import { useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { BookingCalendar } from '@/components/booking/booking-calendar';
 import { Loader2 } from 'lucide-react';
-import type { Organization } from '@shared/schema';
 
 export function AdminBookingCalendarPage() {
-  const { data: organizations, isLoading } = useQuery<Organization[]>({
-    queryKey: ['/api/organizations'],
+  const { orgId } = useParams<{ orgId: string }>();
+
+  const { data: organization, isLoading } = useQuery({
+    queryKey: [`/api/organizations/by-id/${orgId}`],
   });
 
   if (isLoading) {
@@ -16,15 +18,13 @@ export function AdminBookingCalendarPage() {
     );
   }
 
-  const forestGlade = organizations?.find(org => org.slug === 'forest-glade');
-
-  if (!forestGlade) {
+  if (!organization) {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-destructive">Organization Not Found</h1>
           <p className="text-muted-foreground mt-2">
-            Forest Glade organization is not configured.
+            Unable to load organization details.
           </p>
         </div>
       </div>
@@ -33,7 +33,7 @@ export function AdminBookingCalendarPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <BookingCalendar organizationId={forestGlade.id} isCoachView={false} />
+      <BookingCalendar organizationId={orgId!} isCoachView={false} />
     </div>
   );
 }
