@@ -28,7 +28,25 @@ export default function LoginPage() {
       // Smart redirect based on user role
       const user = data.user;
       if (user?.isAdmin) {
-        window.location.href = '/select-organization';
+        // Super admins can access all orgs, so show org selector
+        if (user.isSuperAdmin) {
+          window.location.href = '/select-organization';
+        } else {
+          // Regular admins: fetch their organizations
+          const orgsResponse = await apiRequest('GET', '/api/users/me/organizations');
+          const orgs = await orgsResponse.json();
+          
+          if (orgs.length === 0) {
+            // No organizations - redirect to onboarding to create one
+            window.location.href = '/onboarding/create-organization';
+          } else if (orgs.length === 1) {
+            // Single org admin - go directly to their org admin page
+            window.location.href = `/org/${orgs[0].id}/admin`;
+          } else {
+            // Multiple orgs - show selector
+            window.location.href = '/select-organization';
+          }
+        }
       } else {
         window.location.href = '/';
       }

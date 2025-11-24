@@ -56,9 +56,9 @@ export const OnboardingOrganizationForm = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/me/organizations'] });
       setShowSuccess(true);
       setTimeout(() => {
-        // Redirect to org-scoped admin portal with auto-open tournament creation
+        // Redirect to org admin portal with feature cards
         const orgId = data.id || data.organizationId;
-        setLocation(`/org/${orgId}/tournaments?firstTime=true`);
+        setLocation(`/org/${orgId}/admin`);
       }, 2500);
     },
     onError: (error: any) => {
