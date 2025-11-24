@@ -66,6 +66,13 @@ export class OrganizationService {
 
   // Organization Admin Management
   async assignOrganizationAdmin(userId: string, organizationId: string, role: string = "admin"): Promise<OrganizationAdmin> {
+    // First, ensure the user's isAdmin flag is set to true
+    await db
+      .update(users)
+      .set({ isAdmin: true })
+      .where(eq(users.id, userId));
+    
+    // Then assign the organization admin role
     const [result] = await db
       .insert(organizationAdmins)
       .values({ userId, organizationId, role })
