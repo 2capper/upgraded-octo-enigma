@@ -56,28 +56,14 @@ export default function OrgAdminPortal() {
 
   const isAdmin = userRole?.isAdmin || false;
 
-  // Debug logging
-  console.log('[OrgAdminPortal] Debug Info:', {
-    orgId,
-    isAdmin,
-    userRole,
-    isSuperAdmin: userData?.isSuperAdmin,
-    featureFlags,
-    featureFlagsLength: featureFlags?.length
-  });
-
   // Helper function to check if a feature is enabled
   const isFeatureEnabled = (featureKey: string): boolean => {
     if (!featureFlags || featureFlags.length === 0) {
       const defaultEnabledFeatures = ['tournaments', 'sms', 'weather', 'booking'];
-      const result = defaultEnabledFeatures.includes(featureKey);
-      console.log(`[isFeatureEnabled] ${featureKey} (no flags): ${result}`);
-      return result;
+      return defaultEnabledFeatures.includes(featureKey);
     }
     const flag = featureFlags.find(f => f.key === featureKey);
-    const result = flag ? flag.effectivelyEnabled : false;
-    console.log(`[isFeatureEnabled] ${featureKey}:`, { flag, result });
-    return result;
+    return flag ? flag.effectivelyEnabled : false;
   };
 
   // Define all available features

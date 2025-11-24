@@ -772,11 +772,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Merge the data
       const flagsWithOrgSettings = globalFlags.map(flag => {
         const orgFlag = orgFlags.find(of => of.featureFlagId === flag.id);
+        // If org has explicitly set a preference, use that. Otherwise use global setting.
+        const effectivelyEnabled = orgFlag !== undefined 
+          ? orgFlag.isEnabled 
+          : flag.isEnabled;
         return {
           ...flag,
           key: flag.featureKey, // Frontend expects 'key' property
           orgEnabled: orgFlag ? orgFlag.isEnabled : null, // null means org hasn't set preference
-          effectivelyEnabled: flag.isEnabled && (orgFlag ? orgFlag.isEnabled : true),
+          effectivelyEnabled,
         };
       });
       
