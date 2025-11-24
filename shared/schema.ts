@@ -841,11 +841,12 @@ export const diamondRestrictions = pgTable("diamond_restrictions", {
 // Notification log for all email and SMS communications
 export const notificationLog = pgTable("notification_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  organizationId: varchar("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull().default("organization"), // "system" | "organization"
+  organizationId: varchar("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
   bookingRequestId: varchar("booking_request_id").references(() => bookingRequests.id, { onDelete: "cascade" }),
   
   // Notification details
-  notificationType: text("notification_type").notNull(), // "booking_submitted" | "approval_requested" | "approved" | "declined" | "uic_notification"
+  notificationType: text("notification_type").notNull(), // "booking_submitted" | "approval_requested" | "approved" | "declined" | "uic_notification" | "password_reset"
   channel: text("channel").notNull(), // "email" | "sms"
   
   // Recipient

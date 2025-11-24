@@ -252,8 +252,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resetData = await authService.requestPasswordReset(email);
 
       if (resetData) {
-        // TODO: Send email with reset link
-        // For development only - log token (NEVER in production)
+        try {
+          await notificationService.sendPasswordResetEmail({
+            email: resetData.user.email,
+            name: resetData.user.name,
+            resetToken: resetData.resetToken,
+          });
+          console.log(`Password reset process initiated`);
+        } catch (emailError) {
+          console.error('Password reset email error:', emailError);
+        }
+        
         if (process.env.NODE_ENV === 'development') {
           console.log(`[DEV ONLY] Password reset requested for ${email}. Token: ${resetData.resetToken}`);
         }
