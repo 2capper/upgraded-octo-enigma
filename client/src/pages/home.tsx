@@ -114,16 +114,16 @@ export default function Home() {
             </p>
 
             {/* Login Button */}
-            <a href="/api/login">
+            <Link href="/login">
               <Button 
                 size="lg"
                 className="bg-[var(--clay-red)] text-white hover:bg-[var(--clay-red)]/90 text-lg px-12 py-7 shadow-2xl font-semibold"
                 data-testid="button-admin-login-main"
               >
                 <Shield className="w-6 h-6 mr-3" />
-                Sign In with Replit
+                Sign In
               </Button>
-            </a>
+            </Link>
 
             {/* Features Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-3xl mx-auto">
