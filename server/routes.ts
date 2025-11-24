@@ -197,6 +197,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sanitize user before session serialization
       const sanitizedUser = sanitizeUser(user);
 
+      // Regenerate session to prevent session fixation attacks
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err: any) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
       // Log the user in using Passport (req.login already saves the session)
       await new Promise<void>((resolve, reject) => {
         (req as any).login(sanitizedUser, (err: any) => {

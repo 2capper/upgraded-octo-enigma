@@ -148,6 +148,12 @@ export default function LoginPage() {
                       Sign up
                     </Button>
                   </div>
+                  <div className="text-center text-xs text-muted-foreground/80 pt-2 border-t">
+                    <p className="leading-relaxed">
+                      <strong className="text-muted-foreground">Invited by a coach?</strong><br />
+                      Create a free account first, then accept your invitation to access diamond booking.
+                    </p>
+                  </div>
                 </CardFooter>
               </form>
             </Card>

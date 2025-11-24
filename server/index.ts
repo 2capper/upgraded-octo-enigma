@@ -5,10 +5,8 @@ import { startCalendarSyncScheduler } from "./services/calendar-sync";
 
 const app = express();
 
-// Trust proxy in production for secure cookies
-if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1);
-}
+// Trust proxy for secure cookies (Replit uses proxy in all environments)
+app.set("trust proxy", 1);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
