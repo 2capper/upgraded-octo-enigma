@@ -12,6 +12,7 @@ import { gameService } from "./services/gameService";
 import { playoffService } from "./services/playoffService";
 import { smsService } from "./services/smsService";
 import { weatherService } from "./services/weatherService";
+import { authService } from "./services/authService";
 import { 
   insertOrganizationSchema,
   insertTournamentSchema, 
@@ -163,7 +164,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Auth routes
+  // Auth routes - Email/Password Authentication
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+
+      const user = await authService.register(email, password, firstName, lastName);
+
+      // Log the user in
+      const expressUser: Express.User = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+        },
+        access_token: 'email-auth',
+        refresh_token: 'email-auth',
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
+      };
+
+      await new Promise<void>((resolve, reject) => {
+        (req as any).login(expressUser, (err: any) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
+      res.json({ success: true, user });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(400).json({ error: error.message || 'Registration failed' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      const user = await authService.login(email, password);
+
+      // Log the user in
+      const expressUser: Express.User = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+        },
+        access_token: 'email-auth',
+        refresh_token: 'email-auth',
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
+      };
+
+      await new Promise<void>((resolve, reject) => {
+        (req as any).login(expressUser, (err: any) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
+      res.json({ success: true, user });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(401).json({ error: error.message || 'Invalid credentials' });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      req.session.destroy(() => {
+        res.json({ success: true });
+      });
+    });
+  });
+
+  app.post('/api/auth/request-password-reset', async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      const resetData = await authService.requestPasswordReset(email);
+
+      if (resetData) {
+        // TODO: Send email with reset link
+        // For now, we'll return the token (in production, only send via email)
+        console.log(`Password reset requested for ${email}. Token: ${resetData.resetToken}`);
+      }
+
+      // Always return success to prevent email enumeration
+      res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+    } catch (error: any) {
+      console.error('Password reset request error:', error);
+      res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+  });
+
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+
+      await authService.resetPassword(token, password);
+
+      res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      res.status(400).json({ error: error.message || 'Password reset failed' });
+    }
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
