@@ -711,6 +711,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { organizationId } = req.params;
       const userId = (req.user as any).id;
       
+      // Check if user is a super admin first
+      const user = await userService.getUser(userId);
+      if (user?.isSuperAdmin) {
+        return res.json({
+          isAdmin: true,
+          role: 'super_admin'
+        });
+      }
+      
       const admins = await organizationService.getOrganizationAdmins(organizationId);
       const userAdmin = admins.find(admin => admin.userId === userId);
       
