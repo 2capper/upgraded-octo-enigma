@@ -645,10 +645,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/organizations/:id", requireSuperAdmin, async (req, res) => {
+  app.put("/api/organizations/:organizationId", requireOrgAdmin, async (req, res) => {
     try {
       const validatedData = insertOrganizationSchema.partial().parse(req.body);
-      const organization = await organizationService.updateOrganization(req.params.id, validatedData);
+      const organization = await organizationService.updateOrganization(req.params.organizationId, validatedData);
       res.json(organization);
     } catch (error) {
       console.error("Error updating organization:", error);
@@ -830,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/organizations/:organizationId/diamonds", requireDiamondBooking, requireOrgAdmin, async (req, res) => {
+  app.post("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
       const diamond = await diamondService.createDiamond({ ...req.body, organizationId });

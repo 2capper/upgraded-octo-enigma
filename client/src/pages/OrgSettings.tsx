@@ -8,6 +8,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Settings, Calendar, MessageSquare, Cloud, Trophy, RotateCcw } from "lucide-react";
 import { useEffect } from "react";
 import { useTour } from "@/hooks/useTour";
+import { OrganizationSettings } from "@/components/admin/organization-settings";
 
 interface FeatureFlag {
   id: string;
@@ -115,6 +116,14 @@ export default function OrgSettings() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+        {/* Organization Configuration */}
+        {organization && (
+          <OrganizationSettings 
+            organizationId={orgId} 
+            organizationSlug={organization.slug}
+          />
+        )}
+
         {/* Feature Modules */}
         <Card>
           <CardHeader>
