@@ -588,6 +588,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search unclaimed organizations for claiming
+  app.get("/api/organizations/unclaimed/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string' || q.length < 2) {
+        return res.json([]);
+      }
+      
+      const results = await organizationService.searchUnclaimedOrganizations(q);
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching unclaimed organizations:", error);
+      res.status(500).json({ error: "Failed to search organizations" });
+    }
+  });
+
+  // Claim an unclaimed organization
+  app.post("/api/organizations/:organizationId/claim", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { organizationId } = req.params;
+      
+      // Check if user already has organizations
+      const existingOrgs = await userService.getUserOrganizations(userId);
+      if (existingOrgs.length > 0) {
+        return res.status(403).json({ 
+          error: "You already have an organization. Contact support if you need to claim additional organizations." 
+        });
+      }
+
+      // Claim the organization
+      const organization = await organizationService.claimOrganization(organizationId, userId);
+      
+      if (!organization) {
+        return res.status(404).json({ error: "Organization not found or already claimed" });
+      }
+
+      // Send welcome email
+      const user = await userService.getUser(userId);
+      if (organization.adminEmail && user) {
+        const adminName = user.firstName 
+          ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+          : user.email || 'Admin';
+        
+        try {
+          await notificationService.sendWelcomeEmail({
+            organizationId: organization.id,
+            organizationName: organization.name,
+            adminName,
+            adminEmail: organization.adminEmail,
+          });
+        } catch (emailError) {
+          console.error("Failed to send welcome email:", emailError);
+        }
+      }
+
+      res.json(organization);
+    } catch (error) {
+      console.error("Error claiming organization:", error);
+      res.status(500).json({ error: "Failed to claim organization" });
+    }
+  });
+
   // Onboarding endpoint: allows any authenticated user to create their FIRST organization
   app.post("/api/onboarding/create-organization", isAuthenticated, async (req: any, res) => {
     try {

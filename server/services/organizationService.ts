@@ -24,7 +24,7 @@ import {
   type AdminInvitation,
   type InsertAdminInvitation,
 } from "@shared/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, ilike, or } from "drizzle-orm";
 
 export class OrganizationService {
   // Organization CRUD
@@ -62,6 +62,66 @@ export class OrganizationService {
 
   async deleteOrganization(id: string): Promise<void> {
     await db.delete(organizations).where(eq(organizations.id, id));
+  }
+
+  // Search for unclaimed organizations (for the claim flow)
+  async searchUnclaimedOrganizations(query: string): Promise<Organization[]> {
+    const searchPattern = `%${query}%`;
+    return await db
+      .select()
+      .from(organizations)
+      .where(
+        and(
+          eq(organizations.isClaimed, false),
+          or(
+            ilike(organizations.name, searchPattern),
+            ilike(organizations.city, searchPattern)
+          )
+        )
+      )
+      .limit(20);
+  }
+
+  // Claim an unclaimed organization
+  async claimOrganization(organizationId: string, userId: string): Promise<Organization | null> {
+    return await db.transaction(async (tx) => {
+      // Check if organization exists and is unclaimed
+      const [org] = await tx
+        .select()
+        .from(organizations)
+        .where(
+          and(
+            eq(organizations.id, organizationId),
+            eq(organizations.isClaimed, false)
+          )
+        );
+
+      if (!org) {
+        return null;
+      }
+
+      // Mark organization as claimed
+      const [updatedOrg] = await tx
+        .update(organizations)
+        .set({ 
+          isClaimed: true,
+          updatedAt: new Date()
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      // Make user admin of the organization
+      await tx
+        .update(users)
+        .set({ isAdmin: true })
+        .where(eq(users.id, userId));
+
+      await tx
+        .insert(organizationAdmins)
+        .values({ userId, organizationId, role: 'admin' });
+
+      return updatedOrg;
+    });
   }
 
   // Organization Admin Management

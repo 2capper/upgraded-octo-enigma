@@ -66,6 +66,10 @@ export const organizations = pgTable("organizations", {
   defaultSeedingPattern: text("default_seeding_pattern").default("standard"), // Default seeding pattern for new tournaments
   calendarSubscriptionToken: text("calendar_subscription_token").unique(), // Unique token for calendar subscription URL
   hasDiamondBooking: boolean("has_diamond_booking").notNull().default(false), // Enable diamond booking module for this organization
+  isClaimed: boolean("is_claimed").notNull().default(false), // Whether this pre-seeded org has been claimed by an admin
+  claimToken: text("claim_token"), // Unique verification token for claiming (optional, for future email verification)
+  city: text("city"), // City location for the organization
+  address: text("address"), // Street address for the organization
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
