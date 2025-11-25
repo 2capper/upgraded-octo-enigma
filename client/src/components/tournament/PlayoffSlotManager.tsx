@@ -55,6 +55,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
   const [bulkDate, setBulkDate] = useState<string>('');
   const [bulkTime, setBulkTime] = useState<string>('');
   const [bulkDiamond, setBulkDiamond] = useState<string>('');
+  const [bulkAppliedSlots, setBulkAppliedSlots] = useState<string[]>([]);
 
   // CRITICAL FIX: Memoize slots, queryKey, and select function to prevent infinite re-renders.
   
@@ -225,6 +226,10 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
       });
       return newState;
     });
+
+    // Visual feedback - briefly highlight updated slots
+    setBulkAppliedSlots(targetSlots);
+    setTimeout(() => setBulkAppliedSlots([]), 2000);
 
     toast({
       title: "Slots Updated",
@@ -414,8 +419,17 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
               const slotKey = `r${slot.round}-g${slot.gameNumber}`;
               const value = formState[slotKey] || { date: '', time: '', diamondId: '' };
 
+              const isRecentlyUpdated = bulkAppliedSlots.includes(slotKey);
+              
               return (
-                <div key={slotKey} className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 space-y-3">
+                <div 
+                  key={slotKey} 
+                  className={`p-4 border rounded-lg space-y-3 transition-all duration-500 ${
+                    isRecentlyUpdated 
+                      ? 'bg-green-100 dark:bg-green-900/30 border-green-400 ring-2 ring-green-400' 
+                      : 'bg-gray-50 dark:bg-gray-800'
+                  }`}
+                >
                   <Label className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     {slot.name}
                   </Label>
@@ -492,11 +506,12 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
               );
             })}
           </div>
-          <div className="flex justify-end">
+          {/* Sticky Save Button */}
+          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t pt-4 pb-2 -mx-6 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <Button
               type="submit"
               disabled={saveSlotsMutation.isPending}
-              className="min-h-[48px] font-semibold"
+              className="w-full min-h-[48px] font-semibold"
               data-testid="button-save-playoff-schedule"
             >
               {saveSlotsMutation.isPending ? (

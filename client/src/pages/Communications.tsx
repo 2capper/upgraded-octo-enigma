@@ -91,6 +91,9 @@ export default function Communications() {
   const [templateName, setTemplateName] = useState("");
   const [templateContent, setTemplateContent] = useState("");
   const [templateCategory, setTemplateCategory] = useState<string>("general");
+  
+  // Send confirmation dialog state
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
 
   const { data: orgTournaments = [] } = useQuery({
     queryKey: [`/api/organizations/${orgId}/tournaments-with-teams`],
@@ -266,10 +269,16 @@ export default function Communications() {
       return;
     }
 
-    if (selectedCoaches.size > 20 && !confirm(`You are about to send ${selectedCoaches.size} messages. Continue?`)) {
+    // Always show confirmation modal for any send action
+    setConfirmSendOpen(true);
+  };
+  
+  const handleConfirmedSend = () => {
+    if (!messageBody.trim() || selectedCoaches.size === 0) {
+      setConfirmSendOpen(false);
       return;
     }
-
+    
     const recipients = filteredStaffMembers
       .filter(staff => selectedCoaches.has(staff.id))
       .map(staff => ({
@@ -278,11 +287,23 @@ export default function Communications() {
         teamId: staff.teamId,
       }));
 
+    if (recipients.length === 0) {
+      toast({
+        title: "No valid recipients",
+        description: "No staff members with phone numbers selected",
+        variant: "destructive",
+      });
+      setConfirmSendOpen(false);
+      return;
+    }
+
     sendMutation.mutate({
       recipients,
       messageBody,
       tournamentId: tournamentFilter !== "all" ? tournamentFilter : undefined,
     });
+    
+    setConfirmSendOpen(false);
   };
 
   const toggleStaff = (staffId: string) => {
@@ -744,10 +765,47 @@ export default function Communications() {
                     rows={8}
                     maxLength={480}
                     data-testid="textarea-message-body"
+                    className={characterCount > 160 ? "border-amber-400 focus-visible:ring-amber-400" : ""}
+                    aria-describedby="character-count-info segment-count-info"
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{characterCount} / 480 characters</span>
-                    <span>{segmentCount} SMS segment{segmentCount !== 1 ? "s" : ""}</span>
+                  <div className="flex justify-between text-xs">
+                    <span 
+                      id="character-count-info"
+                      className={`font-medium ${
+                        characterCount > 160 
+                          ? characterCount > 320 
+                            ? "text-red-600" 
+                            : "text-amber-600" 
+                          : "text-muted-foreground"
+                      }`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {characterCount}/480 characters
+                      {characterCount > 160 && (
+                        <span className="ml-1">
+                          ({160 - (characterCount % 160) || 160} left in segment)
+                        </span>
+                      )}
+                      <span className="sr-only">
+                        {characterCount > 320 
+                          ? "Warning: Message uses 3 SMS segments, higher carrier costs" 
+                          : characterCount > 160 
+                            ? "Note: Message uses 2 SMS segments" 
+                            : ""}
+                      </span>
+                    </span>
+                    <span 
+                      id="segment-count-info"
+                      className={`font-medium ${segmentCount > 1 ? "text-amber-600" : "text-muted-foreground"}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {segmentCount} SMS segment{segmentCount !== 1 ? "s" : ""}
+                      {segmentCount > 1 && (
+                        <span className="text-muted-foreground ml-1">(multi-part message)</span>
+                      )}
+                    </span>
                   </div>
                 </div>
 
@@ -1028,6 +1086,61 @@ export default function Communications() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Send Confirmation Dialog */}
+      <Dialog open={confirmSendOpen} onOpenChange={setConfirmSendOpen}>
+        <DialogContent aria-describedby="send-confirmation-description">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Confirm Send
+            </DialogTitle>
+            <DialogDescription id="send-confirmation-description">
+              Review your message before sending to {selectedCoaches.size} recipient{selectedCoaches.size !== 1 ? "s" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="bg-muted p-3 rounded-lg">
+              <p className="text-sm font-medium mb-2">Message Preview:</p>
+              {messageBody.trim() ? (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{messageBody}</p>
+              ) : (
+                <p className="text-sm text-red-500 italic">No message content</p>
+              )}
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Recipients:</span>
+              <span className="text-lg font-bold text-primary">{selectedCoaches.size} people</span>
+            </div>
+            {segmentCount > 1 && (
+              <Alert role="status" aria-label={`This message uses ${segmentCount} SMS segments`}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  This message is {characterCount} characters and will be sent as {segmentCount} SMS segments.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmSendOpen(false)}
+              data-testid="button-cancel-send"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmedSend}
+              disabled={!messageBody.trim() || selectedCoaches.size === 0}
+              className="bg-primary"
+              data-testid="button-confirm-send"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Send {selectedCoaches.size} Message{selectedCoaches.size !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Template Create/Edit Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>

@@ -4,7 +4,7 @@ import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, Drag
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, GripVertical } from 'lucide-react';
+import { Users, GripVertical, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { nanoid } from 'nanoid';
@@ -391,9 +391,17 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
                   onClick={() => generateMutation.mutate()}
                   disabled={unassignedTeams.length > 0 || generateMutation.isPending}
                   style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+                  className="min-w-[220px]"
                   data-testid="button-generate-matchups"
                 >
-                  {generateMutation.isPending ? "Generating..." : "Lock Pools & Generate Matchups"}
+                  {generateMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Matchups...
+                    </>
+                  ) : (
+                    "Lock Pools & Generate Matchups"
+                  )}
                 </Button>
               </div>
               {unassignedTeams.length > 0 && (

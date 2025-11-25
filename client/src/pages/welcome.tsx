@@ -102,6 +102,20 @@ export function WelcomePage() {
             <p className="text-center text-sm text-gray-500 mt-4">
               No credit card required • Free to start
             </p>
+            
+            <div className="text-center mt-6 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Looking to join an existing organization?{' '}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-sm font-semibold text-blue-600 hover:text-blue-800"
+                  onClick={() => setLocation('/request-admin-access')}
+                  data-testid="link-join-org"
+                >
+                  Request access here
+                </Button>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

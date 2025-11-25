@@ -28,6 +28,7 @@ import {
   Check,
   Download,
   AlertTriangle,
+  GripVertical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -85,19 +86,24 @@ function DraggableMatchup({
       style={style}
       {...listeners}
       {...attributes}
-      className="group p-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all"
+      className="group p-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all touch-manipulation"
       data-testid={`matchup-${matchup.id}`}
+      role="button"
+      aria-label={`Drag to schedule ${homeTeam?.name || "Unknown"} vs ${awayTeam?.name || "Unknown"}`}
     >
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white">
-          {homeTeam?.name || "Unknown"}
-        </div>
-        <div className="text-xs text-gray-500">vs</div>
-        <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white">
-          {awayTeam?.name || "Unknown"}
+      <div className="flex items-center gap-2 mb-1">
+        <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
+        <div className="flex-1 flex items-center justify-between min-w-0">
+          <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white truncate">
+            {homeTeam?.name || "Unknown"}
+          </div>
+          <div className="text-xs text-gray-500 px-1 flex-shrink-0">vs</div>
+          <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white truncate">
+            {awayTeam?.name || "Unknown"}
+          </div>
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-xs pl-6">
         <Badge
           variant="outline"
           className="bg-[var(--field-green)]/10 text-[var(--field-green)] border-[var(--field-green)]/30"
