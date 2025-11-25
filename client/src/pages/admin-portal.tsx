@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { useTournamentData } from '@/hooks/use-tournament-data';
-import { AdminPortalNew } from '@/components/tournament/admin-portal-new';
+import { AdminPortalNew } from '@/components/tournament/admin-portal';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { TournamentCreationForm } from '@/components/tournament/tournament-creation-form';
 import { TournamentManager } from '@/components/tournament/tournament-manager';
