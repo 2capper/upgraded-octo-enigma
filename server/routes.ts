@@ -560,10 +560,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get organization by slug (for public pages)
-  app.get("/api/organizations/:slug", async (req, res) => {
+  // Get organization by slug or ID (handles both cases)
+  app.get("/api/organizations/:slugOrId", async (req, res) => {
     try {
-      const organization = await organizationService.getOrganizationBySlug(req.params.slug);
+      const param = req.params.slugOrId;
+      
+      // Check if param looks like a UUID (for ID lookups from admin portal)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(param);
+      
+      let organization;
+      if (isUuid) {
+        organization = await organizationService.getOrganization(param);
+      } else {
+        organization = await organizationService.getOrganizationBySlug(param);
+      }
+      
       if (!organization) {
         return res.status(404).json({ error: "Organization not found" });
       }
