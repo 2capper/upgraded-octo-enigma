@@ -85,30 +85,25 @@ export class OrganizationService {
   // Claim an unclaimed organization
   async claimOrganization(organizationId: string, userId: string): Promise<Organization | null> {
     return await db.transaction(async (tx) => {
-      // Check if organization exists and is unclaimed
-      const [org] = await tx
-        .select()
-        .from(organizations)
-        .where(
-          and(
-            eq(organizations.id, organizationId),
-            eq(organizations.isClaimed, false)
-          )
-        );
-
-      if (!org) {
-        return null;
-      }
-
-      // Mark organization as claimed
+      // Atomically update ONLY if still unclaimed - prevents race conditions
       const [updatedOrg] = await tx
         .update(organizations)
         .set({ 
           isClaimed: true,
           updatedAt: new Date()
         })
-        .where(eq(organizations.id, organizationId))
+        .where(
+          and(
+            eq(organizations.id, organizationId),
+            eq(organizations.isClaimed, false)
+          )
+        )
         .returning();
+
+      // If no rows updated, org doesn't exist or was already claimed
+      if (!updatedOrg) {
+        return null;
+      }
 
       // Make user admin of the organization
       await tx
