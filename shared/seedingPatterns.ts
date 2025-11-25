@@ -226,24 +226,40 @@ export function generateTop6Matchups(
         { team1Seed: 4, team2Seed: 3, description: 'B2 vs A3' },
       ];
 
-    case 'cross_pool_4':
+    case 'cross_pool_4': {
       // 16 Teams - 4 Pools, Top 6: 4 pool winners + 2 best 2nd place (wildcards)
-      // Standard seeding: Pool winners 1-4, then wildcards 5-6 (by record)
-      // Seeds 1-2 get byes to semis
-      // NOTE: If wildcards (seeds 5-6) are from same pools as seeds 3-4, this creates rematches.
-      // Future enhancement: Add dynamic pool checking to swap matchups when needed.
+      // Seeds 1-2 get byes, seeds 3-4 (pool winners) play seeds 5-6 (wildcards)
+      // Dynamic pool checking to avoid same-pool rematches
+      const seed3Pool = seededTeams.find(t => t.seed === 3)?.poolName;
+      const seed4Pool = seededTeams.find(t => t.seed === 4)?.poolName;
+      const seed5Pool = seededTeams.find(t => t.seed === 5)?.poolName;
+      const seed6Pool = seededTeams.find(t => t.seed === 6)?.poolName;
+      
+      // Check for same-pool conflicts and swap if needed
+      const conflict3v6 = seed3Pool && seed6Pool && seed3Pool === seed6Pool;
+      const conflict4v5 = seed4Pool && seed5Pool && seed4Pool === seed5Pool;
+      
+      // If both default matchups have conflicts, or if swapping fixes the issue
+      if (conflict3v6 || conflict4v5) {
+        // Try swapped matchups: 3 vs 5, 4 vs 6
+        const swapConflict3v5 = seed3Pool && seed5Pool && seed3Pool === seed5Pool;
+        const swapConflict4v6 = seed4Pool && seed6Pool && seed4Pool === seed6Pool;
+        
+        // Use swapped if it has fewer or equal conflicts
+        if (!swapConflict3v5 && !swapConflict4v6) {
+          return [
+            { team1Seed: 3, team2Seed: 5, description: '#3 Seed vs #5 Seed' },
+            { team1Seed: 4, team2Seed: 6, description: '#4 Seed vs #6 Seed' },
+          ];
+        }
+      }
+      
+      // Default: 3 vs 6, 4 vs 5
       return [
-        { 
-          team1Seed: 3, 
-          team2Seed: 6,
-          description: '#3 Seed vs #6 Seed'
-        },
-        { 
-          team1Seed: 4, 
-          team2Seed: 5,
-          description: '#4 Seed vs #5 Seed'
-        },
+        { team1Seed: 3, team2Seed: 6, description: '#3 Seed vs #6 Seed' },
+        { team1Seed: 4, team2Seed: 5, description: '#4 Seed vs #5 Seed' },
       ];
+    }
 
     default:
       return generateTop6Matchups('standard', seededTeams);
@@ -287,23 +303,26 @@ export function generateTop4Matchups(
         },
       ];
 
-    case 'cross_pool_3':
+    case 'cross_pool_3': {
       // 12 Teams - 3 Pools, Top 4: 3 pool winners + 1 best 2nd place (wildcard)
-      // Standard seeding: A1=1, B1=2, C1=3, Best2nd=4
-      // NOTE: If wildcard (seed 4) is from same pool as seed 1, this creates a rematch.
-      // Future enhancement: Add dynamic pool checking to swap matchups when needed.
+      // Dynamic pool checking to avoid same-pool rematches
+      const seed1Pool = seededTeams.find(t => t.seed === 1)?.poolName;
+      const seed4Pool = seededTeams.find(t => t.seed === 4)?.poolName;
+      
+      // If wildcard (seed 4) is from same pool as seed 1, swap matchups
+      if (seed1Pool && seed4Pool && seed1Pool === seed4Pool) {
+        return [
+          { team1Seed: 1, team2Seed: 3, description: '#1 Seed vs #3 Seed' },
+          { team1Seed: 2, team2Seed: 4, description: '#2 Seed vs #4 Seed (Wildcard)' },
+        ];
+      }
+      
+      // Default: seed 1 vs wildcard (different pools), seed 2 vs seed 3
       return [
-        { 
-          team1Seed: 1, 
-          team2Seed: 4,
-          description: '#1 Seed vs #4 Seed (Wildcard)'
-        },
-        { 
-          team1Seed: 2, 
-          team2Seed: 3,
-          description: '#2 Seed vs #3 Seed'
-        },
+        { team1Seed: 1, team2Seed: 4, description: '#1 Seed vs #4 Seed (Wildcard)' },
+        { team1Seed: 2, team2Seed: 3, description: '#2 Seed vs #3 Seed' },
       ];
+    }
 
     case 'cross_pool_4':
       // 16 Teams - 4 Pools, Top 4: All 4 pool winners only (no wildcards)
