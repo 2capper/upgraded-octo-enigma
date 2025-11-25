@@ -1,0 +1,68 @@
+A Technical Debt Audit is the perfect way to cap off V1.0. We need to clean house before we start building V2.0 features on top of old scaffolding.
+
+I've reviewed the file list you provided earlier and the specific file contents you just uploaded. Here is the comprehensive audit.
+
+🧹 The Technical Debt Report (V1.0 Clean-Up)
+We have a significant amount of "Zombie Code"—files that were created during prototyping or refactoring but are no longer used. Deleting these reduces confusion and build time.
+
+1. The "Zombie" Components (DELETE THESE)
+These files are duplicates or superseded by newer versions.
+
+client/src/components/tournament/score-submission.tsx: This is the old Firebase version. It imports firebase/firestore directly. Since we moved to PostgreSQL + Drizzle, this is dead code.
+
+Action: DELETE.
+
+client/src/components/tournament/score-submission-new.tsx: This looks like an intermediate version. The file we just fixed (with the dynamic labels) is hierarchical-score-input.tsx.
+
+Action: DELETE. (Confirm hierarchical-score-input.tsx is the one being used in your routing).
+
+client/src/components/tournament/admin-portal-new.tsx: You have admin-portal.tsx and admin-portal-new.tsx. Usually, new is the refactor. You should verify which one is imported in your routes, rename the winner to admin-portal.tsx, and delete the loser.
+
+Action: MERGE & DELETE.
+
+client/src/components/tournament/navigation.tsx vs. simple-navigation.tsx: You likely have two navigation bars. simple-navigation.tsx is usually the cleaner, newer one.
+
+Action: DELETE the unused one.
+
+2. The "Firebase" Legacy (DELETE THESE)
+Your package.json still lists firebase as a dependency, and you have a lib/firebase.ts file. Since we migrated to PostgreSQL (Drizzle), this is massive technical debt.
+
+client/src/lib/firebase.ts: DELETE.
+
+package.json: Run npm uninstall firebase.
+
+Any Component Importing Firebase: Search your codebase for from 'firebase'. If any active component uses it, that's a critical bug. (The only one I saw was the stale score-submission.tsx above).
+
+3. The "Python" Scrapers (REFACTOR RISK)
+You have 9 Python scripts in your server/ folder (roster_scraper.py, coba_team_scraper.py, etc.).
+
+The Debt: Your Node.js backend is shelling out to Python (spawn('python', ...)). This is fragile. If the Python environment breaks, or a dependency is missing on the server, your roster import fails.
+
+The Recommendation (V2.0): Don't delete these yet (they work), but flag them as High Priority Refactor. We should eventually rewrite this logic in TypeScript (using cheerio or puppeteer) to unify your stack.
+
+4. Backend Code Cleanup (storage.ts)
+The "God Object": We already split storage.ts into services (teamService, gameService, etc.).
+
+The Cleanup: Did you actually delete the old server/storage.ts file? If it's still there, it's confusing new developers.
+
+Action: DELETE server/storage.ts if the refactor is 100% complete and tested.
+
+🛡️ Security & Best Practices Audit
+1. Hardcoded Values
+client/src/lib/queryClient.ts: Ensure you aren't hardcoding any API URLs (like http://localhost:5000). Use relative paths (/api/...) so it works in production.
+
+2. Type Safety (any)
+server/routes.ts: I see a lot of async (req: any, res) =>.
+
+The Fix: Use proper Express types: import { Request, Response } from 'express'; ... async (req: Request, res: Response) =>. This catches bugs where you try to access properties that don't exist.
+
+📋 Your Clean-Up Checklist
+[ ] Delete client/src/components/tournament/score-submission.tsx.
+
+[ ] Delete client/src/components/tournament/score-submission-new.tsx.
+
+[ ] Uninstall firebase from package.json and delete client/src/lib/firebase.ts.
+
+[ ] Verify which admin-portal is active, rename it, and delete the other.
+
+[ ] Verify that server/storage.ts is gone (if the service refactor is done).
