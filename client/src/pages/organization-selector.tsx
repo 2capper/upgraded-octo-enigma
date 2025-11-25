@@ -92,18 +92,15 @@ export default function OrganizationSelector() {
   };
 
   useEffect(() => {
-    if (!isLoading && organizations && !user?.isSuperAdmin && coachInvites !== undefined) {
+    if (!isLoading && organizations && !user?.isSuperAdmin) {
       // Auto-redirect if user has exactly one organization (skip for super admins)
+      // Organizations in this list are admin orgs, so always route to admin portal
       if (organizations.length === 1) {
         const org = organizations[0];
-        // Check if user is a coach for this org (not an admin)
-        const isCoach = coachInvites.some(inv => inv.organizationId === org.id);
-        // Route coaches to booking, admins to admin portal
-        const destination = isCoach ? `/org/${org.id}/booking` : `/org/${org.id}/admin`;
-        setLocation(destination);
+        setLocation(`/org/${org.id}/admin`);
       }
     }
-  }, [organizations, isLoading, user, coachInvites, setLocation]);
+  }, [organizations, isLoading, user, setLocation]);
 
   if (isLoading) {
     return (
@@ -177,10 +174,8 @@ export default function OrganizationSelector() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {organizations.map((org) => {
-            // Check if user is a coach for this org (not an admin)
-            const isCoach = coachInvites?.some(inv => inv.organizationId === org.id) || false;
-            // Route coaches to booking, admins to admin portal
-            const destinationUrl = isCoach ? `/org/${org.id}/booking` : `/org/${org.id}/admin`;
+            // Organizations in this list are admin orgs, so always route to admin portal
+            const destinationUrl = `/org/${org.id}/admin`;
             
             return (
               <Card 
