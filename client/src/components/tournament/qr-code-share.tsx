@@ -153,11 +153,8 @@ export function QRCodeShare({ tournament, organizationLogoUrl }: QRCodeShareProp
           />
         </div>
 
-        <div className="text-center space-y-2">
+        <div className="text-center">
           <p className="text-sm text-gray-600">Scan to view tournament standings</p>
-          <div className="bg-gray-100 p-2 rounded text-xs font-mono break-all">
-            {publicUrl}
-          </div>
         </div>
 
         <div className="flex gap-2">
