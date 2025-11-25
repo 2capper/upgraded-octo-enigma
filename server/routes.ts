@@ -834,8 +834,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Diamond routes
-  app.get("/api/organizations/:organizationId/diamonds", requireDiamondBooking, async (req, res) => {
+  // Diamond routes - available to org admins for tournament scheduling (not gated by booking feature)
+  app.get("/api/organizations/:organizationId/diamonds", requireOrgAdmin, async (req, res) => {
     try {
       const { organizationId } = req.params;
       const diamonds = await diamondService.getDiamonds(organizationId);
