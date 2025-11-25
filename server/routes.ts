@@ -5338,6 +5338,36 @@ Waterdown 10U AA
     }
   });
 
+  // Get today's games for an organization (for SMS targeting by diamond)
+  app.get('/api/organizations/:orgId/games/today', requireOrgAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get all tournaments for this organization
+      const orgTournaments = await db.select().from(tournaments)
+        .where(eq(tournaments.organizationId, orgId));
+      
+      if (orgTournaments.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get all games from these tournaments that are scheduled for today
+      const todaysGames = await db.select().from(games)
+        .where(
+          and(
+            sql`${games.tournamentId} IN (${sql.join(orgTournaments.map(t => sql`${t.id}`), sql`, `)})`,
+            eq(games.date, today)
+          )
+        );
+      
+      res.json(todaysGames);
+    } catch (error) {
+      console.error("Error fetching today's games:", error);
+      res.status(500).json({ error: "Failed to fetch today's games" });
+    }
+  });
+
   // Send SMS message
   app.post('/api/organizations/:orgId/sms/send', requireOrgAdmin, async (req: any, res) => {
     try {

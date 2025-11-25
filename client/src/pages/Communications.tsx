@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle, FileText, Edit, Trash2, Plus, Inbox, Mail, MailOpen } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, History, AlertCircle, CheckCircle, FileText, Edit, Trash2, Plus, Inbox, Mail, MailOpen, Target, Cloud, Calendar, Users, Zap } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,8 +21,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatPhoneForDisplay } from "@shared/phoneUtils";
-import type { Team } from "@shared/schema";
+import type { Team, Game, Diamond } from "@shared/schema";
 
 interface StaffMember {
   id: string; // unique identifier for this staff member
@@ -41,8 +48,29 @@ interface CommunicationTemplate {
   organizationId: string;
   name: string;
   content: string;
+  category?: string;
   createdAt: string;
 }
+
+// Pre-built quick templates for common scenarios
+const QUICK_TEMPLATES = {
+  weather: [
+    { name: "Rain Delay - 1 Hour", content: "WEATHER UPDATE: All games are delayed by 1 hour due to rain. Please check back for updates. Thank you for your patience!" },
+    { name: "Lightning Delay", content: "SAFETY ALERT: Lightning detected in the area. All games are suspended until 30 minutes after the last detected strike. Please seek shelter immediately." },
+    { name: "Games Cancelled", content: "WEATHER CANCELLATION: Today's games have been cancelled due to weather conditions. We will communicate rescheduling information soon." },
+    { name: "Heat Advisory", content: "HEAT ADVISORY: Due to extreme heat, all games will include extended water breaks. Please ensure players stay hydrated and watch for signs of heat exhaustion." },
+  ],
+  schedule: [
+    { name: "Field Change", content: "FIELD CHANGE: Your next game has been moved to a different diamond. Please check the tournament dashboard for updated field assignment." },
+    { name: "Time Change", content: "SCHEDULE UPDATE: Your game time has been adjusted. Please check the tournament dashboard for the new start time." },
+    { name: "Playoff Seeding", content: "PLAYOFFS ANNOUNCED: Pool play is complete! Please check the tournament dashboard for playoff seedings and your next game time." },
+  ],
+  general: [
+    { name: "Welcome Message", content: "Welcome to the tournament! Check the tournament dashboard for your schedule, standings, and real-time updates. Good luck!" },
+    { name: "Parking Update", content: "PARKING INFO: Please note parking instructions for today's games. [Add details]" },
+    { name: "Tournament Update", content: "TOURNAMENT UPDATE: [Your message here]" },
+  ],
+};
 
 export default function Communications() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -52,13 +80,17 @@ export default function Communications() {
   const [messageBody, setMessageBody] = useState("");
   const [selectedCoaches, setSelectedCoaches] = useState<Set<string>>(new Set());
   const [tournamentFilter, setTournamentFilter] = useState<string>("all");
+  const [divisionFilter, setDivisionFilter] = useState<string>("all");
+  const [diamondFilter, setDiamondFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [quickTemplateCategory, setQuickTemplateCategory] = useState<"weather" | "schedule" | "general">("weather");
   
   // Template management state
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CommunicationTemplate | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [templateContent, setTemplateContent] = useState("");
+  const [templateCategory, setTemplateCategory] = useState<string>("general");
 
   const { data: orgTournaments = [] } = useQuery({
     queryKey: [`/api/organizations/${orgId}/tournaments-with-teams`],
@@ -82,6 +114,23 @@ export default function Communications() {
 
   const { data: inboundMessages = [], isLoading: inboxLoading } = useQuery({
     queryKey: [`/api/organizations/${orgId}/sms/inbound`],
+    enabled: !!orgId,
+  });
+
+  // Fetch diamonds for the organization (using organizationId parameter)
+  const { data: diamonds = [] } = useQuery<Diamond[]>({
+    queryKey: [`/api/organizations/${orgId}/diamonds`],
+    queryFn: async () => {
+      const response = await fetch(`/api/organizations/${orgId}/diamonds`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!orgId,
+  });
+
+  // Fetch all games to determine "currently playing" teams
+  const { data: allGames = [] } = useQuery<Game[]>({
+    queryKey: [`/api/organizations/${orgId}/games/today`],
     enabled: !!orgId,
   });
 
@@ -136,13 +185,43 @@ export default function Communications() {
     });
   });
 
+  // Extract unique divisions from staff members
+  const availableDivisions = useMemo(() => {
+    const divisions = new Set<string>();
+    staffMembers.forEach(staff => {
+      if (staff.division) divisions.add(staff.division);
+    });
+    return Array.from(divisions).sort();
+  }, [staffMembers]);
+
+  // Get teams currently playing on each diamond (based on today's games)
+  const teamsOnDiamond = useMemo(() => {
+    const diamondTeams: Record<string, Set<string>> = {};
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    allGames.forEach((game: any) => {
+      // Check if game is today and scheduled/in-progress
+      if (game.date === today && game.status !== 'completed' && game.diamondId) {
+        if (!diamondTeams[game.diamondId]) {
+          diamondTeams[game.diamondId] = new Set();
+        }
+        if (game.homeTeamId) diamondTeams[game.diamondId].add(game.homeTeamId);
+        if (game.awayTeamId) diamondTeams[game.diamondId].add(game.awayTeamId);
+      }
+    });
+    return diamondTeams;
+  }, [allGames]);
+
   const filteredStaffMembers = staffMembers.filter(staff => {
     const matchesTournament = tournamentFilter === "all" || staff.tournamentId === tournamentFilter;
+    const matchesDivision = divisionFilter === "all" || staff.division === divisionFilter;
+    const matchesDiamond = diamondFilter === "all" || teamsOnDiamond[diamondFilter]?.has(staff.teamId);
     const matchesSearch = searchQuery === "" || 
       staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.teamName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.role.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTournament && matchesSearch;
+    return matchesTournament && matchesDivision && matchesDiamond && matchesSearch;
   });
 
   const sendMutation = useMutation({
@@ -429,22 +508,88 @@ export default function Communications() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tournament-filter">Filter by Tournament</Label>
-                  <select
-                    id="tournament-filter"
-                    value={tournamentFilter}
-                    onChange={(e) => setTournamentFilter(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    data-testid="select-tournament-filter"
-                  >
-                    <option value="all">All Tournaments</option>
-                    {orgTournaments.map((tournament: any) => (
-                      <option key={tournament.id} value={tournament.id}>
-                        {tournament.name}
-                      </option>
-                    ))}
-                  </select>
+                {/* Smart Targeting Section */}
+                <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Target className="h-4 w-4" />
+                    Smart Targeting
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Tournament Filter */}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tournament</Label>
+                      <Select value={tournamentFilter} onValueChange={setTournamentFilter}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-tournament-filter">
+                          <SelectValue placeholder="All Tournaments" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Tournaments</SelectItem>
+                          {orgTournaments.map((tournament: any) => (
+                            <SelectItem key={tournament.id} value={tournament.id}>
+                              {tournament.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Division Filter */}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Division</Label>
+                      <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-division-filter">
+                          <SelectValue placeholder="All Divisions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Divisions</SelectItem>
+                          {availableDivisions.map((division) => (
+                            <SelectItem key={division} value={division}>
+                              {division}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Diamond Filter (Teams Currently Playing) */}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Currently on Diamond</Label>
+                      <Select value={diamondFilter} onValueChange={setDiamondFilter}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-diamond-filter">
+                          <SelectValue placeholder="All Diamonds" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Diamonds</SelectItem>
+                          {diamonds.map((diamond) => (
+                            <SelectItem key={diamond.id} value={diamond.id}>
+                              {diamond.name} {teamsOnDiamond[diamond.id]?.size ? `(${teamsOnDiamond[diamond.id].size} teams)` : "(0 teams)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {(tournamentFilter !== "all" || divisionFilter !== "all" || diamondFilter !== "all") && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="secondary" className="text-xs">
+                        Filtering: {filteredStaffMembers.length} of {staffMembers.length} contacts
+                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          setTournamentFilter("all");
+                          setDivisionFilter("all");
+                          setDiamondFilter("all");
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -527,6 +672,68 @@ export default function Communications() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Quick Templates Section */}
+                <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Zap className="h-4 w-4" />
+                    Quick Templates
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      variant={quickTemplateCategory === "weather" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setQuickTemplateCategory("weather")}
+                      data-testid="button-category-weather"
+                    >
+                      <Cloud className="h-3 w-3 mr-1" />
+                      Weather
+                    </Button>
+                    <Button
+                      variant={quickTemplateCategory === "schedule" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setQuickTemplateCategory("schedule")}
+                      data-testid="button-category-schedule"
+                    >
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Schedule
+                    </Button>
+                    <Button
+                      variant={quickTemplateCategory === "general" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setQuickTemplateCategory("general")}
+                      data-testid="button-category-general"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      General
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {QUICK_TEMPLATES[quickTemplateCategory].map((template, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="h-auto py-1 px-2 text-xs"
+                        onClick={() => {
+                          setMessageBody(template.content);
+                          toast({
+                            title: "Template Applied",
+                            description: `"${template.name}" loaded into message editor`,
+                          });
+                        }}
+                        data-testid={`quick-template-${quickTemplateCategory}-${index}`}
+                      >
+                        {template.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="message-body">Message Body</Label>
                   <Textarea
@@ -534,7 +741,7 @@ export default function Communications() {
                     placeholder="Enter your message here..."
                     value={messageBody}
                     onChange={(e) => setMessageBody(e.target.value)}
-                    rows={10}
+                    rows={8}
                     maxLength={480}
                     data-testid="textarea-message-body"
                   />
