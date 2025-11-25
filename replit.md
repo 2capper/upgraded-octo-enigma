@@ -69,6 +69,7 @@ Preferred communication style: Simple, everyday language.
 - **Weather Integration**: WeatherAPI.com for dynamic forecasts, player safety alerts, and a dedicated weather dashboard with configurable safety thresholds.
 - **Weather Map Visualization**: Interactive Leaflet-based map displaying weather alerts across all diamond locations with severity-coded markers (red/orange/yellow) and detailed popups. Integrated as a tab view in the Weather Dashboard alongside the list view, with shared data and mobile-optimized design.
 - **Field Status Management (Field Command V2.0)**: Real-time diamond status control system allowing admins to mark fields as Open, Closed, Delayed, or TBD with optional status messages. When a field status changes, admins are presented with affected games and can instantly send SMS alerts to all coaches (coach/manager/assistant contacts) with one click. Status updates are displayed publicly on game cards with color-coded badges (green/red/yellow/gray) and a Field Conditions section shows all tournament diamond statuses for maximum transparency.
+- **Organization Claim System (V2.0 Growth)**: Pre-seeded directory of 205+ OBA organizations allows new directors to instantly claim their association instead of creating from scratch. Welcome page presents "Find Your Organization" search with live results by name/city, followed by one-click claim. Atomic transaction prevents race conditions during concurrent claims. Fallback to "Create New Organization" for unlisted associations.
 
 ## External Dependencies
 
