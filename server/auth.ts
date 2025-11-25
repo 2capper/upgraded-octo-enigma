@@ -172,7 +172,7 @@ export const requireOrgAdmin: RequestHandler = async (req, res, next) => {
   }
 };
 
-// Middleware to check if organization has diamond booking enabled
+// Middleware to check if organization has booking feature enabled via feature flags
 export const requireDiamondBooking: RequestHandler = async (req, res, next) => {
   if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ message: "Unauthorized - Please login first" });
@@ -192,7 +192,10 @@ export const requireDiamondBooking: RequestHandler = async (req, res, next) => {
       return res.status(404).json({ message: "Organization not found" });
     }
 
-    if (!organization.hasDiamondBooking) {
+    // Check if booking feature is enabled for this organization via feature flags
+    const isBookingEnabled = await organizationService.isFeatureEnabledForOrganization(organizationId, 'booking');
+    
+    if (!isBookingEnabled) {
       return res.status(403).json({ message: "Diamond booking is not enabled for this organization" });
     }
 
