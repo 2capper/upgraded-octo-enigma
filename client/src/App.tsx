@@ -230,12 +230,7 @@ function Router() {
         {() => <RequireAuth component={OrgSettings} />}
       </Route>
       {/* Redirect old booking path to new hub */}
-      <Route path="/org/:orgId/booking">
-        {({ params }) => {
-          window.location.replace(`/booking/${params.orgId}/hub`);
-          return null;
-        }}
-      </Route>
+      <Route path="/org/:orgId/booking" component={BookingRedirect} />
       
       {/* Booking module routes - protected (specific routes first) */}
       <Route path="/booking/:orgId/hub">
@@ -272,12 +267,7 @@ function Router() {
         {() => <RequireAuth component={Communications} />}
       </Route>
       {/* Redirect old booking path to new hub */}
-      <Route path="/booking/:orgId">
-        {({ params }) => {
-          window.location.replace(`/booking/${params.orgId}/hub`);
-          return null;
-        }}
-      </Route>
+      <Route path="/booking/:orgId" component={BookingRedirect} />
       
       {/* Protected admin routes - NEW org-scoped routes */}
       <Route path="/org/:orgId/tournaments/tournament/:tournamentId/communications">
