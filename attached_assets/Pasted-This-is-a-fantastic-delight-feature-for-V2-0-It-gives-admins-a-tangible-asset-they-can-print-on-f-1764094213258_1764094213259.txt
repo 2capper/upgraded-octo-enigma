@@ -1,0 +1,87 @@
+This is a fantastic "delight" feature for V2.0. It gives admins a tangible asset they can print on flyers or put on the snack bar counter.
+
+Since you are already capturing the logoUrl in your Organization Settings, we can easily generate a branded QR code dynamically on the frontend.
+
+🛠️ Technical Implementation
+We don't need a complex backend generator for this. We can do it entirely in React using a library like qrcode.react, which specifically supports embedding logos in the center of the code.
+
+1. Install the Library
+You (or we) would add this to the project:
+
+Bash
+
+npm install qrcode.react
+2. The Component (OrganizationQRCode.tsx)
+We would create a simple, reusable component that takes the organization object as a prop.
+
+TypeScript
+
+import { QRCodeSVG } from 'qrcode.react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+
+export function OrganizationQRCode({ organization }) {
+  // The URL we want the QR code to point to (e.g., the public directory page)
+  const targetUrl = `https://dugoutdesk.ca/org/${organization.slug}`;
+
+  const handleDownload = () => {
+    // Logic to download the SVG/PNG
+    const svg = document.getElementById('org-qr-code');
+    if (svg) {
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx?.drawImage(img, 0, 0);
+        const pngFile = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.download = `${organization.slug}-qr.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-sm mx-auto text-center">
+      <CardHeader>
+        <CardTitle>Scan to Visit {organization.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center gap-6">
+        <div className="p-4 bg-white rounded-lg shadow-sm border">
+          <QRCodeSVG
+            id="org-qr-code"
+            value={targetUrl}
+            size={256}
+            level={"H"} // High error correction allows for the logo to cover data
+            includeMargin={true}
+            imageSettings={organization.logoUrl ? {
+              src: organization.logoUrl,
+              x: undefined,
+              y: undefined,
+              height: 60,
+              width: 60,
+              excavate: true, // "Digs out" the dots behind the logo so it looks clean
+            } : undefined}
+          />
+        </div>
+        
+        <Button onClick={handleDownload} variant="outline" className="w-full">
+          <Download className="w-4 h-4 mr-2" />
+          Download PNG
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+🎨 Where to Put It
+I recommend adding a small "Share" button in two places:
+
+Admin Portal: In the Organization Settings header (next to "Edit"). This lets the admin download it for printing.
+
+Public Page: On the public organization landing page (e.g., /org/forest-glade-baseball). This lets parents quickly share the link with grandparents.
