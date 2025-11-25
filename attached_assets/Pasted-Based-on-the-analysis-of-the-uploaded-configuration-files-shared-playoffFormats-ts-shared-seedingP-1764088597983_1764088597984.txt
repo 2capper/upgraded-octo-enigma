@@ -1,0 +1,66 @@
+Based on the analysis of the uploaded configuration files (shared/playoffFormats.ts, shared/seedingPatterns.ts), here is the validation of your requested tournament formats:
+
+✅ Supported Formats
+The following formats are fully supported by your current configuration:
+
+8 Teams - 2 Pools (Top 4 Cross-Pool)
+
+Status: ✅ Supported
+
+Config: Format: Top 4 Teams, Seeding: Cross-Pool (Two Pools)
+
+Logic: Matches A1 vs B2 and B1 vs A2.
+
+8 Teams - 2 Pools (Top 6 Cross-Pool)
+
+Status: ✅ Supported
+
+Config: Format: Top 6 Teams, Seeding: Cross-Pool (Two Pools)
+
+Logic: Top 2 get byes; Cross-pool matchups for QFs (A2 vs B3, B2 vs A3).
+
+12 Teams - 3 Pools (Top 6 Cross-Pool)
+
+Status: ✅ Supported
+
+Config: Format: Top 6 Teams, Seeding: Cross-Pool (Three Pools)
+
+Logic: Top 2 seeds get byes; QF matchups allow for cross-pool play (e.g., B1 vs C2).
+
+16 Teams - 4 Pools (Top 8 Cross-Pool)
+
+Status: ✅ Supported
+
+Config: Format: Top 8 Teams, Seeding: Cross-Pool (Four Pools)
+
+Logic: Explicitly defined to prevent rematches (A1 vs C2, B1 vs D2, C1 vs A2, D1 vs B2).
+
+❌ Missing / Not Explicitly Configured
+The following formats are not currently defined in your seedingPatternOptions compatibility lists. While you can run them as "Standard" seeding (1v4, 2v3), the specific "Cross-Pool" logic to guarantee no rematches is missing for these combinations:
+
+12 Teams - 3 Pools (Top 4 Cross-Pool)
+
+Status: ❌ Missing Configuration
+
+Gap: The Cross-Pool (Three Pools) pattern is currently only enabled for Top 6 and Top 8 formats.
+
+Fix Needed: Add top_4 to the compatibleFormats list for cross_pool_3 in seedingPatterns.ts and define the matchup logic (Seed 1 vs Wildcard, etc.).
+
+16 Teams - 4 Pools (Top 4 Cross-Pool)
+
+Status: ❌ Missing Configuration
+
+Gap: The Cross-Pool (Four Pools) pattern is only enabled for Top 8. It does not support Top 4.
+
+Fix Needed: Add top_4 to the compatibleFormats list for cross_pool_4.
+
+16 Teams - 4 Pools (Top 6 Cross-Pool)
+
+Status: ❌ Missing Configuration
+
+Gap: The Cross-Pool (Four Pools) pattern is only enabled for Top 8.
+
+Fix Needed: Add top_6 to the compatibleFormats list for cross_pool_4.
+
+Recommendation
+To achieve full coverage for 12 and 16-team events where you only want a small playoff bracket (Top 4), you need to update shared/seedingPatterns.ts to allow the cross_pool patterns to apply to the top_4 format.
