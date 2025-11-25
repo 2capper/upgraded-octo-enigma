@@ -18,10 +18,17 @@ export function useTournamentTimezone(tournamentId: string | undefined) {
     enabled: !!tournamentId,
   });
 
-  // Get organization data if tournament has an organizationId (uses default fetcher from queryClient)
+  // Get organization data if tournament has an organizationId
+  // Note: organizationId may be UUID or slug depending on data source
+  const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  const orgIdOrSlug = tournament?.organizationId;
+  const orgEndpoint = orgIdOrSlug 
+    ? (isUuid(orgIdOrSlug) ? `/api/organizations/by-id/${orgIdOrSlug}` : `/api/organizations/${orgIdOrSlug}`)
+    : null;
+  
   const { data: organization, isLoading: orgLoading } = useQuery<Organization>({
-    queryKey: ['/api/organizations/by-id', tournament?.organizationId],
-    enabled: !!tournament?.organizationId,
+    queryKey: [orgEndpoint],
+    enabled: !!orgEndpoint,
   });
 
   return {

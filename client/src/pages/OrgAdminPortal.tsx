@@ -35,7 +35,7 @@ export default function OrgAdminPortal() {
   const { isCompleted, startTour } = useTour('admin-portal');
 
   const { data: organization } = useQuery({
-    queryKey: [`/api/organizations/by-id/${orgId}`],
+    queryKey: [`/api/organizations/${orgId}`],
   });
 
   const { data: userData } = useQuery<any>({

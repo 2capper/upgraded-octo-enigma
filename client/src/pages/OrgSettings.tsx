@@ -29,7 +29,7 @@ export default function OrgSettings() {
   const { resetTour } = useTour('admin-portal');
 
   const { data: organization } = useQuery({
-    queryKey: [`/api/organizations/by-id/${orgId}`],
+    queryKey: [`/api/organizations/${orgId}`],
   });
 
   const { data: userRole, isLoading: roleLoading } = useQuery({

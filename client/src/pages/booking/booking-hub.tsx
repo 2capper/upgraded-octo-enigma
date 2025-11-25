@@ -15,7 +15,7 @@ export default function BookingHub() {
   const [, navigate] = useLocation();
 
   const { data: organization } = useQuery({
-    queryKey: [`/api/organizations/by-id/${orgId}`],
+    queryKey: [`/api/organizations/${orgId}`],
   });
 
   const { data: userRole, isLoading: roleLoading } = useQuery({

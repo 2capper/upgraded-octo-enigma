@@ -11,7 +11,7 @@ export function BookingCalendarPage({ isCoachView = true }: BookingCalendarPageP
   const { orgId } = useParams<{ orgId: string }>();
 
   const { data: organization, isLoading } = useQuery({
-    queryKey: [`/api/organizations/by-id/${orgId}`],
+    queryKey: [`/api/organizations/${orgId}`],
     enabled: !!orgId,
   });
 
