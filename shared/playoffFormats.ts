@@ -39,7 +39,7 @@ export const poolPlayFormats: PlayoffFormatOption[] = [
     value: 'top_6',
     label: 'Top 6 Teams',
     description: 'Pool winners + top remaining teams (6 total)',
-    minTeams: 12,
+    minTeams: 8,
     numberOfPlayoffTeams: 6,
   },
   {
