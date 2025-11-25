@@ -31,8 +31,8 @@ export default function BookingHub() {
 
   const isFeatureEnabled = (featureKey: string): boolean => {
     if (!featureFlags || featureFlags.length === 0) {
-      const defaultEnabledFeatures = ['tournaments', 'sms', 'weather', 'booking'];
-      return defaultEnabledFeatures.includes(featureKey);
+      // If flags haven't loaded yet, don't show any feature-gated cards
+      return false;
     }
     const flag = featureFlags.find(f => f.key === featureKey);
     return flag ? flag.effectivelyEnabled : false;

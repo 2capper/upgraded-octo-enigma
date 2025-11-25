@@ -18,7 +18,6 @@ import PublicDirectory from "@/pages/public-directory";
 import TournamentRegistrationComingSoon from "@/pages/coming-soon/tournament-registration";
 import TournamentCommsComingSoon from "@/pages/coming-soon/tournament-comms";
 import ScheduleBuilderComingSoon from "@/pages/coming-soon/schedule-builder";
-import BookingDashboard from "@/pages/booking/booking-dashboard";
 import BookingHub from "@/pages/booking/booking-hub";
 import NewBookingRequest from "@/pages/booking/new-booking-request";
 import BookingRequestDetail from "@/pages/booking/booking-request-detail";
@@ -219,8 +218,12 @@ function Router() {
       <Route path="/org/:orgId/settings">
         {() => <RequireAuth component={OrgSettings} />}
       </Route>
+      {/* Redirect old booking path to new hub */}
       <Route path="/org/:orgId/booking">
-        {() => <RequireAuth component={BookingDashboard} />}
+        {({ params }) => {
+          window.location.replace(`/booking/${params.orgId}/hub`);
+          return null;
+        }}
       </Route>
       
       {/* Booking module routes - protected (specific routes first) */}
@@ -257,8 +260,12 @@ function Router() {
       <Route path="/booking/:orgId/communications">
         {() => <RequireAuth component={Communications} />}
       </Route>
+      {/* Redirect old booking path to new hub */}
       <Route path="/booking/:orgId">
-        {() => <RequireAuth component={BookingDashboard} />}
+        {({ params }) => {
+          window.location.replace(`/booking/${params.orgId}/hub`);
+          return null;
+        }}
       </Route>
       
       {/* Protected admin routes - NEW org-scoped routes */}

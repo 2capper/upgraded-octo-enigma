@@ -10,9 +10,17 @@ export async function syncAllCalendarFeeds() {
     const allOrgs = await organizationService.getOrganizations();
     let totalSynced = 0;
     let totalErrors = 0;
+    let skippedOrgs = 0;
     
     for (const org of allOrgs) {
       try {
+        // Check if booking feature is enabled for this organization
+        const isBookingEnabled = await organizationService.isFeatureEnabledForOrganization(org.id, 'booking');
+        if (!isBookingEnabled) {
+          skippedOrgs++;
+          continue;
+        }
+        
         const feeds = await diamondService.getOrganizationIcalFeeds(org.id);
         
         if (feeds.length === 0) {
@@ -40,7 +48,7 @@ export async function syncAllCalendarFeeds() {
       }
     }
     
-    console.log(`[Calendar Sync] Completed: ${totalSynced} feeds synced, ${totalErrors} errors`);
+    console.log(`[Calendar Sync] Completed: ${totalSynced} feeds synced, ${totalErrors} errors, ${skippedOrgs} orgs skipped (booking disabled)`);
   } catch (error) {
     console.error('[Calendar Sync] Fatal error during sync:', error);
     throw error;
