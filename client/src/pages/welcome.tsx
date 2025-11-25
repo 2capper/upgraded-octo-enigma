@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trophy, Sparkles, ArrowRight, Search, Building2, Plus, Loader2, MapPin, CheckCircle2 } from 'lucide-react';
+import { Trophy, Sparkles, ArrowRight, Search, Building2, Plus, Loader2, MapPin, CheckCircle2, LogIn } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Organization } from '@shared/schema';
@@ -101,7 +101,7 @@ export function WelcomePage() {
               Find Your Organization
             </CardTitle>
             <CardDescription className="text-base">
-              Search for your association in our OBA directory
+              Search for unclaimed associations in our OBA directory
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
@@ -247,6 +247,31 @@ export function WelcomePage() {
             </Button>
           </p>
         </div>
+
+        <Card className="shadow-lg border-2 border-green-200 bg-green-50/50 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500 mt-6">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2 justify-center sm:justify-start">
+                  <LogIn className="w-5 h-5 text-green-600" />
+                  Already an admin?
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  If your organization is already set up, just go to your dashboard
+                </p>
+              </div>
+              <Button 
+                onClick={() => setLocation('/orgs')}
+                variant="outline"
+                className="border-green-600 text-green-700 hover:bg-green-100 font-semibold whitespace-nowrap"
+                data-testid="button-go-to-dashboard"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
