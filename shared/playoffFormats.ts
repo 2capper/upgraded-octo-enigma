@@ -16,6 +16,7 @@ export type PlayoffFormat =
   | 'double_elim_6'
   | 'double_elim_8'
   | 'double_elim_12'
+  | 'double_elim_12_oba'
   | 'double_elim_16';
 
 export interface PlayoffFormatOption {
@@ -113,8 +114,15 @@ export const doubleElimFormats: PlayoffFormatOption[] = [
   },
   {
     value: 'double_elim_12',
-    label: '12-Team Double Elimination',
-    description: 'Complex double elimination bracket',
+    label: '12-Team Double Elimination (Standard)',
+    description: 'Standard bracket with byes for top 4 seeds',
+    minTeams: 12,
+    numberOfPlayoffTeams: 12,
+  },
+  {
+    value: 'double_elim_12_oba',
+    label: '12-Team Double Elimination (OBA)',
+    description: 'Official OBA format - all teams play Round 1',
     minTeams: 12,
     numberOfPlayoffTeams: 12,
   },

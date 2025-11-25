@@ -206,6 +206,56 @@ export const BRACKET_8_TEAM_DOUBLE_ELIM: BracketTemplate = {
   ]
 };
 
+export const BRACKET_12_TEAM_DOUBLE_ELIM_OBA: BracketTemplate = {
+  name: '12-Team Double Elimination (OBA)',
+  teamCount: 12,
+  eliminationType: 'double',
+  matchups: [
+    // Round 1 - 6 Games (Everyone plays)
+    { round: 1, gameNumber: 1, bracket: 'winners', team1Seed: 1, team2Seed: 12 },
+    { round: 1, gameNumber: 2, bracket: 'winners', team1Seed: 2, team2Seed: 11 },
+    { round: 1, gameNumber: 3, bracket: 'winners', team1Seed: 3, team2Seed: 10 },
+    { round: 1, gameNumber: 4, bracket: 'winners', team1Seed: 4, team2Seed: 9 },
+    { round: 1, gameNumber: 5, bracket: 'winners', team1Seed: 5, team2Seed: 8 },
+    { round: 1, gameNumber: 6, bracket: 'winners', team1Seed: 6, team2Seed: 7 },
+
+    // Round 2 - Losers (3 Games)
+    { round: 2, gameNumber: 7, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 1, position: 'loser' }, team2Source: { gameNumber: 2, position: 'loser' } },
+    { round: 2, gameNumber: 8, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 3, position: 'loser' }, team2Source: { gameNumber: 4, position: 'loser' } },
+    { round: 2, gameNumber: 9, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 5, position: 'loser' }, team2Source: { gameNumber: 6, position: 'loser' } },
+
+    // Round 2 - Winners (3 Games)
+    { round: 2, gameNumber: 10, bracket: 'winners', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 1, position: 'winner' }, team2Source: { gameNumber: 2, position: 'winner' } },
+    { round: 2, gameNumber: 11, bracket: 'winners', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 3, position: 'winner' }, team2Source: { gameNumber: 4, position: 'winner' } },
+    { round: 2, gameNumber: 12, bracket: 'winners', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 5, position: 'winner' }, team2Source: { gameNumber: 6, position: 'winner' } },
+
+    // Round 3 - Losers (3 Games)
+    { round: 3, gameNumber: 13, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 7, position: 'winner' }, team2Source: { gameNumber: 8, position: 'winner' } },
+    { round: 3, gameNumber: 14, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 9, position: 'winner' }, team2Source: { gameNumber: 10, position: 'loser' } },
+    { round: 3, gameNumber: 15, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 11, position: 'loser' }, team2Source: { gameNumber: 12, position: 'loser' } },
+
+    // Round 3 - Winners (1 Game - Winner of G10 gets a Bye)
+    { round: 3, gameNumber: 16, bracket: 'winners', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 11, position: 'winner' }, team2Source: { gameNumber: 12, position: 'winner' } },
+
+    // Round 4 - Losers (2 Games)
+    { round: 4, gameNumber: 17, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 13, position: 'winner' }, team2Source: { gameNumber: 14, position: 'winner' } },
+    { round: 4, gameNumber: 18, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 15, position: 'winner' }, team2Source: { gameNumber: 16, position: 'loser' } },
+
+    // Round 4 - Winners (1 Game - Undefeated vs Undefeated)
+    { round: 4, gameNumber: 19, bracket: 'winners', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 16, position: 'winner' }, team2Source: { gameNumber: 10, position: 'winner' } },
+
+    // Round 5 - Losers Bracket Final (1 Game)
+    { round: 5, gameNumber: 20, bracket: 'losers', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 17, position: 'winner' }, team2Source: { gameNumber: 18, position: 'winner' } },
+
+    // Round 5 - Semi-Final (1 Game) - Loser of G19 vs Losers Bracket Champion
+    { round: 5, gameNumber: 21, bracket: 'championship', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 19, position: 'loser' }, team2Source: { gameNumber: 20, position: 'winner' } },
+
+    // Championship (1-2 games)
+    { round: 6, gameNumber: 22, bracket: 'championship', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 19, position: 'winner' }, team2Source: { gameNumber: 21, position: 'winner' } },
+    { round: 6, gameNumber: 23, bracket: 'championship', team1Seed: null, team2Seed: null, team1Source: { gameNumber: 22, position: 'loser' }, team2Source: { gameNumber: 22, position: 'winner' } }, // If necessary
+  ]
+};
+
 export const BRACKET_8_TEAM_FOUR_POOLS: BracketTemplate = {
   name: '8-Team Four Pools',
   teamCount: 8,
@@ -242,6 +292,7 @@ export const BRACKET_TEMPLATES: Record<string, BracketTemplate> = {
   'double_elim_8': BRACKET_8_TEAM_DOUBLE_ELIM,
   'de-12': BRACKET_12_TEAM_DOUBLE_ELIM,
   'double_elim_12': BRACKET_12_TEAM_DOUBLE_ELIM,
+  'double_elim_12_oba': BRACKET_12_TEAM_DOUBLE_ELIM_OBA,
   'top_8_four_pools': BRACKET_8_TEAM_FOUR_POOLS,
 };
 
