@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, useParams, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -50,6 +50,17 @@ import NotFoundPage from "@/pages/error-pages/404";
 import UnauthorizedPage from "@/pages/error-pages/401";
 import ServerErrorPage from "@/pages/error-pages/500";
 import { useEffect } from "react";
+
+function BookingRedirect() {
+  const params = useParams();
+  const orgId = params.orgId;
+  useEffect(() => {
+    if (orgId) {
+      window.location.replace(`/booking/${orgId}/hub`);
+    }
+  }, [orgId]);
+  return null;
+}
 
 function RequireAuth({ component: Component }: { component: any }) {
   const { user, isAuthenticated, isLoading } = useAuth();
