@@ -25,14 +25,14 @@ export const seedingPatternOptions: SeedingPatternOption[] = [
     label: 'Cross-Pool (Four Pools)',
     description: 'Cross-pool matchups: A1 vs C2, B1 vs D2, A2 vs C1, B2 vs D1',
     requiredPools: 4,
-    compatibleFormats: ['top_8'],
+    compatibleFormats: ['top_4', 'top_6', 'top_8'],
   },
   {
     value: 'cross_pool_3',
     label: 'Cross-Pool (Three Pools)',
     description: 'Cross-pool matchups: A1 vs C2, B1 vs A2, C1 vs B2, etc.',
     requiredPools: 3,
-    compatibleFormats: ['top_6', 'top_8'],
+    compatibleFormats: ['top_4', 'top_6', 'top_8'],
   },
   {
     value: 'cross_pool_2',
@@ -226,6 +226,25 @@ export function generateTop6Matchups(
         { team1Seed: 4, team2Seed: 3, description: 'B2 vs A3' },
       ];
 
+    case 'cross_pool_4':
+      // 16 Teams - 4 Pools, Top 6: 4 pool winners + 2 best 2nd place (wildcards)
+      // Standard seeding: Pool winners 1-4, then wildcards 5-6 (by record)
+      // Seeds 1-2 get byes to semis
+      // NOTE: If wildcards (seeds 5-6) are from same pools as seeds 3-4, this creates rematches.
+      // Future enhancement: Add dynamic pool checking to swap matchups when needed.
+      return [
+        { 
+          team1Seed: 3, 
+          team2Seed: 6,
+          description: '#3 Seed vs #6 Seed'
+        },
+        { 
+          team1Seed: 4, 
+          team2Seed: 5,
+          description: '#4 Seed vs #5 Seed'
+        },
+      ];
+
     default:
       return generateTop6Matchups('standard', seededTeams);
   }
@@ -265,6 +284,41 @@ export function generateTop4Matchups(
           team1PoolInfo: { poolName: 'B', rank: 1 },
           team2PoolInfo: { poolName: 'A', rank: 2 },
           description: 'B1 vs A2'
+        },
+      ];
+
+    case 'cross_pool_3':
+      // 12 Teams - 3 Pools, Top 4: 3 pool winners + 1 best 2nd place (wildcard)
+      // Standard seeding: A1=1, B1=2, C1=3, Best2nd=4
+      // NOTE: If wildcard (seed 4) is from same pool as seed 1, this creates a rematch.
+      // Future enhancement: Add dynamic pool checking to swap matchups when needed.
+      return [
+        { 
+          team1Seed: 1, 
+          team2Seed: 4,
+          description: '#1 Seed vs #4 Seed (Wildcard)'
+        },
+        { 
+          team1Seed: 2, 
+          team2Seed: 3,
+          description: '#2 Seed vs #3 Seed'
+        },
+      ];
+
+    case 'cross_pool_4':
+      // 16 Teams - 4 Pools, Top 4: All 4 pool winners only (no wildcards)
+      // Standard seeding: A1=1, B1=2, C1=3, D1=4 (by record/tiebreaker)
+      // Cross-pool matchups: #1 vs #3, #2 vs #4 (guaranteed different pools)
+      return [
+        { 
+          team1Seed: 1, 
+          team2Seed: 3,
+          description: '#1 Seed vs #3 Seed'
+        },
+        { 
+          team1Seed: 2, 
+          team2Seed: 4,
+          description: '#2 Seed vs #4 Seed'
         },
       ];
 
