@@ -9,6 +9,7 @@ import { ArrowLeft, Settings, Calendar, MessageSquare, Cloud, Trophy, RotateCcw 
 import { useEffect } from "react";
 import { useTour } from "@/hooks/useTour";
 import { OrganizationSettings } from "@/components/admin/organization-settings";
+import { OrganizationQRCode } from "@/components/organization/organization-qr-code";
 
 interface FeatureFlag {
   id: string;
@@ -122,6 +123,13 @@ export default function OrgSettings() {
             organizationId={orgId} 
             organizationSlug={organization.slug}
           />
+        )}
+
+        {/* Organization QR Code */}
+        {organization && (
+          <div className="flex justify-center">
+            <OrganizationQRCode organization={organization} />
+          </div>
         )}
 
         {/* Feature Modules */}
