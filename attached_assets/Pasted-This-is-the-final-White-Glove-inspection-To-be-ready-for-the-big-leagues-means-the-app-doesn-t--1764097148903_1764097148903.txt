@@ -1,0 +1,78 @@
+This is the final "White Glove" inspection. To be "ready for the big leagues" means the app doesn't just work (functional testing); it must feel professional, trustworthy, and invisible to the user.
+
+Here is your UI/UX Audit Checklist, structured by our "8 AM Rainout" philosophy.
+
+📋 1. The "Front Door" (Onboarding & Login)
+Goal: Zero friction from "Click Link" to "First Action".
+
+[ ] The "Escape Hatch" Visibility: In the Organization Wizard (Step 1), is the "Looking to join an existing org?" link visible above the fold on mobile? It shouldn't be hidden behind a scroll.
+
+[ ] Wizard Progress: Does the "Step 1 of 2" indicator clearly show progress? If I click "Back" from Step 2, does it remember my Step 1 data?
+
+[ ] The "Super Admin" Test: Log in as richard.lepage@gmail.com. Do you instantly see the dashboard without a redirect flicker?
+
+[ ] Mobile Input Zoom: On an iPhone, tap the "Organization Name" input. Does the screen zoom in aggressively? (Fix: Ensure font-size is at least 16px on inputs).
+
+📋 2. The "Command Center" (Tournament Setup)
+Goal: Preventing cognitive overload.
+
+Pool Assignment Tab:
+
+[ ] Drag Affordance: Do the team cards look "grabbable"? (Do they have a grip icon or shadow on hover?)
+
+[ ] Drop Zone Feedback: When dragging a team over "Pool A," does Pool A highlight (change color/border) to confirm "it will drop here"?
+
+[ ] "Generate" Clarity: Is the "Lock Pools & Generate Matchups" button distinct from the rest? Does it have a loading spinner immediately upon click?
+
+Schedule Tab (DragScheduleBuilder):
+
+[ ] The "Thumb" Test: On a tablet/phone, are the calendar slots tall enough to accept a dropped game without precision aiming?
+
+[ ] Unplaced List: If the list of "Unplaced Matchups" is long, does it scroll independently of the calendar grid?
+
+[ ] Conflict Visibility: When a game turns red (conflict), is there a tooltip or clear text explaining why (e.g., "Coach Double Booking")?
+
+📋 3. The "Rainout" Workflow (Crisis Management)
+Goal: Speed and confidence under pressure.
+
+Playoff Slot Manager:
+
+[ ] Bulk Set Feedback: When I apply a "Bulk Set" to "All Quarterfinals," does the form below visually flash or highlight the updated fields so I know it worked?
+
+[ ] Time Picker: Does the new 15-minute dropdown require too much scrolling? (Audit: Ensure the dropdown has a max-height and scrollbar).
+
+[ ] Save Button: Is the "Save Playoff Schedule" button sticky at the bottom, or do I have to scroll past 20 games to find it?
+
+Communications Tab (SMS):
+
+[ ] Character Count: Does the SMS box show a clear 15/160 counter that turns red if I go over?
+
+[ ] "Send" Anxiety: Does the "Send" button trigger a confirmation modal ("Are you sure you want to text 48 people?") before firing?
+
+📋 4. The "Public Face" (Parent Trust)
+Goal: Clarity and instant answers.
+
+Standings:
+
+[ ] Tie-Breaker Transparency: Does the public table show the calculated tie-breaker stat (e.g., "RA/Inn") so parents don't ask "Why are we 3rd?"
+
+[ ] Mobile Columns: On a phone, does the standings table scroll horizontally, or does it squish columns illegibly? (Horizontal scroll is preferred).
+
+Brackets:
+
+[ ] "TBD" Clarity: Does a future game slot clearly say "Winner of QF1" (good) or just a blank space (bad)?
+
+[ ] Navigation: Can a user easily get from the "Brackets" tab back to the "Standings" tab without using the browser back button?
+
+📋 5. "Fit & Finish" (The Polish)
+Goal: It shouldn't feel like a "beta".
+
+[ ] Empty States: Go to every tab (Teams, Schedule, Playoffs) in a brand new tournament. Do you see a blank white screen, or a helpful "No teams yet. Import them here" message?
+
+[ ] Loading Skeletons: When switching tabs, do you see a spinning wheel for 2 seconds, or a "skeleton" layout that minimizes layout shift?
+
+[ ] Toast Consistency: Do all success messages ("Saved!", "Updated!", "Sent!") appear in the same place (e.g., bottom right) and disappear automatically?
+
+[ ] The "Accordion" Test: In Org Settings, click open/close rapidly. Does the animation stutter? (It should be smooth).
+
+How to use this list: Hand this to your "Friendly Tester" alongside the script. Ask them to rate each section on a scale of 1-5 for "Confidence" (Did I know what would happen before I clicked?) and "Ease" (Did it do what I wanted quickly?).
