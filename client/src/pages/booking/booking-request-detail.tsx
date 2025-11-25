@@ -115,7 +115,7 @@ export default function BookingRequestDetail() {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Request not found</h2>
           <p className="text-gray-600 mb-4">The booking request you're looking for doesn't exist.</p>
-          <Link href={`/booking/${orgId}`}>
+          <Link href={`/booking/${orgId}/hub`}>
             <Button>Back to Dashboard</Button>
           </Link>
         </div>
@@ -130,7 +130,7 @@ export default function BookingRequestDetail() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-6">
-          <Link href={`/booking/${orgId}`}>
+          <Link href={`/booking/${orgId}/hub`}>
             <Button variant="ghost" size="sm" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard

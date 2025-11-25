@@ -172,10 +172,10 @@ export default function BookingHub() {
                 </CardDescription>
               </CardHeader>
               <div className="px-6 pb-6">
-                <Link href={`/booking/${orgId}`}>
+                <Link href={`/booking/${orgId}/calendar`}>
                   <Button variant="outline" className="w-full justify-start" data-testid="button-booking-dashboard">
                     <Calendar className="w-4 h-4 mr-2" />
-                    Go to Booking Dashboard
+                    View Booking Calendar
                   </Button>
                 </Link>
               </div>

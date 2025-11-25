@@ -170,7 +170,7 @@ export default function NewBookingRequest() {
         title: "Draft saved",
         description: "Your booking request has been saved as a draft.",
       });
-      setLocation(`/booking/${orgId}`);
+      setLocation(`/booking/${orgId}/hub`);
     },
     onError: () => {
       toast({
@@ -218,7 +218,7 @@ export default function NewBookingRequest() {
         title: "Request submitted",
         description: "Your booking request has been submitted for approval.",
       });
-      setLocation(`/booking/${orgId}`);
+      setLocation(`/booking/${orgId}/hub`);
     },
     onError: () => {
       toast({
@@ -252,7 +252,7 @@ export default function NewBookingRequest() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#2B3A4A] text-white py-6 shadow-lg">
         <div className="max-w-3xl mx-auto px-4">
-          <Link href={`/booking/${orgId}`}>
+          <Link href={`/booking/${orgId}/hub`}>
             <Button variant="ghost" className="text-white hover:text-gray-200 mb-2" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard

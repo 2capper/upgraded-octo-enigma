@@ -21,7 +21,7 @@ export default function BookingReportsPage() {
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
-      setLocation(`/booking/${orgId}`);
+      setLocation(`/booking/${orgId}/hub`);
     }
   }, [isLoading, isAdmin, orgId, setLocation]);
 
