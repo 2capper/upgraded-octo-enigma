@@ -11,6 +11,7 @@ import { TeamsTab } from '@/components/tournament/teams-tab';
 import { PublicPlayoffsTab } from '@/components/tournament/public-playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { QRCodeShare } from '@/components/tournament/qr-code-share';
+import { ChatWidget } from '@/components/tournament/chat-widget';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diamond } from '@shared/schema';
@@ -332,6 +333,12 @@ export default function TournamentDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* AI Chatbot Widget */}
+      <ChatWidget 
+        tournamentId={tournamentId} 
+        tournamentName={currentTournament.name}
+      />
     </div>
   );
 }

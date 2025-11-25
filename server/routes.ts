@@ -11,6 +11,7 @@ import { tournamentService } from "./services/tournamentService";
 import { gameService } from "./services/gameService";
 import { playoffService } from "./services/playoffService";
 import { smsService } from "./services/smsService";
+import { chatbotService } from "./services/chatbotService";
 import { weatherService } from "./services/weatherService";
 import { authService } from "./services/authService";
 import { 
@@ -27,7 +28,9 @@ import {
   insertAdminInvitationSchema,
   tournamentMessages,
   communicationTemplates,
-  insertCommunicationTemplateSchema
+  insertCommunicationTemplateSchema,
+  tournaments,
+  games
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking, sanitizeUser } from "./auth";
 import { generateValidationReport } from "./validationReport";
@@ -5498,6 +5501,44 @@ Waterdown 10U AA
     } catch (error) {
       console.error("Error marking message as read:", error);
       res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+
+  // =============================================
+  // AI CHATBOT ROUTES
+  // =============================================
+
+  // Public chatbot endpoint - no auth required for tournament visitors
+  app.post('/api/tournaments/:tournamentId/chat', async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { message, conversationHistory = [] } = req.body;
+
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      if (message.length > 500) {
+        return res.status(400).json({ error: "Message too long (max 500 characters)" });
+      }
+
+      const result = await chatbotService.chat(tournamentId, message, conversationHistory);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in chatbot:", error);
+      res.status(500).json({ error: "Failed to process chat message" });
+    }
+  });
+
+  // Get quick answer suggestions for a tournament
+  app.get('/api/tournaments/:tournamentId/chat/suggestions', async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const suggestions = await chatbotService.getQuickAnswers(tournamentId);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error getting chat suggestions:", error);
+      res.status(500).json({ error: "Failed to get suggestions" });
     }
   });
 
