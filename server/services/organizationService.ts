@@ -171,7 +171,7 @@ export class OrganizationService {
     });
   }
 
-  async getOrganizationAdmins(organizationId: string): Promise<(OrganizationAdmin & { email: string | null; firstName: string | null; lastName: string | null; name: string | null })[]> {
+  async getOrganizationAdmins(organizationId: string): Promise<(OrganizationAdmin & { email: string | null; firstName: string | null; lastName: string | null })[]> {
     const results = await db
       .select({
         id: organizationAdmins.id,
@@ -183,7 +183,6 @@ export class OrganizationService {
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
-        name: users.name,
       })
       .from(organizationAdmins)
       .leftJoin(users, eq(organizationAdmins.userId, users.id))
