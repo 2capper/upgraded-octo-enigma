@@ -12,19 +12,14 @@ import { UserPlus, UserMinus, Mail, Send, Loader2, Shield, Users, X } from "luci
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-interface User {
-  id: string;
-  email: string | null;
-  firstName: string | null;
-  lastName: string | null;
-}
-
 interface OrganizationAdmin {
   id: string;
   userId: string;
   organizationId: string;
   role: string;
-  user?: User;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 interface AdminInvitation {
@@ -176,12 +171,12 @@ export function AdminManagement({ organizationId }: AdminManagementProps) {
                 {admins.map((admin) => (
                   <TableRow key={admin.id} data-testid={`row-admin-${admin.userId}`}>
                     <TableCell className="font-medium">
-                      {admin.user?.firstName && admin.user?.lastName
-                        ? `${admin.user.firstName} ${admin.user.lastName}`
-                        : admin.user?.email || 'Unknown'}
+                      {admin.firstName && admin.lastName
+                        ? `${admin.firstName} ${admin.lastName}`
+                        : admin.email || 'Unknown'}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {admin.user?.email || 'No email'}
+                      {admin.email || 'No email'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
