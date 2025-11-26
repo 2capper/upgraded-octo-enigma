@@ -171,7 +171,7 @@ export class OrganizationService {
     });
   }
 
-  async getOrganizationAdmins(organizationId: string): Promise<(OrganizationAdmin & { email: string | null; firstName: string | null; lastName: string | null })[]> {
+  async getOrganizationAdmins(organizationId: string): Promise<{ id: string; userId: string; organizationId: string; role: string; createdAt: Date; email: string | null; firstName: string | null; lastName: string | null }[]> {
     const results = await db
       .select({
         id: organizationAdmins.id,
@@ -179,7 +179,6 @@ export class OrganizationService {
         organizationId: organizationAdmins.organizationId,
         role: organizationAdmins.role,
         createdAt: organizationAdmins.createdAt,
-        updatedAt: organizationAdmins.updatedAt,
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
