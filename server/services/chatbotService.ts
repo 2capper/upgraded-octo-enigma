@@ -3,6 +3,7 @@ import { db } from "../db";
 import { games, teams, tournaments, diamonds } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -139,21 +140,36 @@ export class ChatbotService {
     let contextStr = `TOURNAMENT: ${tournament.name}
 LOCATION: ${tournament.city || "Not specified"}
 DATES: ${tournament.startDate} to ${tournament.endDate}
+
+VENUE AMENITIES & INFO (Prioritize this for questions about bathrooms, food, parking):
+${tournament.description || "No specific amenity details provided. Assume standard park facilities."}
 `;
 
     if (userContext) {
-      contextStr += `\nCURRENT USER: ${userContext.name || "Guest"} (${userContext.role || "Visitor"})\n`;
+      contextStr += `\nCURRENT USER: ${userContext.name || "Guest"} (${userContext.role || "Guest"})\n`;
       if (userTeam) {
-        contextStr += `ASSOCIATED TEAM: ${userTeam.name} (The user is likely the coach/manager of this team. Prioritize this team's schedule when they say "my game" or "our team".)\n`;
+        contextStr += `ASSOCIATED TEAM: ${userTeam.name} (User is likely staff. Prioritize this team.)\n`;
       }
+    } else {
+      contextStr += `\nCURRENT USER: Guest / Public Visitor (Unknown team affiliation)\n`;
     }
 
     if (diamonds.length > 0) {
-      contextStr += `\nLOCATIONS:\n`;
+      contextStr += `\nLOCATIONS / DIAMONDS:\n`;
       diamonds.forEach((d) => {
-        contextStr += `- ${d.name}: ${d.address || "No address set"}`;
+        contextStr += `- Name: "${d.name}"\n`;
+        contextStr += `  Address: ${d.address || "Address not listed"} ${d.location ? `(${d.location})` : ''}\n`;
+        
+        let dest = "";
         if (d.latitude && d.longitude) {
-          contextStr += ` (GPS: ${d.latitude}, ${d.longitude})`;
+          dest = `${d.latitude},${d.longitude}`;
+        } else if (d.address) {
+          dest = encodeURIComponent(d.address);
+        }
+
+        if (dest) {
+          contextStr += `  Driving Link: https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving\n`;
+          contextStr += `  Walking Link: https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=walking\n`;
         }
         contextStr += "\n";
       });
@@ -161,7 +177,7 @@ DATES: ${tournament.startDate} to ${tournament.endDate}
 
     const standings = this.computeStandings(teams, games);
     if (standings.length > 0) {
-      contextStr += `\nSTANDINGS:\n`;
+      contextStr += `\nSTANDINGS SUMMARY:\n`;
       const standingsByPool: Record<string, ComputedStanding[]> = {};
       standings.forEach((s) => {
         if (!standingsByPool[s.pool]) standingsByPool[s.pool] = [];
@@ -169,71 +185,50 @@ DATES: ${tournament.startDate} to ${tournament.endDate}
       });
       
       Object.entries(standingsByPool).forEach(([pool, poolStandings]) => {
-        contextStr += `[Pool ${pool}]\n`;
         const sorted = poolStandings.sort((a, b) => {
-          const aWinPct = a.wins + a.losses > 0 ? a.wins / (a.wins + a.losses) : 0;
-          const bWinPct = b.wins + b.losses > 0 ? b.wins / (b.wins + b.losses) : 0;
+          const aGames = a.wins + a.losses + a.ties;
+          const bGames = b.wins + b.losses + b.ties;
+          const aWinPct = aGames > 0 ? a.wins / aGames : 0;
+          const bWinPct = bGames > 0 ? b.wins / bGames : 0;
           if (bWinPct !== aWinPct) return bWinPct - aWinPct;
-          return (b.runsScored - b.runsAllowed) - (a.runsScored - a.runsAllowed);
+          const aRunDiff = a.runsScored - a.runsAllowed;
+          const bRunDiff = b.runsScored - b.runsAllowed;
+          return bRunDiff - aRunDiff;
         });
-        sorted.forEach((s, rank) => {
-          contextStr += `${rank + 1}. ${s.teamName} (${s.wins}-${s.losses}-${s.ties})\n`;
-        });
+        contextStr += `[Pool ${pool} Leaders]: `;
+        contextStr += sorted.slice(0, 3).map((s, i) => `${i+1}.${s.teamName} (${s.wins}-${s.losses})`).join(", ");
+        contextStr += "\n";
       });
     }
 
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     
-    const upcoming = games
-      .filter(g => g.date >= today && g.status !== 'completed')
-      .sort((a, b) => {
-        if (a.date !== b.date) return (a.date || "").localeCompare(b.date || "");
-        return (a.time || "").localeCompare(b.time || "");
-      });
-    
-    const completed = games
-      .filter(g => g.status === 'completed')
-      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-
-    contextStr += `\nSCHEDULE:\n`;
+    const upcoming = games.filter(g => g.date >= today && g.status !== 'completed').sort((a, b) => {
+      if (a.date !== b.date) return (a.date || "").localeCompare(b.date || "");
+      return (a.time || "").localeCompare(b.time || "");
+    });
     
     if (userTeam) {
       const myGames = upcoming.filter(g => g.homeTeamId === userTeam.id || g.awayTeamId === userTeam.id);
       if (myGames.length > 0) {
-        contextStr += `*** YOUR UPCOMING GAMES ***\n`;
+        contextStr += `\n*** USER'S TEAM SCHEDULE ***\n`;
         myGames.forEach(g => {
           const home = teams.find(t => t.id === g.homeTeamId)?.name;
           const away = teams.find(t => t.id === g.awayTeamId)?.name;
           const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
-          contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})`;
-          if (g.round) contextStr += ` [${g.round}]`;
-          contextStr += "\n";
+          contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})\n`;
         });
-        contextStr += `***************************\n`;
       }
     }
 
-    contextStr += `ALL UPCOMING GAMES (Next 15):\n`;
-    upcoming.slice(0, 15).forEach(g => {
+    contextStr += `\nUPCOMING GAMES (Next 20):\n`;
+    upcoming.slice(0, 20).forEach(g => {
       const home = teams.find(t => t.id === g.homeTeamId)?.name;
       const away = teams.find(t => t.id === g.awayTeamId)?.name;
       const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
-      contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})`;
-      if (g.round) contextStr += ` [${g.round}]`;
-      contextStr += "\n";
+      contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})\n`;
     });
-
-    if (completed.length > 0) {
-      contextStr += `\nRECENT RESULTS (Last 10):\n`;
-      completed.slice(0, 10).forEach(g => {
-        const home = teams.find(t => t.id === g.homeTeamId)?.name;
-        const away = teams.find(t => t.id === g.awayTeamId)?.name;
-        contextStr += `- ${g.date}: ${away} ${g.awayScore ?? "-"} vs ${home} ${g.homeScore ?? "-"}`;
-        if (g.round) contextStr += ` [${g.round}]`;
-        contextStr += "\n";
-      });
-    }
 
     return contextStr;
   }
@@ -242,20 +237,26 @@ DATES: ${tournament.startDate} to ${tournament.endDate}
     const tournamentData = this.formatContextForPrompt(context);
 
     return `You are the official AI Assistant for the "${context.tournament.name}".
-Your goal is to help parents, coaches, and fans navigate the tournament.
+Your primary users are parents and fans who may be at the park for the first time.
 
 DATA CONTEXT:
 ${tournamentData}
 
 INSTRUCTIONS:
-1. **Identity:** You are friendly, professional, and concise.
-2. **User Context:** If the user is identified as a Coach (see "CURRENT USER" above), address them warmly. If we identified their team ("ASSOCIATED TEAM"), assume "we", "my game", or "our next game" refers to that team.
-3. **Directions:** If asked for location/directions, provide the specific address from the LOCATIONS section.
-4. **Unknowns:** If you don't have an answer (e.g., a score for a game not in the list), say "I don't have that information yet." Do NOT guess.
-5. **Emergency:** If asked about medical/safety, tell them to call 911 or find a Tournament Official immediately.
-6. **Stay On Topic:** Only answer questions about THIS tournament. Politely redirect off-topic questions.
+1. **Amenities (Bathrooms/Food):** If asked about amenities, check the "VENUE AMENITIES & INFO" section first.
+   - If the info is there, answer directly.
+   - If the info is MISSING, say: "I don't have the exact location, but restrooms are usually found near the Concession Stand or the main diamonds. Look for park signage."
+2. **Be a Guide:** Use the specific Diamond Name provided (e.g., "Optimist Park - Diamond 1") not just "Diamond 1".
+3. **Navigation Smart-Links:** - If the user asks for directions or "Where is...", infer their context.
+   - If they seem to be **at the park** (e.g., "How do I walk to D4?", "Where is the concession stand?"), provide the **Walking Link**.
+   - If they seem to be **away** (e.g., "Address for the field?", "How do I get there?"), provide the **Driving Link**.
+   - If unsure, provide the Driving Link by default or ask "Are you at the park now?".
+   - Always format links as: "Here is a [Walking/Driving] map link: [Link]".
+4. **Clarify Context:** If a user asks a team-specific question (e.g., "When do we play?", "Did we win?", "Who's pitching?") and you don't know which team they support (no "ASSOCIATED TEAM" in context), **DO NOT GUESS**. Instead, ask: "Which team are you asking about?"
+5. **Identity:** You are friendly, helpful, and concise.
+6. **Safety:** If asked about medical/safety, tell them to find a Tournament Official immediately.
 
-Keep responses short (under 3 sentences) unless asked for a full list or detailed schedule.`;
+Keep responses short and easy to read on a mobile phone.`;
   }
 
   async chat(
@@ -322,11 +323,11 @@ Keep responses short (under 3 sentences) unless asked for a full list or detaile
 
   async getQuickAnswers(tournamentId: string): Promise<string[]> {
     return [
-      "When is my next game?",
+      "When is the next game?",
+      "Where are the diamonds located?",
       "What are the current standings?",
-      "Where is Diamond 1 located?",
-      "What time do playoffs start?",
-      "Who is in Pool A?",
+      "Is there a concession stand?",
+      "Who plays in Pool A?",
     ];
   }
 }
