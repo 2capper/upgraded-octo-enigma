@@ -1,0 +1,130 @@
+To get that roster, we have to trick their server into thinking we are a real user with a real browser.
+
+We are going to use Puppeteer (Headless Chrome). This is a Node.js tool that spins up a tiny, invisible Chrome browser inside your server, visits the page, waits for the JavaScript to run, and then grabs the text. It’s safer and more integrated than spawning Python processes.
+
+Step 1: Arm the Environment (Replit Config)
+Puppeteer needs a browser to control. We need to tell Replit to install Chromium.
+
+Action: Open your replit.nix file. Replace the deps list with this: (I am adding pkgs.chromium and pkgs.nss which are required for the browser to run).
+
+Nix
+
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20
+    pkgs.postgresql_16
+    # --- BROWSER SUPPORT ---
+    pkgs.chromium
+    pkgs.nss
+    pkgs.freetype
+    pkgs.freetype.dev
+    pkgs.fontconfig
+    # -----------------------
+    pkgs.lsof
+  ];
+  env = {
+    HOST = "0.0.0.0";
+    PORT = "5000"; 
+    # Tell Puppeteer where Chromium lives
+    PUPPETEER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true";
+  };
+}
+Step 2: Install the Library
+Go to your Shell and run this command to install the lightweight Puppeteer core:
+
+Bash
+
+npm install puppeteer-core
+Step 3: The "Battering Ram" Service
+Create a new file: server/services/rosterScraper.ts. This script will launch the browser, navigate to the OBA hash URL, wait for the roster table to appear, and scrape it.
+
+Paste this code:
+
+TypeScript
+
+import puppeteer from 'puppeteer-core';
+
+interface Player {
+  number: string;
+  name: string;
+  position?: string;
+}
+
+export const rosterScraper = {
+  async scrapeRoster(teamId: string, affiliateId: string = "2111"): Promise<Player[]> {
+    console.log(`[Scraper] Booting up for Team: ${teamId}...`);
+    
+    // 1. Launch the Headless Browser
+    const browser = await puppeteer.launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/nix/store/Uhq.../bin/chromium', // Replit env var handles this
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] // Critical for container environments
+    });
+
+    try {
+      const page = await browser.newPage();
+      
+      // Block images/fonts to speed it up
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+
+      // 2. Navigate to the Hash URL
+      // Example: https://www.playoba.ca/stats#/2111/team/500726/roster
+      const targetUrl = `https://www.playoba.ca/stats#/${affiliateId}/team/${teamId}/roster`;
+      console.log(`[Scraper] Navigating to: ${targetUrl}`);
+      
+      await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+      // 3. Wait for the Data to Render
+      // We look for a table row <tr> or a specific roster class
+      console.log(`[Scraper] Waiting for roster table...`);
+      await page.waitForSelector('table', { timeout: 10000 });
+
+      // 4. Extract the Data
+      const players = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('tr'));
+        const roster: any[] = [];
+
+        rows.forEach(row => {
+          // This logic depends on OBA's table structure. 
+          // Usually: # | Name | Position
+          const cells = Array.from(row.querySelectorAll('td'));
+          if (cells.length >= 2) {
+            // Clean up text (remove newlines, extra spaces)
+            const number = cells[0]?.innerText?.trim() || "";
+            const name = cells[1]?.innerText?.trim() || "";
+            
+            // Basic validation to ensure it's a player row
+            if (name && name !== "Name" && !name.includes("Player")) {
+               roster.push({ number, name });
+            }
+          }
+        });
+        return roster;
+      });
+
+      console.log(`[Scraper] Success! Found ${players.length} players.`);
+      return players;
+
+    } catch (error) {
+      console.error("[Scraper] Failed:", error);
+      throw new Error("Failed to scrape roster. Ensure the Team ID is correct.");
+    } finally {
+      await browser.close();
+    }
+  }
+};
+Validation Protocol
+Restart the Repl: You changed replit.nix, so you MUST restart the instance (Stop -> Start) for Chromium to install.
+
+Verify Install: In the shell, type which chromium. It should print a path.
+
+The Test: I'll give you a test route next, but first—get that environment set up.
+
+Tell me when you have installed puppeteer-core and restarted the server.
