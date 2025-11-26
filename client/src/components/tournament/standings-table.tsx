@@ -12,28 +12,41 @@ interface StandingsTableProps {
   ageDivisions: AgeDivision[];
   tournament?: Tournament | null;
   showPoolColumn?: boolean;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
 }
 
-export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, showPoolColumn = true }: StandingsTableProps) => {
+export const StandingsTable = ({ 
+  teams, 
+  games, 
+  pools, 
+  ageDivisions, 
+  tournament, 
+  showPoolColumn = true,
+  primaryColor,
+  secondaryColor
+}: StandingsTableProps) => {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
-  const [selectedPool, setSelectedPool] = useState<string | null>(null);
   
+  const brandStyle = {
+    "--brand-primary": primaryColor || "#1a4d2e", 
+    "--brand-secondary": secondaryColor || "#ffffff",
+    "--brand-light": primaryColor ? `color-mix(in srgb, ${primaryColor} 10%, white)` : "#f0fdf4",
+    "--brand-muted": primaryColor ? `color-mix(in srgb, ${primaryColor} 50%, white)` : "#86efac",
+  } as React.CSSProperties;
+
   const standingsByDivision = useMemo(() => {
     if (!teams.length || !ageDivisions.length) return [];
     
-    // Show all available divisions using real division data
     const targetDivisions = ageDivisions;
     
     return targetDivisions.map(division => {
-      // Get pools for this division
       const divisionPools = pools.filter(p => p.ageDivisionId === division.id);
       
-      // Get teams in this division
       const divisionTeams = teams.filter(t => 
         divisionPools.some(p => p.id === t.poolId)
       );
       
-      // Calculate stats for each team
       const teamStats = divisionTeams.map(team => {
         const allGameStats = calculateStats(team.id, games);
         return {
@@ -45,7 +58,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
         };
       });
 
-      // Group teams by points for tie-breaking
       const groups = teamStats.reduce((acc, team) => {
         const points = team.points;
         if (!acc[points]) acc[points] = [];
@@ -53,7 +65,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
         return acc;
       }, {} as Record<number, any[]>);
 
-      // Calculate pool standings first to identify pool winners and runners-up
       const poolWinners: any[] = [];
       const poolRunnersUp: any[] = [];
       const remainingTeams: any[] = [];
@@ -61,7 +72,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
       divisionPools.forEach(pool => {
         const poolTeams = teamStats.filter(t => t.poolId === pool.id);
         
-        // Group pool teams by points for tie-breaking
         const poolGroups = poolTeams.reduce((acc, team) => {
           const points = team.points;
           if (!acc[points]) acc[points] = [];
@@ -69,34 +79,27 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
           return acc;
         }, {} as Record<number, any[]>);
 
-        // Sort and resolve ties for pool standings
         const sortedPoolTeams = Object.keys(poolGroups)
           .sort((a, b) => Number(b) - Number(a))
           .flatMap(points => resolveTie(poolGroups[Number(points)], games));
         
         if (sortedPoolTeams.length > 0) {
-          // Mark the pool winner
           const poolWinner = { ...sortedPoolTeams[0], isPoolWinner: true };
           poolWinners.push(poolWinner);
           
-          // Mark the runner-up (2nd place in pool)
           if (sortedPoolTeams.length > 1) {
             const runnerUp = { ...sortedPoolTeams[1], isPoolRunnerUp: true };
             poolRunnersUp.push(runnerUp);
             
-            // Add remaining teams from this pool
             remainingTeams.push(...sortedPoolTeams.slice(2));
           }
         }
       });
       
-      // Sort pool winners by RA/DIP (best defensive performance first)
       poolWinners.sort((a, b) => a.runsAgainstPerInning - b.runsAgainstPerInning);
       
-      // Sort pool runners-up by RA/DIP (best defensive performance first)
       poolRunnersUp.sort((a, b) => a.runsAgainstPerInning - b.runsAgainstPerInning);
       
-      // Sort remaining teams by regular standings logic (points first, then tie-breakers)
       const remainingGroups = remainingTeams.reduce((acc, team) => {
         const points = team.points;
         if (!acc[points]) acc[points] = [];
@@ -108,13 +111,9 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
         .sort((a, b) => Number(b) - Number(a))
         .flatMap(points => resolveTie(remainingGroups[Number(points)], games));
       
-      // Combine: Pool winners (1-3), then pool runners-up (4-6), then everyone else
       const overallStandings = [...poolWinners, ...poolRunnersUp, ...sortedRemainingTeams];
 
-      // Now calculate individual pool standings for display
-      // Sort pools in ascending order
       const sortedPoolsForDisplay = [...divisionPools].sort((a, b) => {
-        // Extract the pool identifier (number or letter) from the name
         const extractIdentifier = (name: string) => {
           const match = name.match(/Pool\s*([A-Za-z0-9]+)/i);
           return match ? match[1] : name;
@@ -123,24 +122,19 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
         const idA = extractIdentifier(a.name || '');
         const idB = extractIdentifier(b.name || '');
         
-        // Try to parse as numbers first
         const numA = parseInt(idA);
         const numB = parseInt(idB);
         
         if (!isNaN(numA) && !isNaN(numB)) {
-          // Both are numbers, sort numerically
           return numA - numB;
         } else {
-          // At least one is not a number, sort alphabetically
           return idA.localeCompare(idB);
         }
       });
 
-      // Calculate pool standings for display
       const poolStandings = sortedPoolsForDisplay.map(pool => {
         const poolTeams = teamStats.filter(t => t.poolId === pool.id);
         
-        // Group pool teams by points for tie-breaking
         const poolGroups = poolTeams.reduce((acc, team) => {
           const points = team.points;
           if (!acc[points]) acc[points] = [];
@@ -148,7 +142,6 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
           return acc;
         }, {} as Record<number, any[]>);
 
-        // Sort and resolve ties for pool standings
         const sortedPoolTeams = Object.keys(poolGroups)
           .sort((a, b) => Number(b) - Number(a))
           .flatMap(points => resolveTie(poolGroups[Number(points)], games));
@@ -186,14 +179,20 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
           <div key={team.id} className={`bg-white border rounded-lg p-4 ${team.forfeitLosses > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-[var(--splash-navy)] text-white font-bold text-sm">
+                <div 
+                  className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                >
                   {index + 1}
                 </div>
                 <div>
                   <div className="flex items-center">
                     <span className="font-semibold text-gray-900">{team.name}</span>
                     {team.isPoolWinner && (
-                      <span className="ml-2 px-2 py-1 bg-[var(--falcons-green)] text-white text-xs rounded-full font-bold">
+                      <span 
+                        className="ml-2 px-2 py-1 text-white text-xs rounded-full font-bold"
+                        style={{ backgroundColor: "var(--brand-primary)" }}
+                      >
                         POOL WINNER
                       </span>
                     )}
@@ -267,14 +266,20 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
               <tr key={team.id} className={`hover:bg-gray-50 transition-colors ${team.forfeitLosses > 0 ? 'bg-red-50' : ''}`}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-[#92a1b3]">
-                      <span className="text-white font-bold text-sm">{index + 1}</span>
+                    <div 
+                      className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                      style={{ backgroundColor: "var(--brand-primary)" }}
+                    >
+                      {index + 1}
                     </div>
                     <div className="ml-4">
                       <div className="flex items-center">
                         <span className="text-sm font-medium text-gray-900">{team.name}</span>
                         {team.isPoolWinner && (
-                          <span className="ml-2 px-2 py-1 bg-[var(--falcons-green)] text-white text-xs rounded-full font-bold">
+                          <span 
+                            className="ml-2 px-2 py-1 text-white text-xs rounded-full font-bold"
+                            style={{ backgroundColor: "var(--brand-primary)" }}
+                          >
                             POOL WINNER
                           </span>
                         )}
@@ -289,7 +294,13 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
                 </td>
                 {showPoolColumn && (
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                    <span 
+                      className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      style={{ 
+                        backgroundColor: "var(--brand-light)", 
+                        color: "var(--brand-primary)" 
+                      }}
+                    >
                       {getPoolName(team.poolId)}
                     </span>
                   </td>
@@ -330,27 +341,25 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
     </>
   );
 
-  const targetDivisions = ageDivisions.filter(div => 
-    div.name === '11U' || div.name === '13U'
-  );
+  const targetDivisions = ageDivisions;
 
   const displayedDivisions = selectedDivision 
     ? standingsByDivision.filter(s => s.division.id === selectedDivision)
     : standingsByDivision;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" style={brandStyle}>
       {/* Division Toggle Buttons */}
-      <div className="flex items-center justify-center space-x-4">
+      <div className="flex items-center justify-center space-x-4 overflow-x-auto pb-2">
         <Button
           onClick={() => setSelectedDivision(null)}
           style={{
-            ['--bg' as string]: selectedDivision === null ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
-            ['--color' as string]: selectedDivision === null ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
-            ['--hover-bg' as string]: selectedDivision === null ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
-            ['--hover-color' as string]: selectedDivision === null ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+            backgroundColor: selectedDivision === null ? "var(--brand-primary)" : "transparent",
+            color: selectedDivision === null ? "white" : "var(--brand-primary)",
+            borderColor: "var(--brand-primary)",
+            borderWidth: "1px"
           }}
-          className="bg-[var(--bg)] text-[var(--color)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--hover-color)]"
+          className="hover:opacity-90 whitespace-nowrap"
           data-testid="button-all-divisions"
         >
           All Divisions
@@ -360,18 +369,19 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
             key={division.id}
             onClick={() => setSelectedDivision(division.id)}
             style={{
-              ['--bg' as string]: selectedDivision === division.id ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
-              ['--color' as string]: selectedDivision === division.id ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
-              ['--hover-bg' as string]: selectedDivision === division.id ? (tournament?.primaryColor || '#14532d') : (tournament?.secondaryColor || '#fbbf24'),
-              ['--hover-color' as string]: selectedDivision === division.id ? (tournament?.secondaryColor || '#fbbf24') : (tournament?.primaryColor || '#14532d'),
+              backgroundColor: selectedDivision === division.id ? "var(--brand-primary)" : "transparent",
+              color: selectedDivision === division.id ? "white" : "var(--brand-primary)",
+              borderColor: "var(--brand-primary)",
+              borderWidth: "1px"
             }}
-            className="bg-[var(--bg)] text-[var(--color)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--hover-color)]"
+            className="hover:opacity-90 whitespace-nowrap"
             data-testid={`button-division-${division.id}`}
           >
             {division.name}
           </Button>
         ))}
       </div>
+      
       {displayedDivisions.map(({ division, pools: divisionPools, overallStandings, poolStandings }) => (
         <div key={division.id} className="space-y-6">
           {/* Overall Division Standings */}
@@ -390,9 +400,13 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
             <h4 className="text-lg font-semibold text-gray-900 mb-4">{division.name} Pool Standings</h4>
             
             <Tabs defaultValue={poolStandings[0]?.pool.id} className="w-full">
-              <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${poolStandings.length}, minmax(0, 1fr))` }}>
+              <TabsList className="grid w-full bg-gray-100" style={{ gridTemplateColumns: `repeat(${poolStandings.length}, minmax(0, 1fr))` }}>
                 {poolStandings.map(({ pool }) => (
-                  <TabsTrigger key={pool.id} value={pool.id} className="text-xs md:text-sm">
+                  <TabsTrigger 
+                    key={pool.id} 
+                    value={pool.id} 
+                    className="text-xs md:text-sm data-[state=active]:bg-[var(--brand-primary)] data-[state=active]:text-white"
+                  >
                     {pool.name.replace(/^Pool\s*Pool\s*/i, 'Pool ')}
                   </TabsTrigger>
                 ))}
@@ -412,7 +426,10 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
       {(tournament?.showTiebreakers !== false) && (
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-8">
           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3">!</span>
+            <span 
+              className="text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+            >!</span>
             Tiebreaker Rules
           </h4>
           <div className="text-sm text-gray-700 space-y-3">
@@ -436,8 +453,14 @@ export const StandingsTable = ({ teams, games, pools, ageDivisions, tournament, 
               </ol>
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-xs text-blue-800">
+            <div 
+              className="mt-4 p-3 border rounded-md"
+              style={{ 
+                backgroundColor: "var(--brand-light)", 
+                borderColor: "var(--brand-muted)" 
+              }}
+            >
+              <p className="text-xs" style={{ color: "var(--brand-primary)" }}>
                 <strong>Special Rule for 3+ Team Ties:</strong> When 3 or more teams are tied, head-to-head record (rule #2) is excluded until only 2 teams remain. Once down to 2 teams, tiebreakers restart from head-to-head record.
               </p>
             </div>

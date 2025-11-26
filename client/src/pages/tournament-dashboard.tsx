@@ -314,6 +314,8 @@ export default function TournamentDashboard() {
               ageDivisions={ageDivisions}
               pools={pools}
               tournament={currentTournament}
+              primaryColor={currentTournament.primaryColor}
+              secondaryColor={currentTournament.secondaryColor}
             />
           </TabsContent>
           
