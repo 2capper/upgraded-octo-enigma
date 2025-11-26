@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link } from "wouter";
 import { ChevronRight, Home, Trophy, Building2, Calendar } from "lucide-react";
 import {
@@ -37,32 +38,36 @@ export function SmartBreadcrumbs({ items, className }: SmartBreadcrumbsProps) {
           const isLast = index === items.length - 1;
           const Icon = item.icon ? iconMap[item.icon] : null;
 
-          return (
-            <BreadcrumbItem key={index}>
-              {!isLast && item.href ? (
-                <>
-                  <BreadcrumbLink asChild>
-                    <Link 
-                      href={item.href} 
-                      className="flex items-center gap-1.5 hover:text-foreground transition-colors"
-                      data-testid={`breadcrumb-link-${index}`}
-                    >
-                      {Icon && <Icon className="h-3.5 w-3.5" />}
-                      <span className="hidden sm:inline">{item.label}</span>
-                      {Icon && <span className="sm:hidden">{item.label.length > 15 ? item.label.slice(0, 15) + '...' : item.label}</span>}
-                    </Link>
-                  </BreadcrumbLink>
-                  <BreadcrumbSeparator>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </BreadcrumbSeparator>
-                </>
-              ) : (
+          if (isLast) {
+            return (
+              <BreadcrumbItem key={index}>
                 <BreadcrumbPage className="flex items-center gap-1.5 font-medium" data-testid="breadcrumb-current">
                   {Icon && <Icon className="h-3.5 w-3.5" />}
                   <span className="truncate max-w-[200px]">{item.label}</span>
                 </BreadcrumbPage>
-              )}
-            </BreadcrumbItem>
+              </BreadcrumbItem>
+            );
+          }
+
+          return (
+            <Fragment key={index}>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link 
+                    href={item.href || '#'} 
+                    className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+                    data-testid={`breadcrumb-link-${index}`}
+                  >
+                    {Icon && <Icon className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">{item.label}</span>
+                    {Icon && <span className="sm:hidden">{item.label.length > 15 ? item.label.slice(0, 15) + '...' : item.label}</span>}
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </BreadcrumbSeparator>
+            </Fragment>
           );
         })}
       </BreadcrumbList>

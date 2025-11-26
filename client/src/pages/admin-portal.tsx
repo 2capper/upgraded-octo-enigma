@@ -24,6 +24,7 @@ import { OrganizationSettings } from '@/components/admin/organization-settings';
 import { OrganizationAdminManagement } from '@/components/admin/organization-admin-management';
 import { OrganizationCreationForm } from '@/components/admin/organization-creation-form';
 import { EndOfPoolPlayReport } from '@/components/tournament/end-of-pool-play-report';
+import { EmbeddedCommunications } from '@/components/tournament/embedded-communications';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { isUnauthorizedError } from '@/lib/authUtils';
@@ -784,85 +785,33 @@ export default function AdminPortal() {
           </TabsContent>
 
           <TabsContent value="communications" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  Tournament Communications
-                </CardTitle>
-                <CardDescription>
-                  Send messages to coaches and team staff
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Use the communications portal to send tournament announcements, game updates, and important information 
-                    to your coaches and team staff. You can request additional staff contacts and send targeted messages 
-                    to specific groups.
-                  </p>
-                  
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
-                      <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>
-                        Features
-                      </h4>
-                      <ul className="text-sm text-[var(--text-secondary)] space-y-2">
-                        <li className="flex items-start gap-2">
-                          <Users className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Send to coaches only or all staff (managers + assistants)</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Use reusable message templates</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Request staff contacts from coaches</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>View message history and delivery status</span>
-                        </li>
-                      </ul>
-                    </div>
-                    
-                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
-                      <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>
-                        Quick Stats
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-[var(--text-secondary)]">Registered Teams</span>
-                          <span className="font-semibold" style={{ color: 'var(--deep-navy)' }}>{teams.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[var(--text-secondary)]">Coaches</span>
-                          <span className="font-semibold" style={{ color: 'var(--deep-navy)' }}>
-                            {teams.filter(t => t.coachPhone).length}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+            {currentTournamentId && orgId ? (
+              <EmbeddedCommunications 
+                orgId={orgId} 
+                tournamentId={currentTournamentId}
+                tournamentName={currentTournament?.name}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    Tournament Communications
+                  </CardTitle>
+                  <CardDescription>
+                    Send messages to coaches and team staff
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                      Select a tournament to access the communications suite
+                    </p>
                   </div>
-                  
-                  <Button 
-                    className="w-full"
-                    onClick={() => {
-                      const url = orgId && currentTournamentId 
-                        ? `/org/${orgId}/tournaments/tournament/${currentTournamentId}/communications`
-                        : `/admin/${currentTournamentId}/communications`;
-                      window.location.href = url;
-                    }}
-                    disabled={!currentTournamentId}
-                    data-testid="button-open-communications"
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Open Communications Portal
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {(user as any)?.isSuperAdmin && (

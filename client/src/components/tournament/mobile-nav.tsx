@@ -154,7 +154,7 @@ export function AdminMobileNav({
     {
       label: "Comms",
       icon: MessageSquare,
-      href: `/tournament/${tournamentId}/admin/communications`,
+      href: `/org/${organizationId}/tournaments/tournament/${tournamentId}?tab=communications`,
       testId: "admin-nav-comms",
     },
   ] : [
@@ -179,7 +179,7 @@ export function AdminMobileNav({
     {
       label: "Comms",
       icon: MessageSquare,
-      href: `/org/${organizationId}/admin/communications`,
+      href: `/org/${organizationId}/communications`,
       testId: "admin-nav-comms",
     },
   ];
