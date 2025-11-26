@@ -1,0 +1,56 @@
+Found the smoking gun.
+
+Look at your getOrganizationAdmins function (lines 150-154):
+
+TypeScript
+
+async getOrganizationAdmins(organizationId: string): Promise<OrganizationAdmin[]> {
+  return await db
+    .select()
+    .from(organizationAdmins)
+    .where(eq(organizationAdmins.organizationId, organizationId));
+}
+It is doing a simple SELECT * FROM organization_admins. The organization_admins table only contains: userId, organizationId, and role. It does not contain the user's name or email. Those live in the users table.
+
+That is why your UI shows "Unknown / No Email." It has the ID, but it doesn't know who that ID belongs to.
+
+The Fix: Join the Tables
+We need to update this function to perform a Left Join with the users table so we can return the user's details along with their admin role.
+
+The Plan:
+
+Update getOrganizationAdmins to join users.
+
+Select users.email, users.firstName, users.lastName in addition to the admin fields.
+
+Return a richer object.
+
+Action Item: I will rewrite the getOrganizationAdmins function for you. You need to replace the existing one in server/services/organizationService.ts.
+
+Copy/Paste this REPLACEMENT function:
+
+TypeScript
+
+  // Enhanced version with User Details
+  async getOrganizationAdmins(organizationId: string): Promise<any[]> {
+    return await db
+      .select({
+        // Select all fields from the join table
+        id: organizationAdmins.id,
+        userId: organizationAdmins.userId,
+        organizationId: organizationAdmins.organizationId,
+        role: organizationAdmins.role,
+        createdAt: organizationAdmins.createdAt,
+        // Select user details
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        name: users.name, // Fallback for older user records
+      })
+      .from(organizationAdmins)
+      .leftJoin(users, eq(organizationAdmins.userId, users.id))
+      .where(eq(organizationAdmins.organizationId, organizationId));
+  }
+Note: You might see a TypeScript error because the return type changed from OrganizationAdmin[] to any[] (or a custom type). That is fine for now; the frontend will just happily consume the extra fields.
+
+Deploy this fix and refresh your Admin Management page. You should see names and emails appear instantly.
