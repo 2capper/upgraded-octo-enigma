@@ -1,10 +1,17 @@
 import type { CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
-import { Calendar, Trophy, MessageSquare, MapPin, BarChart3, Zap } from "lucide-react";
+import { Calendar, Trophy, MessageSquare, MapPin, BarChart3, Zap, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+interface MobileTabItem {
+  id: string;
+  label: string;
+  icon: typeof Calendar;
+  testId: string;
 }
 
 interface MobileNavItem {
@@ -19,63 +26,38 @@ interface MobileBottomNavProps {
   organizationId?: string;
   primaryColor?: string;
   className?: string;
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
+  onChatOpen?: () => void;
 }
 
 export function MobileBottomNav({ 
   tournamentId, 
   organizationId,
   primaryColor,
-  className 
+  className,
+  activeTab = "standings",
+  setActiveTab,
+  onChatOpen,
 }: MobileBottomNavProps) {
-  const [location] = useLocation();
-  
-  const navItems: MobileNavItem[] = [
-    {
-      label: "Schedule",
-      icon: Calendar,
-      href: `/tournament/${tournamentId}`,
-      testId: "mobile-nav-schedule",
-    },
-    {
-      label: "Standings",
-      icon: BarChart3,
-      href: `/tournament/${tournamentId}?tab=standings`,
-      testId: "mobile-nav-standings",
-    },
-    {
-      label: "Playoffs",
-      icon: Zap,
-      href: `/tournament/${tournamentId}?tab=playoffs`,
-      testId: "mobile-nav-playoffs",
-    },
-    {
-      label: "Fields",
-      icon: MapPin,
-      href: `/tournament/${tournamentId}?tab=fields`,
-      testId: "mobile-nav-fields",
-    },
-    {
-      label: "Chat",
-      icon: MessageSquare,
-      href: `/tournament/${tournamentId}?chat=open`,
-      testId: "mobile-nav-chat",
-    },
+  const tabItems: MobileTabItem[] = [
+    { id: "standings", label: "Standings", icon: Trophy, testId: "mobile-nav-standings" },
+    { id: "games", label: "Games", icon: Calendar, testId: "mobile-nav-games" },
+    { id: "teams", label: "Teams", icon: Users, testId: "mobile-nav-teams" },
+    { id: "playoffs", label: "Playoffs", icon: Zap, testId: "mobile-nav-playoffs" },
   ];
 
-  const isActive = (href: string) => {
-    const basePath = `/tournament/${tournamentId}`;
-    if (href === basePath && location === basePath) return true;
-    if (href.includes('?')) {
-      const param = href.split('?')[1];
-      return location.includes(param);
+  const handleTabClick = (tabId: string) => {
+    if (setActiveTab) {
+      setActiveTab(tabId);
     }
-    return location === href;
+    scrollToTop();
   };
 
   return (
     <nav 
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t shadow-lg safe-area-inset-bottom",
+        "fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t shadow-lg",
         className
       )}
       style={{ 
@@ -85,18 +67,17 @@ export function MobileBottomNav({
       data-testid="mobile-bottom-nav"
     >
       <div className="flex items-center justify-around h-16">
-        {navItems.map((item) => {
-          const active = isActive(item.href);
+        {tabItems.map((item) => {
+          const isActive = activeTab === item.id;
           const Icon = item.icon;
           
           return (
-            <Link
+            <button
               key={item.testId}
-              href={item.href}
-              onClick={scrollToTop}
+              onClick={() => handleTabClick(item.id)}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors active:scale-95",
-                active 
+                isActive 
                   ? "text-[var(--brand-primary)]" 
                   : "text-muted-foreground hover:text-foreground"
               )}
@@ -105,18 +86,31 @@ export function MobileBottomNav({
               <Icon 
                 className={cn(
                   "h-5 w-5 mb-0.5 transition-all duration-200",
-                  active && "stroke-[2.5] scale-110"
+                  isActive && "stroke-[2.5] scale-110"
                 )} 
               />
               <span className={cn(
                 "text-[10px] font-medium transition-colors",
-                active && "font-semibold"
+                isActive && "font-semibold"
               )}>
                 {item.label}
               </span>
-            </Link>
+            </button>
           );
         })}
+        
+        {/* Chat button */}
+        <button
+          onClick={() => {
+            onChatOpen?.();
+            scrollToTop();
+          }}
+          className="flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors active:scale-95 text-muted-foreground hover:text-foreground"
+          data-testid="mobile-nav-chat"
+        >
+          <MessageSquare className="h-5 w-5 mb-0.5 transition-all duration-200" />
+          <span className="text-[10px] font-medium transition-colors">Chat</span>
+        </button>
       </div>
     </nav>
   );

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2, Bot, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,18 +20,26 @@ interface ChatWidgetProps {
   secondaryColor?: string | null;
 }
 
-export function ChatWidget({ 
+export interface ChatWidgetRef {
+  openChat: () => void;
+}
+
+export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({ 
   tournamentId, 
   tournamentName,
   primaryColor,
   secondaryColor
-}: ChatWidgetProps) {
+}, ref) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    openChat: () => setIsOpen(true),
+  }));
 
   const widgetStyle = {
     "--widget-primary": primaryColor || "#1a4d2e",
@@ -289,4 +297,6 @@ export function ChatWidget({
       </div>
     </div>
   );
-}
+});
+
+ChatWidget.displayName = "ChatWidget";

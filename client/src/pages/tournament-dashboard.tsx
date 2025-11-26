@@ -1,3 +1,4 @@
+import { useState, useMemo, useRef } from 'react';
 import { useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, Users, Trophy, Lock, MapPin, AlertTriangle } from 'lucide-react';
@@ -18,12 +19,13 @@ import { MobileBottomNav } from '@/components/tournament/mobile-nav';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diamond, Organization } from '@shared/schema';
-import { useMemo } from 'react';
 
 export default function TournamentDashboard() {
   const params = useParams();
   const tournamentId = params.tournamentId as string;
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState("standings");
+  const chatWidgetRef = useRef<{ openChat: () => void } | null>(null);
 
   const { data: tournament, isLoading: tournamentLoading } = useQuery({
     queryKey: ['/api/tournaments', tournamentId],
@@ -274,9 +276,10 @@ export default function TournamentDashboard() {
         })()}
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="standings" className="mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+          {/* Desktop tabs - hidden on mobile (use bottom nav instead) */}
           <TabsList 
-            className="grid grid-cols-2 md:grid-cols-4 w-full gap-1 h-auto"
+            className="hidden md:grid grid-cols-4 w-full gap-1 h-auto"
             style={{
               '--tab-bg': currentTournament.primaryColor || 'hsl(120, 45%, 25%)',
               '--tab-bg-hover': currentTournament.primaryColor ? `color-mix(in srgb, ${currentTournament.primaryColor} 80%, #000 20%)` : 'hsl(120, 45%, 20%)',
@@ -359,6 +362,7 @@ export default function TournamentDashboard() {
 
       {/* AI Chatbot Widget */}
       <ChatWidget 
+        ref={chatWidgetRef}
         tournamentId={tournamentId} 
         tournamentName={currentTournament.name}
         primaryColor={currentTournament.primaryColor}
@@ -370,6 +374,9 @@ export default function TournamentDashboard() {
         tournamentId={tournamentId}
         organizationId={organization?.id}
         primaryColor={currentTournament.primaryColor}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onChatOpen={() => chatWidgetRef.current?.openChat()}
       />
     </div>
   );
