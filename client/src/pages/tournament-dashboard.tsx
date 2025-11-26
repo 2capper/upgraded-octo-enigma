@@ -325,6 +325,8 @@ export default function TournamentDashboard() {
               pools={pools}
               diamonds={diamonds}
               tournamentId={tournamentId}
+              primaryColor={currentTournament.primaryColor}
+              secondaryColor={currentTournament.secondaryColor}
             />
           </TabsContent>
           

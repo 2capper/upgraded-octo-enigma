@@ -14,6 +14,8 @@ interface GamesTabProps {
   ageDivisions: AgeDivision[];
   diamonds: Diamond[];
   tournamentId?: string;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
 }
 
 interface GameWithWeather {
@@ -21,19 +23,30 @@ interface GameWithWeather {
   forecast: WeatherForecast;
 }
 
-export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tournamentId }: GamesTabProps) => {
+export const GamesTab = ({ 
+  games, 
+  teams, 
+  pools, 
+  ageDivisions, 
+  diamonds, 
+  tournamentId,
+  primaryColor,
+  secondaryColor
+}: GamesTabProps) => {
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
 
-  // Fetch weather alerts for all games in the tournament
-  // Guard against undefined tournamentId to prevent invalid cache keys
+  const brandStyle = {
+    "--brand-primary": primaryColor || "#1a4d2e",
+    "--brand-secondary": secondaryColor || "#ffffff",
+  } as React.CSSProperties;
+
   const { data: gamesWithWeather = [] } = useQuery<GameWithWeather[]>({
     queryKey: tournamentId ? ['/api/tournaments', tournamentId, 'weather', 'alerts'] : ['weather-disabled'],
     enabled: !!tournamentId,
-    refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
+    refetchInterval: 10 * 60 * 1000,
   });
 
-  // Create a map of gameId -> weather forecast for quick lookup
   const weatherMap = useMemo(() => {
     const map = new Map<string, WeatherForecast>();
     gamesWithWeather.forEach(({ game, forecast }) => {
@@ -90,27 +103,22 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
   };
 
   const getGameDivision = (game: Game) => {
-    // Get division from home team (both teams should be in same division)
     if (!game.homeTeamId) return null;
     return getTeamDivision(game.homeTeamId);
   };
 
-  // Get teams for selected division
   const divisionTeams = useMemo(() => {
     if (divisionFilter === 'all') return teams.sort((a, b) => a.name.localeCompare(b.name));
     
-    // Get all teams in the selected division
     const divisionPools = pools.filter(p => p.ageDivisionId === divisionFilter);
     const divisionTeamIds = new Set<string>();
     
-    // Get teams from pools
     teams.forEach(team => {
       if (divisionPools.some(p => p.id === team.poolId)) {
         divisionTeamIds.add(team.id);
       }
     });
     
-    // Also include teams that play games in this division
     games.forEach(game => {
       const gameDivision = getGameDivision(game);
       if (gameDivision?.id === divisionFilter) {
@@ -125,11 +133,9 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
       .sort((a, b) => a!.name.localeCompare(b!.name));
   }, [games, teams, pools, divisionFilter]);
 
-  // Filter and sort games
   const filteredAndSortedGames = useMemo(() => {
     let filtered = games;
 
-    // Filter by division
     if (divisionFilter !== 'all') {
       filtered = filtered.filter(game => {
         const division = getGameDivision(game);
@@ -137,28 +143,21 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
       });
     }
 
-    // Filter by team (optional)
     if (teamFilter !== 'all') {
       filtered = filtered.filter(game => 
         game.homeTeamId === teamFilter || game.awayTeamId === teamFilter
       );
     }
 
-    // Sort by date and time
     return filtered.sort((a, b) => {
-      // Compare dates first
       const dateA = new Date(a.date);
       const dateB = new Date(b.date);
       const dateCompare = dateA.getTime() - dateB.getTime();
       
       if (dateCompare !== 0) return dateCompare;
       
-      // If dates are equal, compare times
-      // Parse time strings to ensure proper sorting
       const parseTime = (timeStr: string) => {
         if (!timeStr) return 0;
-        
-        // Handle various time formats
         const [time, period] = timeStr.split(' ');
         const [hours, minutes] = time.split(':').map(Number);
         
@@ -176,7 +175,6 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
     });
   }, [games, divisionFilter, teamFilter]);
 
-  // Group games by division
   const gamesByDivision = useMemo(() => {
     const grouped = new Map<string, { division: AgeDivision; games: Game[] }>();
     
@@ -204,32 +202,25 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
     });
   };
 
-  // Format time for display (convert 24h to 12h format if needed)
   const formatTime = (timeStr: string) => {
     if (!timeStr) return 'TBD';
-    
     try {
-      // If already in 12h format (contains AM/PM), return as-is
       if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
         return timeStr;
       }
-      
-      // Convert 24h format to 12h format
       const [hours, minutes] = timeStr.split(':').map(s => parseInt(s));
       const period = hours >= 12 ? 'PM' : 'AM';
       const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-      
       return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
     } catch (e) {
-      return timeStr; // Return original if parsing fails
+      return timeStr;
     }
   };
 
-  // Show all available divisions
   const targetDivisions = ageDivisions;
 
   return (
-    <div className="p-6">
+    <div className="p-6" style={brandStyle}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Game Schedule</h3>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -249,17 +240,25 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
         </div>
       </div>
 
-      {/* Division Tabs */}
       <Tabs defaultValue="all" value={divisionFilter} onValueChange={(value) => {
         setDivisionFilter(value);
-        setTeamFilter('all'); // Reset team filter when division changes
+        setTeamFilter('all');
       }} className="w-full">
-        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${targetDivisions.length + 1}, minmax(0, 1fr))` }}>
-          <TabsTrigger value="all" className="text-sm md:text-base">
+        <TabsList className="grid w-full bg-gray-100" style={{ gridTemplateColumns: `repeat(${targetDivisions.length + 1}, minmax(0, 1fr))` }}>
+          <TabsTrigger 
+            value="all" 
+            className="text-sm md:text-base data-[state=active]:text-white"
+            style={{ '--tw-bg-opacity': 1 } as React.CSSProperties}
+            data-brand-primary={primaryColor || "#1a4d2e"}
+          >
             All Divisions
           </TabsTrigger>
           {targetDivisions.map((division) => (
-            <TabsTrigger key={division.id} value={division.id} className="text-sm md:text-base">
+            <TabsTrigger 
+              key={division.id} 
+              value={division.id} 
+              className="text-sm md:text-base data-[state=active]:text-white"
+            >
               {division.name}
             </TabsTrigger>
           ))}
@@ -275,184 +274,188 @@ export const GamesTab = ({ games, teams, pools, ageDivisions, diamonds, tourname
             <div className="space-y-8">
               {gamesByDivision.map(({ division, games }) => (
                 <div key={division.id}>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4 bg-gray-50 p-3 rounded-lg">
+                  <h4 
+                    className="text-lg font-semibold mb-4 p-3 rounded-lg border-l-4"
+                    style={{ 
+                      backgroundColor: `color-mix(in srgb, ${primaryColor || "#1a4d2e"} 10%, white)`,
+                      color: primaryColor || "#1a4d2e",
+                      borderColor: primaryColor || "#1a4d2e"
+                    }}
+                  >
                     {division.name} Division
                   </h4>
                   <div className="space-y-2">
                     {games.map(game => {
                       const homeTeamName = getTeamName(game.homeTeamId);
                       const awayTeamName = getTeamName(game.awayTeamId);
-                  
-                  const forecast = weatherMap.get(game.id);
-                  
-                  return (
-                    <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      {/* Mobile optimized layout */}
-                      <div className="flex flex-col space-y-3">
-                        {/* Top row: Date/Time and Status */}
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">{formatDate(game.date)}</p>
-                            <p className="text-xs text-gray-600">
-                              {formatTime(game.time || game.location)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {forecast && getSeverityBadge(forecast)}
-                            {game.status === 'completed' ? (
-                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                FINAL
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                SCHEDULED
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Weather Information (if available) */}
-                        {forecast && (
-                          <div className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-md border border-gray-200">
-                            <div className="flex items-center gap-2">
-                              <img 
-                                src={`https:${forecast.conditionIcon}`} 
-                                alt={forecast.condition || "Weather"} 
-                                className="w-8 h-8"
-                              />
+                      const forecast = weatherMap.get(game.id);
+                      
+                      return (
+                        <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex flex-col space-y-3">
+                            <div className="flex justify-between items-start">
                               <div>
-                                <div className="font-semibold text-sm">
-                                  {Math.round(parseFloat(forecast.temperatureF || "0"))}°F
-                                </div>
-                                <div className="text-xs text-gray-600">{forecast.condition}</div>
+                                <p className="font-semibold text-gray-900 text-sm">{formatDate(game.date)}</p>
+                                <p className="text-xs text-gray-600">
+                                  {formatTime(game.time || game.location)}
+                                </p>
                               </div>
-                            </div>
-                            <div className="flex-1 flex items-center gap-3 text-xs text-gray-600">
-                              {forecast.hasPrecipitationAlert && (
-                                <div className="flex items-center gap-1" title={`${forecast.precipitationProbability}% chance of rain`}>
-                                  <CloudRain className="w-3 h-3" />
-                                  <span>{forecast.precipitationProbability}%</span>
-                                </div>
-                              )}
-                              {forecast.hasWindAlert && (
-                                <div className="flex items-center gap-1" title={`Wind: ${forecast.windSpeed} mph`}>
-                                  <Wind className="w-3 h-3" />
-                                  <span>{forecast.windSpeed} mph</span>
-                                </div>
-                              )}
-                              {forecast.hasLightningAlert && (
-                                <div className="flex items-center gap-1 text-red-600 font-medium" title="Lightning detected">
-                                  <Zap className="w-3 h-3" />
-                                  <span>Lightning</span>
-                                </div>
-                              )}
-                              {forecast.hasHeatAlert && (
-                                <div className="flex items-center gap-1 text-orange-600 font-medium" title={`Heat Index: ${forecast.heatIndex}°F`}>
-                                  <Thermometer className="w-3 h-3" />
-                                  <span>{forecast.heatIndex}°F</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Diamond Status (if not open) */}
-                        {(() => {
-                          const diamond = diamonds.find(d => d.id === game.diamondId);
-                          const statusBadge = getDiamondStatusBadge(diamond);
-                          if (!statusBadge) return null;
-                          
-                          return (
-                            <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-md">
-                              <div className="flex items-start gap-2">
-                                <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                                {statusBadge}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                        
-                        {/* Teams and Score */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm truncate mr-2">{game.homeTeamId ? homeTeamName : 'TBD'}</span>
-                            {game.status === 'completed' && (
-                              <span className="font-bold text-lg">{game.homeScore}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm truncate mr-2">{game.awayTeamId ? awayTeamName : 'TBD'}</span>
-                            {game.status === 'completed' && (
-                              <span className="font-bold text-lg">{game.awayScore}</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Venue and Directions */}
-                        {(() => {
-                          // Find the diamond from the database list
-                          const diamond = diamonds.find(d => d.id === game.diamondId);
-                          const location = diamond?.location || game.location || "Location TBD";
-                          const diamondName = game.subVenue || diamond?.name || 'Diamond TBD';
-
-                          // Build the smart URL with fallback logic
-                          let directionsUrl = '';
-                          let travelMode = '';
-
-                          if (diamond && diamond.latitude && diamond.longitude) {
-                            // Best case: GPS coordinates from diamond record
-                            travelMode = 'walking';
-                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${diamond.latitude},${diamond.longitude}&travelmode=${travelMode}`;
-                          } else if (diamond && diamond.location) {
-                            // Diamond record exists but no GPS - use address with driving
-                            travelMode = 'driving';
-                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond.location)}&travelmode=${travelMode}`;
-                          } else if (game.subVenue) {
-                            // Fallback: No diamond record but game has subVenue field
-                            travelMode = 'walking';
-                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.subVenue)}&travelmode=${travelMode}`;
-                          } else if (game.location) {
-                            // Final fallback: Use game.location field
-                            travelMode = 'driving';
-                            directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.location)}&travelmode=${travelMode}`;
-                          }
-
-                          return (
-                            <div className="pt-2 border-t border-gray-100">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                  <MapPin className="w-4 h-4 flex-shrink-0" />
-                                  <div>
-                                    <span className="font-medium">{diamondName}</span>
-                                    <span className="text-xs text-gray-500 block">{location}</span>
-                                  </div>
-                                </div>
-                                {directionsUrl && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs px-3"
-                                    onClick={() => window.open(directionsUrl, '_blank')}
+                              <div className="flex items-center gap-2">
+                                {forecast && getSeverityBadge(forecast)}
+                                {game.status === 'completed' ? (
+                                  <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                    FINAL
+                                  </span>
+                                ) : (
+                                  <span 
+                                    className="px-2 py-1 text-xs font-medium rounded-full"
+                                    style={{ 
+                                      backgroundColor: `color-mix(in srgb, ${primaryColor || "#1a4d2e"} 15%, white)`,
+                                      color: primaryColor || "#1a4d2e"
+                                    }}
                                   >
-                                    <Navigation className="w-3 h-3 mr-1" />
-                                    {travelMode === 'walking' ? "Walking" : "Driving"} Directions
-                                  </Button>
+                                    SCHEDULED
+                                  </span>
                                 )}
                               </div>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                            
+                            {forecast && (
+                              <div className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-md border border-gray-200">
+                                <div className="flex items-center gap-2">
+                                  <img 
+                                    src={`https:${forecast.conditionIcon}`} 
+                                    alt={forecast.condition || "Weather"} 
+                                    className="w-8 h-8"
+                                  />
+                                  <div>
+                                    <div className="font-semibold text-sm">
+                                      {Math.round(parseFloat(forecast.temperatureF || "0"))}°F
+                                    </div>
+                                    <div className="text-xs text-gray-600">{forecast.condition}</div>
+                                  </div>
+                                </div>
+                                <div className="flex-1 flex items-center gap-3 text-xs text-gray-600">
+                                  {forecast.hasPrecipitationAlert && (
+                                    <div className="flex items-center gap-1" title={`${forecast.precipitationProbability}% chance of rain`}>
+                                      <CloudRain className="w-3 h-3" />
+                                      <span>{forecast.precipitationProbability}%</span>
+                                    </div>
+                                  )}
+                                  {forecast.hasWindAlert && (
+                                    <div className="flex items-center gap-1" title={`Wind: ${forecast.windSpeed} mph`}>
+                                      <Wind className="w-3 h-3" />
+                                      <span>{forecast.windSpeed} mph</span>
+                                    </div>
+                                  )}
+                                  {forecast.hasLightningAlert && (
+                                    <div className="flex items-center gap-1 text-red-600 font-medium" title="Lightning detected">
+                                      <Zap className="w-3 h-3" />
+                                      <span>Lightning</span>
+                                    </div>
+                                  )}
+                                  {forecast.hasHeatAlert && (
+                                    <div className="flex items-center gap-1 text-orange-600 font-medium" title={`Heat Index: ${forecast.heatIndex}°F`}>
+                                      <Thermometer className="w-3 h-3" />
+                                      <span>{forecast.heatIndex}°F</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {(() => {
+                              const diamond = diamonds.find(d => d.id === game.diamondId);
+                              const statusBadge = getDiamondStatusBadge(diamond);
+                              if (!statusBadge) return null;
+                              
+                              return (
+                                <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-md">
+                                  <div className="flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                    {statusBadge}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm truncate mr-2">{game.homeTeamId ? homeTeamName : 'TBD'}</span>
+                                {game.status === 'completed' && (
+                                  <span className="font-bold text-lg">{game.homeScore}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm truncate mr-2">{game.awayTeamId ? awayTeamName : 'TBD'}</span>
+                                {game.status === 'completed' && (
+                                  <span className="font-bold text-lg">{game.awayScore}</span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {(() => {
+                              const diamond = diamonds.find(d => d.id === game.diamondId);
+                              const location = diamond?.location || game.location || "Location TBD";
+                              const diamondName = game.subVenue || diamond?.name || 'Diamond TBD';
+
+                              let directionsUrl = '';
+                              let travelMode = '';
+
+                              if (diamond && diamond.latitude && diamond.longitude) {
+                                travelMode = 'walking';
+                                directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${diamond.latitude},${diamond.longitude}&travelmode=${travelMode}`;
+                              } else if (diamond && diamond.location) {
+                                travelMode = 'driving';
+                                directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(diamond.location)}&travelmode=${travelMode}`;
+                              } else if (game.subVenue) {
+                                travelMode = 'walking';
+                                directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.subVenue)}&travelmode=${travelMode}`;
+                              } else if (game.location) {
+                                travelMode = 'driving';
+                                directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(game.location)}&travelmode=${travelMode}`;
+                              }
+
+                              return (
+                                <div className="pt-2 border-t border-gray-100">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                      <MapPin className="w-4 h-4 flex-shrink-0" />
+                                      <div>
+                                        <span className="font-medium">{diamondName}</span>
+                                        <span className="text-xs text-gray-500 block">{location}</span>
+                                      </div>
+                                    </div>
+                                    {directionsUrl && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs px-3 hover:opacity-80"
+                                        style={{ 
+                                          color: primaryColor || "#1a4d2e",
+                                          borderColor: primaryColor || "#1a4d2e"
+                                        }}
+                                        onClick={() => window.open(directionsUrl, '_blank')}
+                                      >
+                                        <Navigation className="w-3 h-3 mr-1" />
+                                        {travelMode === 'walking' ? "Walking" : "Driving"} Directions
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-    </TabsContent>
-  </Tabs>
-</div>
-);
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 };
