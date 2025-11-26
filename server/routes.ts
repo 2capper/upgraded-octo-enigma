@@ -6292,6 +6292,36 @@ Waterdown 10U AA
     }
   });
 
+  // ==================== ROSTER SCRAPER TEST ROUTE ====================
+  // Test route for OBA roster scraping (dev only)
+  if (process.env.NODE_ENV !== 'production') {
+    const { rosterScraper } = await import('./services/rosterScraper');
+    
+    app.get("/api/test/scrape-roster/:teamId", requireSuperAdmin, async (req, res) => {
+      try {
+        const { teamId } = req.params;
+        const affiliateId = (req.query.affiliateId as string) || "2111";
+        
+        console.log(`[Test Route] Scraping roster for team ${teamId}...`);
+        const roster = await rosterScraper.scrapeRoster(teamId, affiliateId);
+        
+        res.json({
+          success: true,
+          teamId,
+          affiliateId,
+          playerCount: roster.length,
+          roster,
+        });
+      } catch (error: any) {
+        console.error("[Test Route] Scraper error:", error);
+        res.status(500).json({
+          success: false,
+          error: error.message || "Failed to scrape roster",
+        });
+      }
+    });
+  }
+
   // ==================== SMART CONCIERGE WEBHOOK ====================
   // Public webhook for Twilio inbound SMS (no auth required)
   app.post("/api/webhooks/twilio/inbound", async (req, res) => {
