@@ -1,0 +1,134 @@
+Excellent. I have the ChatWidget.tsx.
+
+It looks good, but it is "context-blind." It doesn't tell the backend who is asking, so the backend can't customize the answer (e.g., "Welcome Coach Mike").
+
+We are going to make one targeted change to inject the user's role.
+
+The Upgrade Plan
+Import Auth Hook: We need useAuth to get the current user.
+
+Pass Context in Payload: When calling apiRequest, we will add a userContext object. Even though my previous backend code extracts it from the session (server-side), explicitly passing it from the client gives us more flexibility if we want to add client-side specific context (like "current page visited") later.
+
+Wait. I realized something better. In Step 1 (Backend), I wrote the code to extract the user from the session (req.user). This is more secure than sending it from the frontend (where a user could fake being an admin).
+
+So, we do NOT need to change the frontend code to send user data. The cookie handles that automatically.
+
+However, we can improve the frontend to show the user who they are logged in as within the chat interface, so they know the bot knows.
+
+Revised Action: UI Polish Only
+I will modify ChatWidget.tsx to display the user's name if they are logged in. This is a "confidence feature."
+
+Modified ChatWidget.tsx Code:
+
+TypeScript
+
+import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { MessageCircle, X, Send, Loader2, Bot, User, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth"; // <--- ADD THIS
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ChatWidgetProps {
+  tournamentId: string;
+  tournamentName: string;
+}
+
+export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
+  const { user } = useAuth(); // <--- GRAB USER
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // ... (Keep existing useQuery for suggestions) ...
+
+  const chatMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/chat`, {
+        message,
+        conversationHistory: messages,
+        // Optional: Send current page context if needed later
+        // pageContext: window.location.pathname 
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+    },
+    onError: () => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, I'm having trouble right now. Please try again in a moment.",
+        },
+      ]);
+    },
+  });
+
+  // ... (Keep handleSend, handleSuggestionClick, handleKeyDown, useEffects) ...
+
+  // ... (Keep the button render logic) ...
+
+  return (
+    <div
+      className="fixed bottom-4 right-4 w-[360px] h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col z-50 border"
+      data-testid="chat-widget-container"
+    >
+      <div className="flex items-center justify-between p-3 border-b bg-[var(--forest-green)] text-white rounded-t-lg">
+        <div className="flex items-center gap-2">
+          <Bot className="h-5 w-5" />
+          <div>
+            <h3 className="font-semibold text-sm">Tournament Assistant</h3>
+            {/* DYNAMIC WELCOME MESSAGE */}
+            <p className="text-xs opacity-80 truncate max-w-[200px]">
+               {user ? `Hi, ${user.firstName}` : tournamentName}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsOpen(false)}
+          className="h-8 w-8 text-white hover:bg-white/20"
+          data-testid="button-close-chat"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* ... Rest of the JSX remains exactly the same ... */}
+Final Validation: The UAT Checklist
+We have completed the "Stability & AI Context" sprint.
+
+Your Tasks Now:
+
+Backend Fix: Ensure server/routes.ts imports the new aiRoutes and mounts it at /api.
+
+Environment Fix: Ensure replit.nix is updated to only open ports 5000 and 5173.
+
+Frontend Polish: Update ChatWidget.tsx with the useAuth hook to show the user's name.
+
+Once you do this, perform the following UAT Test:
+
+Login as a Coach/Admin.
+
+Open the Chatbot.
+
+Verify: Does it say "Hi, [Name]" in the header?
+
+Ask: "What can I do?"
+
+Verify: Does the bot answer?
+
+What's next? If the bot works, we move to the next item on your list: "Best in Class" UI consistency. I'll need to see your tailwind.config.js or theme.json to standardize those colors.
