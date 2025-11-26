@@ -1,0 +1,329 @@
+import OpenAI from "openai";
+import { db } from "../db";
+import { games, teams, tournaments, diamonds } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
+
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+interface UserContext {
+  id?: string;
+  role?: string;
+  name?: string;
+}
+
+interface TournamentContext {
+  tournament: any;
+  teams: any[];
+  games: any[];
+  diamonds: any[];
+  userContext?: UserContext;
+}
+
+interface ComputedStanding {
+  teamId: string;
+  teamName: string;
+  pool: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  runsScored: number;
+  runsAllowed: number;
+}
+
+export class ChatbotService {
+  private async buildTournamentContext(tournamentId: string): Promise<TournamentContext | null> {
+    try {
+      const [tournament] = await db
+        .select()
+        .from(tournaments)
+        .where(eq(tournaments.id, tournamentId));
+
+      if (!tournament) {
+        return null;
+      }
+
+      const tournamentTeams = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.tournamentId, tournamentId));
+
+      const tournamentGames = await db
+        .select()
+        .from(games)
+        .where(eq(games.tournamentId, tournamentId));
+
+      const tournamentDiamonds = tournament.organizationId
+        ? await db
+            .select()
+            .from(diamonds)
+            .where(eq(diamonds.organizationId, tournament.organizationId))
+        : [];
+
+      return {
+        tournament,
+        teams: tournamentTeams,
+        games: tournamentGames,
+        diamonds: tournamentDiamonds,
+      };
+    } catch (error) {
+      console.error("Error building tournament context:", error);
+      return null;
+    }
+  }
+
+  private computeStandings(teams: any[], games: any[]): ComputedStanding[] {
+    const standingsMap = new Map<string, ComputedStanding>();
+    
+    teams.forEach((team) => {
+      standingsMap.set(team.id, {
+        teamId: team.id,
+        teamName: team.name,
+        pool: team.pool || "Unassigned",
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        runsScored: 0,
+        runsAllowed: 0,
+      });
+    });
+
+    games.filter((g) => g.status === "completed" && g.homeScore != null && g.awayScore != null)
+      .forEach((game) => {
+        const homeStanding = standingsMap.get(game.homeTeamId);
+        const awayStanding = standingsMap.get(game.awayTeamId);
+        
+        if (homeStanding) {
+          homeStanding.runsScored += game.homeScore || 0;
+          homeStanding.runsAllowed += game.awayScore || 0;
+          if (game.homeScore > game.awayScore) homeStanding.wins++;
+          else if (game.homeScore < game.awayScore) homeStanding.losses++;
+          else homeStanding.ties++;
+        }
+        
+        if (awayStanding) {
+          awayStanding.runsScored += game.awayScore || 0;
+          awayStanding.runsAllowed += game.homeScore || 0;
+          if (game.awayScore > game.homeScore) awayStanding.wins++;
+          else if (game.awayScore < game.homeScore) awayStanding.losses++;
+          else awayStanding.ties++;
+        }
+      });
+
+    return Array.from(standingsMap.values());
+  }
+
+  private formatContextForPrompt(context: TournamentContext): string {
+    const { tournament, teams, games, diamonds, userContext } = context;
+
+    // 1. Attempt to Identify User's Team (For logged in users)
+    let userTeam = null;
+    if (userContext?.name) {
+        const nameParts = userContext.name.toLowerCase().split(' ');
+        userTeam = teams.find(t => {
+            const coach = (t.coach || "").toLowerCase();
+            const manager = (t.managerName || "").toLowerCase();
+            return nameParts.some(part => coach.includes(part) || manager.includes(part));
+        });
+    }
+
+    // --- CONTEXT HEADER ---
+    let contextStr = `TOURNAMENT: ${tournament.name}
+LOCATION: ${tournament.city || "Not specified"}
+DATES: ${tournament.startDate} to ${tournament.endDate}
+
+VENUE AMENITIES & INFO (Prioritize this for questions about bathrooms, food, parking):
+${tournament.description || "No specific amenity details provided. Assume standard park facilities."}
+`;
+
+    // 2. Inject User Persona (Or Guest Status)
+    if (userContext) {
+        contextStr += `\nCURRENT USER: ${userContext.name} (${userContext.role || "Guest"})\n`;
+        if (userTeam) {
+            contextStr += `ASSOCIATED TEAM: ${userTeam.name} (User is likely staff. Prioritize this team.)\n`;
+        }
+    } else {
+        contextStr += `\nCURRENT USER: Guest / Public Visitor (Unknown team affiliation)\n`;
+    }
+
+    // 3. Diamond Locations (Enhanced with Walking/Driving Links)
+    if (diamonds.length > 0) {
+      contextStr += `\nLOCATIONS / DIAMONDS:\n`;
+      diamonds.forEach((d) => {
+        contextStr += `- Name: "${d.name}"\n`;
+        contextStr += `  Address: ${d.address || "Address not listed"} ${d.location ? `(${d.location})` : ''}\n`;
+        
+        let dest = "";
+        if (d.latitude && d.longitude) {
+          dest = `${d.latitude},${d.longitude}`;
+        } else if (d.address) {
+          dest = encodeURIComponent(d.address);
+        }
+
+        if (dest) {
+           contextStr += `  Driving Link: https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving\n`;
+           contextStr += `  Walking Link: https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=walking\n`;
+        }
+        contextStr += "\n";
+      });
+    }
+
+    // 4. Standings
+    const standings = this.computeStandings(teams, games);
+    if (standings.length > 0) {
+      contextStr += `\nSTANDINGS SUMMARY:\n`;
+      const standingsByPool: Record<string, ComputedStanding[]> = {};
+      standings.forEach((s) => {
+        if (!standingsByPool[s.pool]) standingsByPool[s.pool] = [];
+        standingsByPool[s.pool].push(s);
+      });
+      
+      Object.entries(standingsByPool).forEach(([pool, poolStandings]) => {
+        // Only show top 3 per pool to save context window, list full standings if explicitly asked
+        const sorted = poolStandings.sort((a, b) => b.wins - a.wins);
+        contextStr += `[Pool ${pool} Leaders]: `;
+        contextStr += sorted.slice(0, 3).map((s, i) => `${i+1}.${s.teamName} (${s.wins}-${s.losses})`).join(", ");
+        contextStr += "\n";
+      });
+    }
+
+    // 5. Schedule (Smart Filtering)
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    
+    const upcoming = games.filter(g => g.date >= today && g.status !== 'completed').sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    
+    // If user has a team, prioritize their games
+    if (userTeam) {
+        const myGames = upcoming.filter(g => g.homeTeamId === userTeam.id || g.awayTeamId === userTeam.id);
+        if (myGames.length > 0) {
+            contextStr += `\n*** USER'S TEAM SCHEDULE ***\n`;
+            myGames.forEach(g => {
+                const home = teams.find(t => t.id === g.homeTeamId)?.name;
+                const away = teams.find(t => t.id === g.awayTeamId)?.name;
+                const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
+                contextStr += `- ${g.date} @ ${g.time}: ${away} vs ${home} (at ${diamond})\n`;
+            });
+        }
+    }
+
+    // General Schedule (Limit to next 20 games)
+    contextStr += `\nUPCOMING GAMES (Next 20):\n`;
+    upcoming.slice(0, 20).forEach(g => {
+        const home = teams.find(t => t.id === g.homeTeamId)?.name;
+        const away = teams.find(t => t.id === g.awayTeamId)?.name;
+        const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
+        contextStr += `- ${g.date} @ ${g.time}: ${away} vs ${home} (at ${diamond})\n`;
+    });
+
+    return contextStr;
+  }
+
+  private buildSystemPrompt(context: TournamentContext): string {
+    const tournamentData = this.formatContextForPrompt(context);
+
+    return `You are the official AI Assistant for the "${context.tournament.name}".
+Your primary users are parents and fans who may be at the park for the first time.
+
+DATA CONTEXT:
+${tournamentData}
+
+INSTRUCTIONS:
+1. **Amenities (Bathrooms/Food):** If asked about amenities, check the "VENUE AMENITIES & INFO" section first.
+   - If the info is there, answer directly.
+   - If the info is MISSING, say: "I don't have the exact location, but restrooms are usually found near the Concession Stand or the main diamonds. Look for park signage."
+2. **Be a Guide:** Use the specific Diamond Name provided (e.g., "Optimist Park - Diamond 1") not just "Diamond 1".
+3. **Navigation Smart-Links:** - If the user asks for directions or "Where is...", infer their context.
+   - If they seem to be **at the park** (e.g., "How do I walk to D4?", "Where is the concession stand?"), provide the **Walking Link**.
+   - If they seem to be **away** (e.g., "Address for the field?", "How do I get there?"), provide the **Driving Link**.
+   - If unsure, provide the Driving Link by default or ask "Are you at the park now?".
+   - Always format links as: "Here is a [Walking/Driving] map link: [Link]".
+4. **Clarify Context:** If a user asks a team-specific question (e.g., "When do we play?", "Did we win?", "Who's pitching?") and you don't know which team they support (no "ASSOCIATED TEAM" in context), **DO NOT GUESS**. Instead, ask: "Which team are you asking about?"
+5. **Identity:** You are friendly, helpful, and concise.
+6. **Safety:** If asked about medical/safety, tell them to find a Tournament Official immediately.
+
+Keep responses short and easy to read on a mobile phone.`;
+  }
+
+  async chat(
+    tournamentId: string,
+    userMessage: string,
+    conversationHistory: ChatMessage[] = [],
+    userContext?: UserContext
+  ): Promise<{ response: string; error?: string }> {
+    try {
+      const context = await this.buildTournamentContext(tournamentId);
+
+      if (!context) {
+        return {
+          response: "I'm sorry, I couldn't find information about this tournament. Please make sure you're accessing a valid tournament page.",
+          error: "Tournament not found",
+        };
+      }
+
+      context.userContext = userContext;
+
+      const systemPrompt = this.buildSystemPrompt(context);
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory.slice(-6).map((msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        })),
+        { role: "user", content: userMessage },
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages,
+        max_completion_tokens: 500,
+      });
+
+      const assistantMessage = response.choices[0]?.message?.content;
+
+      if (!assistantMessage) {
+        return {
+          response: "I'm sorry, I couldn't generate a response. Please try again.",
+          error: "Empty response from AI",
+        };
+      }
+
+      return { response: assistantMessage };
+    } catch (error: any) {
+      console.error("Chatbot error:", error);
+      
+      if (error?.message?.includes("429") || error?.message?.includes("rate limit")) {
+        return {
+          response: "I'm experiencing high demand right now. Please try again in a moment.",
+          error: "Rate limited",
+        };
+      }
+
+      return {
+        response: "I'm having trouble processing your request. Please try again later.",
+        error: error?.message || "Unknown error",
+      };
+    }
+  }
+
+  async getQuickAnswers(tournamentId: string): Promise<string[]> {
+    return [
+      "When is the next game?",
+      "Where are the diamonds located?",
+      "What are the current standings?",
+      "Is there a concession stand?",
+      "Who plays in Pool A?",
+    ];
+  }
+}
+
+export const chatbotService = new ChatbotService();
