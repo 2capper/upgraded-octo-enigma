@@ -2397,7 +2397,7 @@ Waterdown 10U AA
     }
   });
 
-  app.put("/api/games/:id", requireAdmin, async (req, res) => {
+  app.put("/api/games/:id", isAuthenticated, async (req, res) => {
     try {
       // Validate the game update data
       const validatedData = gameUpdateSchema.parse(req.body);
