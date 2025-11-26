@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -18,6 +19,7 @@ interface ChatWidgetProps {
 }
 
 export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -116,7 +118,9 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
           <Bot className="h-5 w-5" />
           <div>
             <h3 className="font-semibold text-sm">Tournament Assistant</h3>
-            <p className="text-xs opacity-80 truncate max-w-[200px]">{tournamentName}</p>
+            <p className="text-xs opacity-80 truncate max-w-[200px]">
+              {user ? `Hi, ${user.firstName || user.email?.split('@')[0]}` : tournamentName}
+            </p>
           </div>
         </div>
         <Button
