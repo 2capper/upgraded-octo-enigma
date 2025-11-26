@@ -1,6 +1,6 @@
 import { useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Calendar, Users, Trophy, TrendingUp, FileText, Lock, MapPin, AlertTriangle } from 'lucide-react';
+import { Calendar, Users, Trophy, Lock, MapPin, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +12,9 @@ import { PublicPlayoffsTab } from '@/components/tournament/public-playoffs-tab';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
 import { QRCodeShare } from '@/components/tournament/qr-code-share';
 import { ChatWidget } from '@/components/tournament/chat-widget';
+import { TournamentDashboardSkeleton } from '@/components/tournament/skeletons';
+import { TournamentBreadcrumbs } from '@/components/tournament/smart-breadcrumbs';
+import { MobileBottomNav } from '@/components/tournament/mobile-nav';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diamond, Organization } from '@shared/schema';
@@ -71,14 +74,7 @@ export default function TournamentDashboard() {
   }, [diamonds, usedDiamondIds]);
 
   if (tournamentLoading || isLoading || authLoading || diamondsLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--falcons-green)] mx-auto mb-4" />
-          <p className="text-gray-600">Loading tournament data...</p>
-        </div>
-      </div>
-    );
+    return <TournamentDashboardSkeleton />;
   }
 
   if (error) {
@@ -150,7 +146,7 @@ export default function TournamentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
       <SimpleNavigation 
         tournamentId={tournamentId}
         currentPage='dashboard'
@@ -158,6 +154,14 @@ export default function TournamentDashboard() {
       />
       
       <div className="px-4 py-4 md:py-8">
+        {/* Breadcrumb Navigation */}
+        <TournamentBreadcrumbs
+          organizationName={organization?.name}
+          organizationSlug={organization?.slug}
+          tournamentName={currentTournament.customName || currentTournament.name}
+          tournamentId={tournamentId}
+          className="mb-4"
+        />
         {/* Tournament Header with Custom Branding */}
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -359,6 +363,13 @@ export default function TournamentDashboard() {
         tournamentName={currentTournament.name}
         primaryColor={currentTournament.primaryColor}
         secondaryColor={currentTournament.secondaryColor}
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        tournamentId={tournamentId}
+        organizationId={organization?.id}
+        primaryColor={currentTournament.primaryColor}
       />
     </div>
   );
