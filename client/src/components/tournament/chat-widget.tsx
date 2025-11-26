@@ -58,9 +58,16 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
+      const userContext = user ? {
+        id: user.id,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email?.split('@')[0],
+        role: user.isAdmin ? 'Admin' : 'Coach'
+      } : undefined;
+
       const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/chat`, {
         message,
         conversationHistory: messages,
+        userContext,
       });
       return response.json();
     },

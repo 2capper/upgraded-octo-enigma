@@ -3,7 +3,6 @@ import { db } from "../db";
 import { games, teams, tournaments, diamonds } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -14,11 +13,18 @@ interface ChatMessage {
   content: string;
 }
 
+interface UserContext {
+  id?: string;
+  role?: string;
+  name?: string;
+}
+
 interface TournamentContext {
   tournament: any;
   teams: any[];
   games: any[];
   diamonds: any[];
+  userContext?: UserContext;
 }
 
 interface ComputedStanding {
@@ -115,40 +121,47 @@ export class ChatbotService {
   }
 
   private formatContextForPrompt(context: TournamentContext): string {
-    const { tournament, teams, games, diamonds } = context;
+    const { tournament, teams, games, diamonds, userContext } = context;
 
-    let contextStr = `TOURNAMENT INFORMATION:
-Name: ${tournament.name}
-Start Date: ${tournament.startDate || "Not set"}
-End Date: ${tournament.endDate || "Not set"}
-Location: ${tournament.city || "Not specified"}
-Status: ${tournament.status || "active"}
+    let userTeam: any = null;
+    if (userContext?.name) {
+      const nameParts = userContext.name.toLowerCase().split(' ');
+      userTeam = teams.find(t => {
+        const coach = (t.coach || "").toLowerCase();
+        const manager = (t.managerName || "").toLowerCase();
+        const assistant = (t.assistantName || "").toLowerCase();
+        return nameParts.some(part => 
+          part.length > 2 && (coach.includes(part) || manager.includes(part) || assistant.includes(part))
+        );
+      });
+    }
 
+    let contextStr = `TOURNAMENT: ${tournament.name}
+LOCATION: ${tournament.city || "Not specified"}
+DATES: ${tournament.startDate} to ${tournament.endDate}
 `;
 
-    if (teams.length > 0) {
-      contextStr += `TEAMS (${teams.length} total):\n`;
-      const teamsByPool: Record<string, any[]> = {};
-      teams.forEach((team) => {
-        const pool = team.pool || "Unassigned";
-        if (!teamsByPool[pool]) teamsByPool[pool] = [];
-        teamsByPool[pool].push(team);
+    if (userContext) {
+      contextStr += `\nCURRENT USER: ${userContext.name || "Guest"} (${userContext.role || "Visitor"})\n`;
+      if (userTeam) {
+        contextStr += `ASSOCIATED TEAM: ${userTeam.name} (The user is likely the coach/manager of this team. Prioritize this team's schedule when they say "my game" or "our team".)\n`;
+      }
+    }
+
+    if (diamonds.length > 0) {
+      contextStr += `\nLOCATIONS:\n`;
+      diamonds.forEach((d) => {
+        contextStr += `- ${d.name}: ${d.address || "No address set"}`;
+        if (d.latitude && d.longitude) {
+          contextStr += ` (GPS: ${d.latitude}, ${d.longitude})`;
+        }
+        contextStr += "\n";
       });
-      
-      Object.entries(teamsByPool).forEach(([pool, poolTeams]) => {
-        contextStr += `\nPool ${pool}:\n`;
-        poolTeams.forEach((team) => {
-          contextStr += `- ${team.name} (Seed: ${team.seed || "N/A"})`;
-          if (team.coach) contextStr += ` - Coach: ${team.coach}`;
-          contextStr += "\n";
-        });
-      });
-      contextStr += "\n";
     }
 
     const standings = this.computeStandings(teams, games);
     if (standings.length > 0) {
-      contextStr += `CURRENT STANDINGS:\n`;
+      contextStr += `\nSTANDINGS:\n`;
       const standingsByPool: Record<string, ComputedStanding[]> = {};
       standings.forEach((s) => {
         if (!standingsByPool[s.pool]) standingsByPool[s.pool] = [];
@@ -156,7 +169,7 @@ Status: ${tournament.status || "active"}
       });
       
       Object.entries(standingsByPool).forEach(([pool, poolStandings]) => {
-        contextStr += `\nPool ${pool}:\n`;
+        contextStr += `[Pool ${pool}]\n`;
         const sorted = poolStandings.sort((a, b) => {
           const aWinPct = a.wins + a.losses > 0 ? a.wins / (a.wins + a.losses) : 0;
           const bWinPct = b.wins + b.losses > 0 ? b.wins / (b.wins + b.losses) : 0;
@@ -164,67 +177,60 @@ Status: ${tournament.status || "active"}
           return (b.runsScored - b.runsAllowed) - (a.runsScored - a.runsAllowed);
         });
         sorted.forEach((s, rank) => {
-          contextStr += `${rank + 1}. ${s.teamName}: ${s.wins}W-${s.losses}L-${s.ties}T (RS: ${s.runsScored}, RA: ${s.runsAllowed})\n`;
+          contextStr += `${rank + 1}. ${s.teamName} (${s.wins}-${s.losses}-${s.ties})\n`;
         });
       });
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    
+    const upcoming = games
+      .filter(g => g.date >= today && g.status !== 'completed')
+      .sort((a, b) => {
+        if (a.date !== b.date) return (a.date || "").localeCompare(b.date || "");
+        return (a.time || "").localeCompare(b.time || "");
+      });
+    
+    const completed = games
+      .filter(g => g.status === 'completed')
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+    contextStr += `\nSCHEDULE:\n`;
+    
+    if (userTeam) {
+      const myGames = upcoming.filter(g => g.homeTeamId === userTeam.id || g.awayTeamId === userTeam.id);
+      if (myGames.length > 0) {
+        contextStr += `*** YOUR UPCOMING GAMES ***\n`;
+        myGames.forEach(g => {
+          const home = teams.find(t => t.id === g.homeTeamId)?.name;
+          const away = teams.find(t => t.id === g.awayTeamId)?.name;
+          const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
+          contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})`;
+          if (g.round) contextStr += ` [${g.round}]`;
+          contextStr += "\n";
+        });
+        contextStr += `***************************\n`;
+      }
+    }
+
+    contextStr += `ALL UPCOMING GAMES (Next 15):\n`;
+    upcoming.slice(0, 15).forEach(g => {
+      const home = teams.find(t => t.id === g.homeTeamId)?.name;
+      const away = teams.find(t => t.id === g.awayTeamId)?.name;
+      const diamond = diamonds.find(d => d.id === g.diamondId)?.name || "TBD";
+      contextStr += `- ${g.date} @ ${g.time || "TBD"}: ${away} vs ${home} (at ${diamond})`;
+      if (g.round) contextStr += ` [${g.round}]`;
       contextStr += "\n";
-    }
+    });
 
-    if (games.length > 0) {
-      const now = new Date();
-      const today = now.toISOString().split("T")[0];
-      
-      const upcomingGames = games
-        .filter((g) => g.date && g.date >= today && g.status !== "completed")
-        .sort((a, b) => {
-          if (a.date !== b.date) return a.date!.localeCompare(b.date!);
-          return (a.time || "").localeCompare(b.time || "");
-        })
-        .slice(0, 10);
-
-      const recentGames = games
-        .filter((g) => g.status === "completed")
-        .sort((a, b) => {
-          if (a.date !== b.date) return (b.date || "").localeCompare(a.date || "");
-          return (b.time || "").localeCompare(a.time || "");
-        })
-        .slice(0, 10);
-
-      if (upcomingGames.length > 0) {
-        contextStr += `UPCOMING GAMES:\n`;
-        upcomingGames.forEach((game) => {
-          const homeTeam = teams.find((t) => t.id === game.homeTeamId);
-          const awayTeam = teams.find((t) => t.id === game.awayTeamId);
-          const diamond = diamonds.find((d) => d.id === game.diamondId);
-          contextStr += `- ${game.date} at ${game.time || "TBD"}: ${awayTeam?.name || "TBD"} vs ${homeTeam?.name || "TBD"}`;
-          if (diamond) contextStr += ` @ ${diamond.name}`;
-          if (game.round) contextStr += ` (${game.round})`;
-          contextStr += "\n";
-        });
-        contextStr += "\n";
-      }
-
-      if (recentGames.length > 0) {
-        contextStr += `RECENT RESULTS:\n`;
-        recentGames.forEach((game) => {
-          const homeTeam = teams.find((t) => t.id === game.homeTeamId);
-          const awayTeam = teams.find((t) => t.id === game.awayTeamId);
-          contextStr += `- ${game.date}: ${awayTeam?.name || "TBD"} ${game.awayScore ?? "-"} vs ${homeTeam?.name || "TBD"} ${game.homeScore ?? "-"}`;
-          if (game.round) contextStr += ` (${game.round})`;
-          contextStr += "\n";
-        });
-        contextStr += "\n";
-      }
-    }
-
-    if (diamonds.length > 0) {
-      contextStr += `DIAMOND LOCATIONS:\n`;
-      diamonds.forEach((diamond) => {
-        contextStr += `- ${diamond.name}`;
-        if (diamond.address) contextStr += `: ${diamond.address}`;
-        if (diamond.latitude && diamond.longitude) {
-          contextStr += ` (GPS: ${diamond.latitude}, ${diamond.longitude})`;
-        }
+    if (completed.length > 0) {
+      contextStr += `\nRECENT RESULTS (Last 10):\n`;
+      completed.slice(0, 10).forEach(g => {
+        const home = teams.find(t => t.id === g.homeTeamId)?.name;
+        const away = teams.find(t => t.id === g.awayTeamId)?.name;
+        contextStr += `- ${g.date}: ${away} ${g.awayScore ?? "-"} vs ${home} ${g.homeScore ?? "-"}`;
+        if (g.round) contextStr += ` [${g.round}]`;
         contextStr += "\n";
       });
     }
@@ -235,33 +241,28 @@ Status: ${tournament.status || "active"}
   private buildSystemPrompt(context: TournamentContext): string {
     const tournamentData = this.formatContextForPrompt(context);
 
-    return `You are a helpful tournament assistant for "${context.tournament.name}". Your role is to answer questions about the tournament including:
-- Game schedules and times
-- Team information and rosters
-- Current standings and rankings
-- Diamond/field locations and directions
-- Playoff brackets and seeding
-- Tournament rules and format
+    return `You are the official AI Assistant for the "${context.tournament.name}".
+Your goal is to help parents, coaches, and fans navigate the tournament.
 
-IMPORTANT GUIDELINES:
-1. Only answer questions related to THIS tournament. Politely redirect off-topic questions.
-2. Be concise and direct in your answers.
-3. If you don't have the information requested, say so clearly.
-4. Format times and dates in a user-friendly way.
-5. When giving directions or locations, include the full address if available.
-6. Do not make up information that isn't in the provided context.
-7. Be friendly and supportive - remember this is a youth baseball/softball tournament.
-
-CURRENT TOURNAMENT DATA:
+DATA CONTEXT:
 ${tournamentData}
 
-Remember: You have READ-ONLY access to tournament data. You cannot modify schedules, scores, or any other data.`;
+INSTRUCTIONS:
+1. **Identity:** You are friendly, professional, and concise.
+2. **User Context:** If the user is identified as a Coach (see "CURRENT USER" above), address them warmly. If we identified their team ("ASSOCIATED TEAM"), assume "we", "my game", or "our next game" refers to that team.
+3. **Directions:** If asked for location/directions, provide the specific address from the LOCATIONS section.
+4. **Unknowns:** If you don't have an answer (e.g., a score for a game not in the list), say "I don't have that information yet." Do NOT guess.
+5. **Emergency:** If asked about medical/safety, tell them to call 911 or find a Tournament Official immediately.
+6. **Stay On Topic:** Only answer questions about THIS tournament. Politely redirect off-topic questions.
+
+Keep responses short (under 3 sentences) unless asked for a full list or detailed schedule.`;
   }
 
   async chat(
     tournamentId: string,
     userMessage: string,
-    conversationHistory: ChatMessage[] = []
+    conversationHistory: ChatMessage[] = [],
+    userContext?: UserContext
   ): Promise<{ response: string; error?: string }> {
     try {
       const context = await this.buildTournamentContext(tournamentId);
@@ -273,11 +274,13 @@ Remember: You have READ-ONLY access to tournament data. You cannot modify schedu
         };
       }
 
+      context.userContext = userContext;
+
       const systemPrompt = this.buildSystemPrompt(context);
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
-        ...conversationHistory.slice(-10).map((msg) => ({
+        ...conversationHistory.slice(-6).map((msg) => ({
           role: msg.role as "user" | "assistant",
           content: msg.content,
         })),
@@ -285,9 +288,9 @@ Remember: You have READ-ONLY access to tournament data. You cannot modify schedu
       ];
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: "gpt-5",
         messages,
-        max_completion_tokens: 1024,
+        max_completion_tokens: 500,
       });
 
       const assistantMessage = response.choices[0]?.message?.content;

@@ -5587,10 +5587,10 @@ Waterdown 10U AA
   // =============================================
 
   // Public chatbot endpoint - no auth required for tournament visitors
-  app.post('/api/tournaments/:tournamentId/chat', async (req, res) => {
+  app.post('/api/tournaments/:tournamentId/chat', async (req: any, res) => {
     try {
       const { tournamentId } = req.params;
-      const { message, conversationHistory = [] } = req.body;
+      const { message, conversationHistory = [], userContext } = req.body;
 
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: "Message is required" });
@@ -5600,7 +5600,13 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Message too long (max 500 characters)" });
       }
 
-      const result = await chatbotService.chat(tournamentId, message, conversationHistory);
+      const contextToUse = userContext || (req.user ? {
+        id: req.user.id,
+        name: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
+        role: req.user.isAdmin ? 'Admin' : 'Visitor'
+      } : undefined);
+
+      const result = await chatbotService.chat(tournamentId, message, conversationHistory, contextToUse);
       res.json(result);
     } catch (error) {
       console.error("Error in chatbot:", error);
