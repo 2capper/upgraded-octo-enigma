@@ -16,6 +16,8 @@ interface HierarchicalScoreInputProps {
   pools: Pool[];
   ageDivisions: AgeDivision[];
   tournamentId: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 export const HierarchicalScoreInput = ({ 
@@ -23,7 +25,9 @@ export const HierarchicalScoreInput = ({
   teams, 
   pools, 
   ageDivisions, 
-  tournamentId 
+  tournamentId,
+  primaryColor = '#22c55e',
+  secondaryColor = '#facc15'
 }: HierarchicalScoreInputProps) => {
   const [selectedDivisionId, setSelectedDivisionId] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -150,7 +154,7 @@ export const HierarchicalScoreInput = ({
     <Card className="bg-white border border-gray-200">
       <CardHeader>
         <CardTitle className="flex items-center">
-          <ListChecks className="w-6 h-6 text-[var(--falcons-green)] mr-2" />
+          <ListChecks className="w-6 h-6 mr-2" style={{ color: primaryColor }} />
           Submit Game Score
         </CardTitle>
       </CardHeader>
@@ -159,7 +163,7 @@ export const HierarchicalScoreInput = ({
           {/* Step 1: Select Division */}
           <div>
             <Label htmlFor="division" className="text-sm font-medium flex items-center">
-              <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">1</span>
+              <span className="text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2" style={{ backgroundColor: primaryColor }}>1</span>
               Select Division
             </Label>
             <Select value={selectedDivisionId} onValueChange={handleDivisionChange}>
@@ -178,7 +182,7 @@ export const HierarchicalScoreInput = ({
           {selectedDivisionId && (
             <div>
               <Label htmlFor="team" className="text-sm font-medium flex items-center">
-                <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">2</span>
+                <span className="text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2" style={{ backgroundColor: primaryColor }}>2</span>
                 Select Your Team
               </Label>
               <Select value={selectedTeamId} onValueChange={handleTeamChange}>
@@ -200,7 +204,7 @@ export const HierarchicalScoreInput = ({
           {selectedTeamId && (
             <div>
               <Label htmlFor="game" className="text-sm font-medium flex items-center">
-                <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">3</span>
+                <span className="text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2" style={{ backgroundColor: primaryColor }}>3</span>
                 Select Pool Game
               </Label>
               <Select value={selectedGameId} onValueChange={setSelectedGameId}>
@@ -233,7 +237,7 @@ export const HierarchicalScoreInput = ({
           {selectedGame && (
             <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
               <Label className="text-sm font-medium flex items-center">
-                <span className="bg-[var(--falcons-green)] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">4</span>
+                <span className="text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2" style={{ backgroundColor: primaryColor }}>4</span>
                 Enter Final Score & Innings
               </Label>
               
@@ -326,7 +330,7 @@ export const HierarchicalScoreInput = ({
             type="submit" 
             disabled={updateGameMutation.isPending || !selectedGameId} 
             className="w-full min-h-[48px] text-base font-semibold"
-            style={{ backgroundColor: 'var(--clay-red)', color: 'white' }}
+            style={{ backgroundColor: primaryColor, color: secondaryColor }}
           >
             {updateGameMutation.isPending ? (
               <>

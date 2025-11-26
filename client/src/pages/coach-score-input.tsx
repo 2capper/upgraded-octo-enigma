@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { useParams } from 'wouter';
-import { Loader2, Trophy } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import { useTournamentData } from '@/hooks/use-tournament-data';
 import { HierarchicalScoreInput } from '@/components/tournament/hierarchical-score-input';
 import { SimpleNavigation } from '@/components/tournament/simple-navigation';
@@ -12,12 +10,18 @@ export default function CoachScoreInput() {
   const { teams, games, pools, tournaments, ageDivisions, loading, error } = useTournamentData(currentTournamentId);
 
   const currentTournament = tournaments.find(t => t.id === currentTournamentId);
+  
+  const primaryColor = currentTournament?.primaryColor || '#22c55e';
+  const secondaryColor = currentTournament?.secondaryColor || '#facc15';
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--falcons-green)] mx-auto mb-4" />
+          <Loader2 
+            className="w-8 h-8 animate-spin mx-auto mb-4" 
+            style={{ color: primaryColor }}
+          />
           <p className="text-gray-600">Loading score submission...</p>
         </div>
       </div>
@@ -31,7 +35,11 @@ export default function CoachScoreInput() {
           <p className="text-red-600 mb-4">Error loading tournament data: {error}</p>
           <button 
             onClick={() => window.location.reload()} 
-            className="bg-[var(--forest-green)] text-[var(--yellow)] px-4 py-2 rounded hover:bg-[var(--yellow)] hover:text-[var(--forest-green)] transition-colors"
+            className="px-4 py-2 rounded font-medium transition-colors"
+            style={{ 
+              backgroundColor: primaryColor, 
+              color: secondaryColor 
+            }}
           >
             Retry
           </button>
@@ -48,7 +56,6 @@ export default function CoachScoreInput() {
         tournament={currentTournament}
       />
 
-      {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
         <div className="mb-4">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 text-center">
@@ -65,11 +72,15 @@ export default function CoachScoreInput() {
           pools={pools}
           ageDivisions={ageDivisions}
           tournamentId={currentTournamentId}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
         />
 
-        {/* Instructions - Collapsible on mobile */}
         <details className="mt-6 bg-white rounded-lg border border-gray-200 p-4">
-          <summary className="font-semibold text-gray-900 cursor-pointer">
+          <summary 
+            className="font-semibold cursor-pointer"
+            style={{ color: primaryColor }}
+          >
             Need Help? View Instructions
           </summary>
           <div className="mt-4 space-y-4">
