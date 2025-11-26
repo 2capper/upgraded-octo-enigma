@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["geckodriver", "gitFull", "playwright-driver", "glib", "gtk3", "xorg.libXtst", "xorg.libXScrnSaver", "nss", "alsa-lib", "at-spi2-atk", "mesa", "xorg.xorgserver", "xorg.xauth", "libnotify", "libxkbcommon"]
+packages = ["geckodriver", "gitFull", "playwright-driver", "glib", "gtk3", "xorg.libXtst", "xorg.libXScrnSaver", "nss", "alsa-lib", "at-spi2-atk", "mesa", "xorg.xorgserver", "xorg.xauth", "libnotify", "libxkbcommon", "comma"]
 
 [deployment]
 deploymentTarget = "autoscale"
