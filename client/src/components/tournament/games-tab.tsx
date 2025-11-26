@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, Plus, MapPin, Navigation, Cloud, Zap, Thermometer, Wind, CloudRain, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ export const GamesTab = ({
   const brandStyle = {
     "--brand-primary": primaryColor || "#1a4d2e",
     "--brand-secondary": secondaryColor || "#ffffff",
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   const { data: gamesWithWeather = [] } = useQuery<GameWithWeather[]>({
     queryKey: tournamentId ? ['/api/tournaments', tournamentId, 'weather', 'alerts'] : ['weather-disabled'],
@@ -248,7 +248,7 @@ export const GamesTab = ({
           <TabsTrigger 
             value="all" 
             className="text-sm md:text-base data-[state=active]:text-white"
-            style={{ '--tw-bg-opacity': 1 } as React.CSSProperties}
+            style={{ '--tw-bg-opacity': 1 } as CSSProperties}
             data-brand-primary={primaryColor || "#1a4d2e"}
           >
             All Divisions

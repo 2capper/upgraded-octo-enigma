@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Team, Game, Pool, AgeDivision, Tournament } from '@shared/schema';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export const StandingsTable = ({
     "--brand-secondary": secondaryColor || "#ffffff",
     "--brand-light": primaryColor ? `color-mix(in srgb, ${primaryColor} 10%, white)` : "#f0fdf4",
     "--brand-muted": primaryColor ? `color-mix(in srgb, ${primaryColor} 50%, white)` : "#86efac",
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   const standingsByDivision = useMemo(() => {
     if (!teams.length || !ageDivisions.length) return [];
