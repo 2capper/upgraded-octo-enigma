@@ -1,0 +1,59 @@
+import { Trophy, Calendar, Users, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface MobileTabNavProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  primaryColor?: string | null;
+}
+
+export function MobileTabNav({ activeTab, setActiveTab, primaryColor }: MobileTabNavProps) {
+  const items = [
+    { id: "standings", label: "Standings", icon: Trophy },
+    { id: "games", label: "Schedule", icon: Calendar },
+    { id: "teams", label: "Teams", icon: Users },
+    { id: "playoffs", label: "Playoffs", icon: Zap }, 
+  ];
+
+  const activeColor = primaryColor || "var(--primary)";
+
+  const handleTabClick = (id: string) => {
+    // 1. Switch the tab
+    setActiveTab(id);
+    // 2. Scroll to top (Vital for UX on long pages)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div 
+      className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <div className="flex justify-around items-center h-16">
+        {items.map((item) => {
+          const isActive = activeTab === item.id;
+          const Icon = item.icon;
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleTabClick(item.id)}
+              className="flex flex-col items-center justify-center w-full h-full space-y-1 active:scale-95 transition-transform"
+            >
+              <Icon 
+                className={cn("h-5 w-5 transition-all duration-200", isActive ? "scale-110" : "text-gray-400")}
+                style={{ color: isActive ? activeColor : undefined }}
+              />
+              <span 
+                className={cn("text-[10px] font-medium transition-colors", isActive ? "" : "text-gray-500")}
+                style={{ color: isActive ? activeColor : undefined }}
+              >
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
