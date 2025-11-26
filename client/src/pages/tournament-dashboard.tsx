@@ -351,6 +351,8 @@ export default function TournamentDashboard() {
       <ChatWidget 
         tournamentId={tournamentId} 
         tournamentName={currentTournament.name}
+        primaryColor={currentTournament.primaryColor}
+        secondaryColor={currentTournament.secondaryColor}
       />
     </div>
   );

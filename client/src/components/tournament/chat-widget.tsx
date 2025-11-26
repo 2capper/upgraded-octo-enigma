@@ -16,15 +16,27 @@ interface ChatMessage {
 interface ChatWidgetProps {
   tournamentId: string;
   tournamentName: string;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
 }
 
-export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
+export function ChatWidget({ 
+  tournamentId, 
+  tournamentName,
+  primaryColor,
+  secondaryColor
+}: ChatWidgetProps) {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const widgetStyle = {
+    "--widget-primary": primaryColor || "#1a4d2e",
+    "--widget-text": secondaryColor || "#ffffff",
+  } as React.CSSProperties;
 
   const { data: suggestions = [] } = useQuery<string[]>({
     queryKey: ["/api/tournaments", tournamentId, "chat", "suggestions"],
@@ -100,7 +112,8 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg bg-[var(--forest-green)] hover:bg-[var(--forest-green)]/90 z-50"
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
+        style={{ backgroundColor: widgetStyle["--widget-primary"] as string, color: widgetStyle["--widget-text"] as string }}
         data-testid="button-open-chat"
       >
         <MessageCircle className="h-6 w-6" />
@@ -110,10 +123,14 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
 
   return (
     <div
-      className="fixed bottom-4 right-4 w-[360px] h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col z-50 border"
+      className="fixed bottom-4 right-4 w-[360px] h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col z-50 border overflow-hidden"
       data-testid="chat-widget-container"
+      style={widgetStyle}
     >
-      <div className="flex items-center justify-between p-3 border-b bg-[var(--forest-green)] text-white rounded-t-lg">
+      <div 
+        className="flex items-center justify-between p-3 border-b"
+        style={{ backgroundColor: "var(--widget-primary)", color: "var(--widget-text)" }}
+      >
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5" />
           <div>
@@ -127,7 +144,8 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
           variant="ghost"
           size="icon"
           onClick={() => setIsOpen(false)}
-          className="h-8 w-8 text-white hover:bg-white/20"
+          className="h-8 w-8 hover:bg-white/20"
+          style={{ color: "var(--widget-text)" }}
           data-testid="button-close-chat"
         >
           <X className="h-4 w-4" />
@@ -138,12 +156,15 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
         {messages.length === 0 ? (
           <div className="space-y-4">
             <div className="flex items-start gap-2">
-              <div className="h-8 w-8 rounded-full bg-[var(--forest-green)] flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-white" />
+              <div 
+                className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "var(--widget-primary)", color: "var(--widget-text)" }}
+              >
+                <Bot className="h-4 w-4" />
               </div>
               <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 max-w-[85%]">
                 <p className="text-sm">
-                  Hi! I'm your tournament assistant. I can help you find:
+                  Hi{user ? ` ${user.firstName || user.email?.split('@')[0]}` : ''}! I'm your tournament assistant. I can help you find:
                 </p>
                 <ul className="text-sm mt-2 space-y-1 text-gray-600 dark:text-gray-400">
                   <li>• Game schedules & times</li>
@@ -166,7 +187,7 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
                       key={index}
                       variant="outline"
                       size="sm"
-                      className="text-xs h-auto py-1.5 px-2"
+                      className="text-xs h-auto py-1.5 px-2 hover:bg-gray-50"
                       onClick={() => handleSuggestionClick(suggestion)}
                       disabled={chatMutation.isPending}
                       data-testid={`button-suggestion-${index}`}
@@ -190,16 +211,17 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
               >
                 <div
                   className={cn(
-                    "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
-                    message.role === "assistant"
-                      ? "bg-[var(--forest-green)]"
-                      : "bg-blue-500"
+                    "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
                   )}
+                  style={{ 
+                    backgroundColor: message.role === "assistant" ? "var(--widget-primary)" : "#3b82f6", 
+                    color: "white" 
+                  }}
                 >
                   {message.role === "assistant" ? (
-                    <Bot className="h-4 w-4 text-white" />
+                    <Bot className="h-4 w-4" />
                   ) : (
-                    <User className="h-4 w-4 text-white" />
+                    <User className="h-4 w-4" />
                   )}
                 </div>
                 <div
@@ -217,8 +239,11 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
 
             {chatMutation.isPending && (
               <div className="flex items-start gap-2">
-                <div className="h-8 w-8 rounded-full bg-[var(--forest-green)] flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-white" />
+                <div 
+                  className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "var(--widget-primary)", color: "var(--widget-text)" }}
+                >
+                  <Bot className="h-4 w-4" />
                 </div>
                 <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                   <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
@@ -248,7 +273,11 @@ export function ChatWidget({ tournamentId, tournamentName }: ChatWidgetProps) {
             onClick={handleSend}
             disabled={!inputValue.trim() || chatMutation.isPending}
             size="icon"
-            className="bg-[var(--forest-green)] hover:bg-[var(--forest-green)]/90"
+            className="transition-colors"
+            style={{ 
+              backgroundColor: inputValue.trim() ? "var(--widget-primary)" : undefined,
+              color: inputValue.trim() ? "var(--widget-text)" : undefined
+            }}
             data-testid="button-send-chat"
           >
             <Send className="h-4 w-4" />
