@@ -1,7 +1,11 @@
 import type { CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
-import { Calendar, Trophy, MessageSquare, MapPin, BarChart3 } from "lucide-react";
+import { Calendar, Trophy, MessageSquare, MapPin, BarChart3, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 interface MobileNavItem {
   label: string;
@@ -40,7 +44,7 @@ export function MobileBottomNav({
     },
     {
       label: "Playoffs",
-      icon: Trophy,
+      icon: Zap,
       href: `/tournament/${tournamentId}?tab=playoffs`,
       testId: "mobile-nav-playoffs",
     },
@@ -89,8 +93,9 @@ export function MobileBottomNav({
             <Link
               key={item.testId}
               href={item.href}
+              onClick={scrollToTop}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors",
+                "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors active:scale-95",
                 active 
                   ? "text-[var(--brand-primary)]" 
                   : "text-muted-foreground hover:text-foreground"
@@ -99,12 +104,12 @@ export function MobileBottomNav({
             >
               <Icon 
                 className={cn(
-                  "h-5 w-5 mb-0.5",
-                  active && "stroke-[2.5]"
+                  "h-5 w-5 mb-0.5 transition-all duration-200",
+                  active && "stroke-[2.5] scale-110"
                 )} 
               />
               <span className={cn(
-                "text-[10px] font-medium",
+                "text-[10px] font-medium transition-colors",
                 active && "font-semibold"
               )}>
                 {item.label}
@@ -207,8 +212,9 @@ export function AdminMobileNav({
             <Link
               key={item.testId}
               href={item.href}
+              onClick={scrollToTop}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors",
+                "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors active:scale-95",
                 active 
                   ? "text-[var(--brand-primary)]" 
                   : "text-muted-foreground hover:text-foreground"
@@ -217,12 +223,12 @@ export function AdminMobileNav({
             >
               <Icon 
                 className={cn(
-                  "h-5 w-5 mb-0.5",
-                  active && "stroke-[2.5]"
+                  "h-5 w-5 mb-0.5 transition-all duration-200",
+                  active && "stroke-[2.5] scale-110"
                 )} 
               />
               <span className={cn(
-                "text-[10px] font-medium",
+                "text-[10px] font-medium transition-colors",
                 active && "font-semibold"
               )}>
                 {item.label}
