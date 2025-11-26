@@ -171,11 +171,24 @@ export class OrganizationService {
     });
   }
 
-  async getOrganizationAdmins(organizationId: string): Promise<OrganizationAdmin[]> {
-    return await db
-      .select()
+  async getOrganizationAdmins(organizationId: string): Promise<(OrganizationAdmin & { email: string | null; firstName: string | null; lastName: string | null; name: string | null })[]> {
+    const results = await db
+      .select({
+        id: organizationAdmins.id,
+        userId: organizationAdmins.userId,
+        organizationId: organizationAdmins.organizationId,
+        role: organizationAdmins.role,
+        createdAt: organizationAdmins.createdAt,
+        updatedAt: organizationAdmins.updatedAt,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        name: users.name,
+      })
       .from(organizationAdmins)
+      .leftJoin(users, eq(organizationAdmins.userId, users.id))
       .where(eq(organizationAdmins.organizationId, organizationId));
+    return results;
   }
 
   async isOrganizationAdmin(userId: string, organizationId: string): Promise<boolean> {
