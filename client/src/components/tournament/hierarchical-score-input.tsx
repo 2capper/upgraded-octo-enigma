@@ -75,9 +75,14 @@ export const HierarchicalScoreInput = ({
       const response = await fetch(`/api/games/${selectedGameId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(updateData)
       });
-      if (!response.ok) throw new Error('Failed to update game');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Score submission failed:', response.status, errorData);
+        throw new Error(errorData.error || 'Failed to update game');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -88,10 +93,10 @@ export const HierarchicalScoreInput = ({
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'games'] });
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to submit score. Please try again.",
+        description: error.message || "Failed to submit score. Please try again.",
         variant: "destructive",
       });
     }
