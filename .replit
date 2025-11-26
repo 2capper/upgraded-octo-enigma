@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["geckodriver", "gitFull", "playwright-driver", "glib", "gtk3", "xorg.libXtst", "xorg.libXScrnSaver", "nss", "alsa-lib", "at-spi2-atk", "mesa", "xorg.xorgserver", "xorg.xauth", "libnotify", "libxkbcommon", "comma"]
+packages = ["geckodriver", "gitFull", "playwright-driver", "glib", "gtk3", "xorg.libXtst", "xorg.libXScrnSaver", "nss", "alsa-lib", "at-spi2-atk", "mesa", "xorg.xorgserver", "xorg.xauth", "libnotify", "libxkbcommon", "comma", "chromium", "freetype", "fontconfig"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -103,3 +103,9 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0", "twilio:1.0.0", "google-mail:1.0.0", "javascript_openai_ai_integrations:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+PUPPETEER_EXECUTABLE_PATH = "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
