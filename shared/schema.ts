@@ -195,6 +195,8 @@ export const teams = pgTable("teams", {
   assistantName: text("assistant_name"), // Assistant coach name added via coach self-service form
   assistantPhone: text("assistant_phone"), // Assistant coach phone (normalized E.164 format)
   managementToken: text("management_token").unique(), // Secure token for coach to update team staff contacts
+  schedulingRequests: text("scheduling_requests"), // Special scheduling requests (e.g., "Can't play before 11 AM Saturday")
+  willingToPlayExtra: boolean("willing_to_play_extra").notNull().default(false), // Team is willing to play extra games if slots open
 });
 
 export const matchups = pgTable("matchups", {
