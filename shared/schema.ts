@@ -243,6 +243,39 @@ export const games = pgTable("games", {
   weatherStatus: text("weather_status").default("normal"), // "normal" | "watch" | "warning" | "cancelled" - Weather safety status
 });
 
+// Tournament Diamond Allocations - "Tetris Schema" for multi-division field management
+// This handles the "Who gets the field and when?" logic for tournaments spanning multiple age divisions
+export const tournamentDiamondAllocations = pgTable("tournament_diamond_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // The Container (The Weekend)
+  tournamentId: text("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  
+  // The Resource (The Field)
+  diamondId: varchar("diamond_id").notNull().references(() => diamonds.id, { onDelete: "cascade" }),
+  
+  // The Specific Slice of Time
+  date: text("date").notNull(),                  // YYYY-MM-DD
+  startTime: text("start_time").notNull(),       // "08:00" (24-hour format)
+  endTime: text("end_time").notNull(),           // "14:00" (2 PM in 24-hour format)
+  
+  // The Constraint (Optional)
+  // If set, ONLY this division can book games here.
+  // If null, ANY division in the tournament can use it.
+  divisionId: text("division_id").references(() => ageDivisions.id, { onDelete: "set null" }),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTournamentDiamondAllocationSchema = createInsertSchema(tournamentDiamondAllocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type TournamentDiamondAllocation = typeof tournamentDiamondAllocations.$inferSelect;
+export type InsertTournamentDiamondAllocation = z.infer<typeof insertTournamentDiamondAllocationSchema>;
+
 // Audit log table for tracking score changes and administrative actions
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
