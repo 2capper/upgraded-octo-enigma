@@ -33,6 +33,8 @@ import {
   games,
 } from "@shared/schema";
 import allocationRoutes from "./routes/allocationRoutes";
+import { allocationService } from "./services/allocationService";
+import { validateGameSlot } from "@shared/validation/gameSlotValidator";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking, sanitizeUser } from "./auth";
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
@@ -3325,6 +3327,34 @@ Waterdown 10U AA
             }
           }
         }
+      }
+      
+      // Run the unified validator (Tetris Layer + Game Conflicts)
+      const homeTeam = teams.find(t => t.id === homeTeamId);
+      const awayTeam = teams.find(t => t.id === awayTeamId);
+      const allocations = await allocationService.getAllocations(tournamentId);
+      const gamesOnDiamond = diamondId 
+        ? allGames.filter(g => g.diamondId === diamondId)
+        : [];
+      
+      const validation = validateGameSlot(
+        homeTeam,
+        awayTeam,
+        diamond || undefined,
+        date,
+        time,
+        durationMinutes || 90,
+        gamesOnDiamond,
+        allocations,
+        { teamDivisionId: homeTeam?.ageDivisionId || undefined }
+      );
+      
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: validation.errors.join('; '),
+          errors: validation.errors,
+          warnings: validation.warnings
+        });
       }
       
       // Create the game
