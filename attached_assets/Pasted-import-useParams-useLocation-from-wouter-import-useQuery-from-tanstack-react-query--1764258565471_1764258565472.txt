@@ -1,0 +1,188 @@
+import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Trophy, ArrowLeft, LayoutDashboard, Settings, MessageSquare, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useTournamentData } from "@/hooks/use-tournament-data";
+import { GamesTab } from "@/components/tournament/games-tab";
+import { TeamsTab } from "@/components/tournament/teams-tab";
+import { StandingsTable } from "@/components/tournament/standings-table";
+import { PlayoffDashboardTab } from "@/components/tournament/PlayoffDashboardTab";
+import { HeaderSkeleton } from "@/components/ui/skeletons";
+
+export default function AdminPortal() {
+  const { orgId, tournamentId } = useParams<{ orgId: string; tournamentId: string }>();
+  const [, navigate] = useLocation();
+  const { user } = useAuth();
+
+  // Fetch Tournament Data
+  const {
+    currentTournament,
+    ageDivisions,
+    pools,
+    teams,
+    games,
+    isLoading,
+    error
+  } = useTournamentData(tournamentId);
+
+  // Fetch Diamonds (Needed for rescheduling)
+  const { data: diamonds = [] } = useQuery({
+    queryKey: ['/api/organizations', orgId, 'diamonds'],
+    enabled: !!orgId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <HeaderSkeleton />
+      </div>
+    );
+  }
+
+  if (error || !currentTournament) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <ShieldAlert className="h-12 w-12 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900">Tournament Not Found</h2>
+          <Button 
+            onClick={() => navigate(`/org/${orgId}/admin`)} 
+            className="mt-4"
+            variant="outline"
+          >
+            Return to Org Admin
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Dynamic Branding for Admin View (Optional, but nice for consistency)
+  const primaryColor = currentTournament.primaryColor || "#1a4d2e";
+  const secondaryColor = currentTournament.secondaryColor || "#ffffff";
+  
+  const brandStyle = {
+    "--brand-primary": primaryColor,
+    "--brand-secondary": secondaryColor,
+    "--brand-light": `color-mix(in srgb, ${primaryColor} 10%, white)`,
+  } as React.CSSProperties;
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20" style={brandStyle}>
+      {/* Admin Header */}
+      <div className="bg-white border-b sticky top-0 z-30 px-6 py-4 shadow-sm">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate(`/org/${orgId}/admin`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-[var(--brand-primary)]" />
+                {currentTournament.name}
+              </h1>
+              <p className="text-xs text-muted-foreground">Tournament Command Center</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate(`/org/${orgId}/tournaments/tournament/${tournamentId}/communications`)}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Comms
+            </Button>
+            <Button 
+              variant="default"
+              size="sm"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={() => window.open(`/tournament/${tournamentId}`, '_blank')}
+            >
+              View Public Site
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <Tabs defaultValue="games" className="space-y-6">
+          <TabsList className="bg-white border">
+            <TabsTrigger value="games">Schedule & Scores</TabsTrigger>
+            <TabsTrigger value="teams">Teams & Pools</TabsTrigger>
+            <TabsTrigger value="standings">Standings</TabsTrigger>
+            <TabsTrigger value="playoffs">Playoffs</TabsTrigger>
+          </TabsList>
+
+          {/* --- GAMES TAB (With Admin Powers) --- */}
+          <TabsContent value="games">
+            <Card>
+              <CardHeader>
+                <CardTitle>Master Schedule</CardTitle>
+                <CardDescription>
+                  Drag and drop is disabled here. Use the <strong>Edit</strong> button on game cards to reschedule or update scores.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6">
+                <GamesTab 
+                  games={games}
+                  teams={teams}
+                  pools={pools}
+                  ageDivisions={ageDivisions}
+                  diamonds={diamonds}
+                  tournamentId={tournamentId}
+                  primaryColor={primaryColor}
+                  secondaryColor={secondaryColor}
+                  // THE MAGIC KEYS:
+                  isAdmin={true} 
+                  orgId={orgId}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* --- TEAMS TAB (With Ghost Protocol) --- */}
+          <TabsContent value="teams">
+            <TeamsTab 
+              teams={teams}
+              pools={pools}
+              ageDivisions={ageDivisions}
+              games={games} // Needed for Impact Analysis
+            />
+          </TabsContent>
+
+          {/* --- STANDINGS TAB (Read Only) --- */}
+          <TabsContent value="standings">
+            <StandingsTable 
+              teams={teams}
+              games={games}
+              pools={pools}
+              ageDivisions={ageDivisions}
+              tournament={currentTournament}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+            />
+          </TabsContent>
+
+          {/* --- PLAYOFFS TAB (Admin Manager) --- */}
+          <TabsContent value="playoffs">
+            <PlayoffDashboardTab 
+              tournament={currentTournament}
+              ageDivisions={ageDivisions}
+              diamonds={diamonds}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
