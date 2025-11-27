@@ -16,7 +16,7 @@ import { GameResultEditor } from '@/components/tournament/game-result-editor';
 import { TeamIdScanner } from '@/components/tournament/team-id-scanner';
 import { PasswordResetTool } from '@/components/tournament/password-reset-tool';
 import { AdminRequestsTab } from '@/components/admin-requests-tab';
-import { TeamEditor } from '@/components/tournament/team-editor';
+import { TeamsTab } from '@/components/tournament/teams-tab';
 import { PlayoffDashboardTab } from '@/components/tournament/playoff-dashboard-tab';
 import { ScheduleGenerator } from '@/components/tournament/schedule-generator';
 import { FeatureManagement } from '@/components/admin/feature-management';
@@ -608,7 +608,13 @@ export default function AdminPortal() {
                 <CardTitle>Team Management</CardTitle>
               </CardHeader>
               <CardContent>
-                <TeamEditor teams={teams} tournamentId={currentTournamentId} />
+                <TeamsTab 
+                  teams={teams} 
+                  pools={pools}
+                  ageDivisions={ageDivisions}
+                  games={games}
+                  tournamentId={currentTournamentId}
+                />
               </CardContent>
             </Card>
           </TabsContent>

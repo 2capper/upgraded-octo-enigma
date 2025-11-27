@@ -1,10 +1,11 @@
 import { useState, useMemo, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, Plus, MapPin, Navigation, Cloud, Zap, Thermometer, Wind, CloudRain, AlertTriangle } from 'lucide-react';
+import { Calendar, Plus, MapPin, Navigation, Cloud, Zap, Thermometer, Wind, CloudRain, AlertTriangle, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { GameRescheduleDialog } from './game-reschedule-dialog';
 import type { Team, Game, Pool, AgeDivision, Diamond, WeatherForecast } from '@shared/schema';
 
 interface GamesTabProps {
@@ -16,6 +17,8 @@ interface GamesTabProps {
   tournamentId?: string;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  isAdmin?: boolean;
+  orgId?: string;
 }
 
 interface GameWithWeather {
@@ -31,10 +34,13 @@ export const GamesTab = ({
   diamonds, 
   tournamentId,
   primaryColor,
-  secondaryColor
+  secondaryColor,
+  isAdmin,
+  orgId
 }: GamesTabProps) => {
   const [divisionFilter, setDivisionFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
 
   const brandStyle = {
     "--brand-primary": primaryColor || "#1a4d2e",
@@ -224,8 +230,8 @@ export const GamesTab = ({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Game Schedule</h3>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
-            <SelectTrigger className="w-48">
+          <Select value={teamFilter} onValueChange={setTeamFilter} data-testid="select-team-filter">
+            <SelectTrigger className="w-48" data-testid="select-team-filter-trigger">
               <SelectValue placeholder="All Teams" />
             </SelectTrigger>
             <SelectContent>
@@ -291,7 +297,23 @@ export const GamesTab = ({
                       const forecast = weatherMap.get(game.id);
                       
                       return (
-                        <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
+                          {isAdmin && (
+                            <div className="absolute top-4 right-4 z-10">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingGame(game);
+                                }}
+                                data-testid={`button-edit-game-${game.id}`}
+                              >
+                                <Edit className="h-4 w-4 text-gray-500" />
+                              </Button>
+                            </div>
+                          )}
                           <div className="flex flex-col space-y-3">
                             <div className="flex justify-between items-start">
                               <div>
@@ -300,7 +322,7 @@ export const GamesTab = ({
                                   {formatTime(game.time || game.location)}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className={`flex items-center gap-2 ${isAdmin ? 'mr-10' : ''}`}>
                                 {forecast && getSeverityBadge(forecast)}
                                 {game.status === 'completed' ? (
                                   <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
@@ -456,6 +478,17 @@ export const GamesTab = ({
           )}
         </TabsContent>
       </Tabs>
+
+      {isAdmin && orgId && (
+        <GameRescheduleDialog
+          open={!!editingGame}
+          onOpenChange={(open) => !open && setEditingGame(null)}
+          game={editingGame}
+          diamonds={diamonds}
+          teams={teams}
+          orgId={orgId}
+        />
+      )}
     </div>
   );
 };
