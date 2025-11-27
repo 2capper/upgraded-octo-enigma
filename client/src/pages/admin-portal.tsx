@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3, LogOut, Settings, Menu, Trophy, FileInput, Edit, Target, FileText, MessageSquare, Clock } from 'lucide-react';
+import { Loader2, Shield, Database, Users, Calendar, Plus, Download, Edit3, LogOut, Settings, Menu, Trophy, FileInput, Edit, Target, FileText, MessageSquare, Clock, Grid3X3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,6 +25,7 @@ import { OrganizationAdminManagement } from '@/components/admin/organization-adm
 import { OrganizationCreationForm } from '@/components/admin/organization-creation-form';
 import { EndOfPoolPlayReport } from '@/components/tournament/end-of-pool-play-report';
 import { EmbeddedCommunications } from '@/components/tournament/embedded-communications';
+import { DiamondAllocationsTab } from '@/components/tournament/diamond-allocations-tab';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { isUnauthorizedError } from '@/lib/authUtils';
@@ -405,6 +406,16 @@ export default function AdminPortal() {
                     Schedule
                   </TabsTrigger>
                   <TabsTrigger 
+                    value="allocations" 
+                    className="flex items-center gap-3 px-4 py-3 justify-start w-full data-[state=active]:text-white"
+                    style={activeTab === 'allocations' ? { backgroundColor: 'var(--clay-red)' } : {}}
+                    onClick={() => setMobileMenuOpen(false)}
+                    data-testid="nav-allocations"
+                  >
+                    <Grid3X3 className="w-5 h-5" />
+                    Field Allocations
+                  </TabsTrigger>
+                  <TabsTrigger 
                     value="teams" 
                     className="flex items-center gap-3 px-4 py-3 justify-start w-full data-[state=active]:text-white"
                     style={activeTab === 'teams' ? { backgroundColor: 'var(--clay-red)' } : {}}
@@ -526,6 +537,10 @@ export default function AdminPortal() {
               <TabsTrigger value="tournaments" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-tournaments">Tournaments</TabsTrigger>
               <TabsTrigger value="import" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-import">Data Import</TabsTrigger>
               <TabsTrigger value="schedule" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="allocations" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-allocations">
+                <Grid3X3 className="w-3 h-3 mr-1" />
+                Field Allocations
+              </TabsTrigger>
               <TabsTrigger value="teams" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-teams">Edit Teams</TabsTrigger>
               <TabsTrigger value="games" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-games">Edit Games</TabsTrigger>
               <TabsTrigger value="playoffs" className="text-sm py-2 px-4 flex-shrink-0" data-testid="tab-playoffs">Playoffs</TabsTrigger>
@@ -600,6 +615,32 @@ export default function AdminPortal() {
               tournamentId={currentTournamentId}
               tournament={currentTournament}
             />
+          </TabsContent>
+
+          <TabsContent value="allocations" className="mt-6">
+            {currentTournament ? (
+              <DiamondAllocationsTab
+                tournament={currentTournament}
+                diamonds={currentTournament.selectedDiamondIds 
+                  ? diamonds.filter((d: any) => currentTournament.selectedDiamondIds?.includes(d.id))
+                  : []
+                }
+                ageDivisions={ageDivisions}
+                isAdmin={true}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Field Allocations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Grid3X3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Select a tournament to manage field allocations</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="teams" className="mt-6">
