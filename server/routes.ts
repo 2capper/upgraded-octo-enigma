@@ -3136,6 +3136,49 @@ Waterdown 10U AA
         }
       }
       
+      // Validate against Tetris Layer (allocations)
+      const allocations = await allocationService.getAllocations(tournamentId);
+      if (allocations.length > 0) {
+        const diamondGamesMap = new Map<string, typeof draftGames>();
+        
+        for (const game of draftGames) {
+          if (game.diamondId) {
+            if (!diamondGamesMap.has(game.diamondId)) {
+              diamondGamesMap.set(game.diamondId, []);
+            }
+            diamondGamesMap.get(game.diamondId)!.push(game);
+          }
+        }
+        
+        for (let i = 0; i < draftGames.length; i++) {
+          const game = draftGames[i];
+          if (!game.diamondId || !game.date || !game.time) continue;
+          
+          const diamond = diamonds?.find(d => d.id === game.diamondId);
+          const homeTeam = validTeams.find(t => t.id === game.homeTeamId);
+          const awayTeam = validTeams.find(t => t.id === game.awayTeamId);
+          const gamesOnDiamond = diamondGamesMap.get(game.diamondId) || [];
+          
+          const validation = validateGameSlot(
+            homeTeam,
+            awayTeam,
+            diamond,
+            game.date,
+            game.time,
+            game.durationMinutes || 90,
+            gamesOnDiamond.filter(g => g !== game),
+            allocations,
+            { teamDivisionId: homeTeam?.ageDivisionId || undefined }
+          );
+          
+          if (!validation.valid) {
+            validation.errors.forEach(err => {
+              constraintErrors.push(`Game ${i + 1}: ${err}`);
+            });
+          }
+        }
+      }
+      
       // If there are constraint errors, reject the commit
       if (constraintErrors.length > 0) {
         return res.status(400).json({ 

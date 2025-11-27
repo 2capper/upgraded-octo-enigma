@@ -2,6 +2,7 @@ import { Router } from "express";
 import { allocationService } from "../services/allocationService";
 import { insertTournamentDiamondAllocationSchema } from "@shared/schema";
 import { nanoid } from "nanoid";
+import { requireAdmin } from "../auth";
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.get("/tournaments/:tournamentId/allocations", async (req, res) => {
   }
 });
 
-router.post("/tournaments/:tournamentId/allocations", async (req: any, res) => {
+router.post("/tournaments/:tournamentId/allocations", requireAdmin, async (req: any, res) => {
   try {
     const { tournamentId } = req.params;
     
@@ -55,7 +56,7 @@ router.post("/tournaments/:tournamentId/allocations", async (req: any, res) => {
   }
 });
 
-router.put("/tournaments/:tournamentId/allocations/:allocationId", async (req: any, res) => {
+router.put("/tournaments/:tournamentId/allocations/:allocationId", requireAdmin, async (req: any, res) => {
   try {
     const { tournamentId, allocationId } = req.params;
 
@@ -100,7 +101,7 @@ router.put("/tournaments/:tournamentId/allocations/:allocationId", async (req: a
   }
 });
 
-router.delete("/tournaments/:tournamentId/allocations/:allocationId", async (req: any, res) => {
+router.delete("/tournaments/:tournamentId/allocations/:allocationId", requireAdmin, async (req: any, res) => {
   try {
     const { tournamentId, allocationId } = req.params;
 
@@ -117,7 +118,7 @@ router.delete("/tournaments/:tournamentId/allocations/:allocationId", async (req
   }
 });
 
-router.post("/tournaments/:tournamentId/allocations/bulk", async (req: any, res) => {
+router.post("/tournaments/:tournamentId/allocations/bulk", requireAdmin, async (req: any, res) => {
   try {
     const { tournamentId } = req.params;
     const { allocations } = req.body;
@@ -148,7 +149,7 @@ router.post("/tournaments/:tournamentId/allocations/bulk", async (req: any, res)
   }
 });
 
-router.delete("/tournaments/:tournamentId/allocations", async (req: any, res) => {
+router.delete("/tournaments/:tournamentId/allocations", requireAdmin, async (req: any, res) => {
   try {
     const { tournamentId } = req.params;
     await allocationService.deleteAllForTournament(tournamentId);
