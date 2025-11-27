@@ -1,0 +1,100 @@
+import type { Team, Diamond, Game, TournamentDiamondAllocation } from "@shared/schema";
+
+interface ValidationResult {
+  valid: boolean;
+  warnings: string[];
+  errors: string[];
+}
+
+export const validateGameSlot = (
+  homeTeam: Team | undefined,
+  awayTeam: Team | undefined,
+  diamond: Diamond | undefined,
+  date: string, // YYYY-MM-DD
+  time: string, // HH:MM (24h)
+  durationMinutes: number = 90,
+  existingGamesOnDiamond: Game[],
+  allocations: TournamentDiamondAllocation[] = []
+): ValidationResult => {
+  const result: ValidationResult = { valid: true, warnings: [], errors: [] };
+
+  // Parse Times
+  const parseMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const gameStart = parseMinutes(time);
+  const gameEnd = gameStart + durationMinutes;
+
+  // 1. Check Diamond Hardware Status
+  if (diamond) {
+    if (diamond.status === 'closed') {
+        result.errors.push(`Diamond ${diamond.name} is marked as CLOSED globally.`);
+        result.valid = false;
+    }
+  }
+
+  // 2. Check "The Tetris Layer" (Allocations)
+  // If allocations exist for this tournament, we MUST be inside one.
+  // If no allocations exist at all, we assume "Open Season" (Backward compatibility).
+  if (allocations.length > 0) {
+    const matchingAllocation = allocations.find(a => 
+        a.diamondId === diamond?.id && 
+        a.date === date &&
+        parseMinutes(a.startTime) <= gameStart &&
+        parseMinutes(a.endTime) >= gameEnd
+    );
+
+    if (!matchingAllocation) {
+        result.errors.push(`This tournament does not have a reserved time block for ${diamond?.name} at ${time}.`);
+        result.valid = false;
+    } else {
+        // Check Division Constraint
+        // If allocation is for "11U" only, and this game involves "13U" teams...
+        // (Requires passing division info, simplified here for now)
+        if (matchingAllocation.divisionId) {
+             // Logic to check if teams match divisionId would go here
+        }
+    }
+  }
+
+  // 3. Check Game Overlaps (The Standard Check)
+  const hasOverlap = existingGamesOnDiamond.some(g => {
+    if (!g.time || g.date !== date) return false;
+    // Don't check against self if updating
+    const existingStart = parseMinutes(g.time);
+    const existingEnd = existingStart + (g.durationMinutes || 90);
+    
+    // Logic: (StartA < EndB) and (EndA > StartB)
+    return (gameStart < existingEnd && gameEnd > existingStart);
+  });
+
+  if (hasOverlap) {
+    result.errors.push(`Conflict: Another game is already scheduled on this diamond.`);
+    result.valid = false;
+  }
+
+  // 4. Check Team Requests (Soft Constraints)
+  const checkRequests = (team: Team) => {
+    if (!team.schedulingRequests) return;
+    const req = team.schedulingRequests.toLowerCase();
+    
+    // Simple Keyword Matching
+    const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
+    if (req.includes(`no ${dayName}`)) {
+        result.warnings.push(`${team.name}: Request avoid ${dayName}s`);
+    }
+    if (req.includes("no morning") && gameStart < 720) { // Before 12:00
+        result.warnings.push(`${team.name}: Request avoid mornings`);
+    }
+  };
+
+  if (homeTeam) checkRequests(homeTeam);
+  if (awayTeam) checkRequests(awayTeam);
+
+  return result;
+};
+
+
