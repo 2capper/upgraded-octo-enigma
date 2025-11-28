@@ -2677,7 +2677,7 @@ Waterdown 10U AA
   app.put("/api/games/:gameId/move", requireAdmin, async (req, res) => {
     try {
       const { gameId } = req.params;
-      const { date, time, diamondId } = req.body;
+      const { date, time, diamondId, forceOverride } = req.body;
 
       // Validate required fields
       if (!date || !time || !diamondId) {
@@ -2699,7 +2699,8 @@ Waterdown 10U AA
       // Validate date is within tournament range
       if (date < tournament.startDate || date > tournament.endDate) {
         return res.status(400).json({ 
-          error: `Game date must be between ${tournament.startDate} and ${tournament.endDate}` 
+          error: `Game date must be between ${tournament.startDate} and ${tournament.endDate}`,
+          conflictType: 'date_range'
         });
       }
 
@@ -2710,50 +2711,51 @@ Waterdown 10U AA
         return res.status(400).json({ error: "Invalid diamond for this tournament" });
       }
 
-      // Check diamond availability hours
-      const [hours, minutes] = time.split(':').map(Number);
-      const timeMinutes = hours * 60 + minutes;
-      const [startHours, startMinutes] = targetDiamond.availableStartTime.split(':').map(Number);
-      const startTimeMinutes = startHours * 60 + startMinutes;
-      const [endHours, endMinutes] = targetDiamond.availableEndTime.split(':').map(Number);
-      const endTimeMinutes = endHours * 60 + endMinutes;
-      const gameDuration = game.durationMinutes || 90;
-      const gameEndMinutes = timeMinutes + gameDuration;
+      // Get teams for the game
+      const teams = await teamService.getTeams(game.tournamentId);
+      const homeTeam = teams.find(t => t.id === game.homeTeamId);
+      const awayTeam = teams.find(t => t.id === game.awayTeamId);
 
-      if (timeMinutes < startTimeMinutes || gameEndMinutes > endTimeMinutes) {
-        return res.status(400).json({ 
-          error: `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}` 
-        });
-      }
+      // Get allocations for the tournament
+      const allocations = await allocationService.getAllocations(game.tournamentId);
 
       // Get all games from the tournament to check for conflicts
       const tournamentGames = await gameService.getGames(game.tournamentId);
       
-      // Filter games on the same date, excluding the game being moved
+      // Filter games on the same diamond for validation
+      const gamesOnDiamond = tournamentGames.filter(g => 
+        g.diamondId === diamondId && g.id !== gameId
+      );
+
+      // Get team's division ID if applicable
+      const teamDivisionId = homeTeam?.ageDivisionId || awayTeam?.ageDivisionId;
+
+      // Use validateGameSlot for comprehensive validation
+      const validation = validateGameSlot(
+        homeTeam,
+        awayTeam,
+        targetDiamond,
+        date,
+        time,
+        game.durationMinutes || 90,
+        gamesOnDiamond,
+        allocations,
+        { 
+          skipGameId: gameId,
+          teamDivisionId: teamDivisionId || undefined
+        }
+      );
+
+      // Check for team conflicts (not covered by validateGameSlot)
       const gamesOnSameDate = tournamentGames.filter(g => 
         g.id !== gameId && g.date === date
       );
 
-      // Use timeMinutes and gameEndMinutes already calculated above for availability check
-      const gameStartMinutes = timeMinutes;
+      const [hours, minutes] = time.split(':').map(Number);
+      const timeMinutes = hours * 60 + minutes;
+      const gameDuration = game.durationMinutes || 90;
+      const gameEndMinutes = timeMinutes + gameDuration;
 
-      // Check for diamond conflicts
-      for (const otherGame of gamesOnSameDate) {
-        if (otherGame.diamondId === diamondId) {
-          const [otherHours, otherMinutes] = otherGame.time.split(':').map(Number);
-          const otherStartMinutes = otherHours * 60 + otherMinutes;
-          const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
-
-          // Check for overlap: gameEnd > otherStart AND gameStart < otherEnd
-          if (gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes) {
-            return res.status(409).json({ 
-              error: `Game would overlap with another game on ${targetDiamond.name}` 
-            });
-          }
-        }
-      }
-
-      // Check for team conflicts
       for (const otherGame of gamesOnSameDate) {
         const hasTeamConflict = 
           otherGame.homeTeamId === game.homeTeamId ||
@@ -2761,28 +2763,64 @@ Waterdown 10U AA
           otherGame.homeTeamId === game.awayTeamId ||
           otherGame.awayTeamId === game.awayTeamId;
 
-        if (hasTeamConflict) {
+        if (hasTeamConflict && otherGame.time) {
           const [otherHours, otherMinutes] = otherGame.time.split(':').map(Number);
           const otherStartMinutes = otherHours * 60 + otherMinutes;
           const otherEndMinutes = otherStartMinutes + (otherGame.durationMinutes || 90);
 
-          // Check for overlap
-          if (gameEndMinutes > otherStartMinutes && gameStartMinutes < otherEndMinutes) {
-            return res.status(409).json({ 
-              error: "One or more teams already has a game that overlaps with this time slot" 
-            });
+          if (gameEndMinutes > otherStartMinutes && timeMinutes < otherEndMinutes) {
+            validation.errors.push("One or more teams already has a game that overlaps with this time slot");
+            validation.valid = false;
           }
         }
       }
 
-      // All validations passed - update the game
+      // Build structured conflict response
+      const conflicts = {
+        errors: validation.errors,
+        warnings: validation.warnings,
+        hasErrors: validation.errors.length > 0,
+        hasWarnings: validation.warnings.length > 0,
+        conflictTypes: [] as string[]
+      };
+
+      // Categorize conflict types
+      if (validation.errors.some(e => e.includes('CLOSED'))) {
+        conflicts.conflictTypes.push('diamond_closed');
+      }
+      if (validation.errors.some(e => e.includes('reserved time block') || e.includes('different division'))) {
+        conflicts.conflictTypes.push('allocation_conflict');
+      }
+      if (validation.errors.some(e => e.includes('Another game is already scheduled') || e.includes('overlap'))) {
+        conflicts.conflictTypes.push('game_overlap');
+      }
+      if (validation.errors.some(e => e.includes('teams already has a game'))) {
+        conflicts.conflictTypes.push('team_conflict');
+      }
+
+      // If there are errors and no override, return conflict response
+      if (conflicts.hasErrors && !forceOverride) {
+        return res.status(409).json({
+          error: validation.errors[0],
+          conflicts,
+          canOverride: true
+        });
+      }
+
+      // Proceed with move (either no errors, or forceOverride was used)
       const updatedGame = await gameService.updateGame(gameId, {
         date,
         time,
         diamondId
       });
 
-      res.json(updatedGame);
+      // Return consistent response structure
+      res.json({
+        game: updatedGame,
+        warnings: validation.warnings,
+        wasOverridden: forceOverride === true && conflicts.hasErrors,
+        conflicts: conflicts.hasErrors ? conflicts : null
+      });
     } catch (error) {
       console.error("Error moving game:", error);
       res.status(500).json({ error: "Failed to move game" });

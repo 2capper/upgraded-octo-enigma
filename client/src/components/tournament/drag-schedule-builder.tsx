@@ -31,8 +31,18 @@ import {
   GripVertical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Team, Diamond, Pool, Game, Tournament } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
+import type { Team, Diamond, Pool, Game, Tournament, TournamentDiamondAllocation } from "@shared/schema";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Define UnplacedMatchup type locally since it's not exported from schema
 interface UnplacedMatchup {
@@ -600,6 +610,31 @@ export function DragScheduleBuilder({
     queryKey: ["/api/tournaments", tournamentId, "games"],
   });
 
+  // Fetch allocations for the tournament
+  const { data: allocations = [] } = useQuery<TournamentDiamondAllocation[]>({
+    queryKey: ["/api/tournaments", tournamentId, "allocations"],
+  });
+
+  // State for conflict override dialog
+  const [conflictDialog, setConflictDialog] = useState<{
+    open: boolean;
+    conflicts: {
+      errors: string[];
+      warnings: string[];
+      conflictTypes: string[];
+    };
+    pendingMove: {
+      gameId: string;
+      date: string;
+      time: string;
+      diamondId: string;
+    } | null;
+  }>({
+    open: false,
+    conflicts: { errors: [], warnings: [], conflictTypes: [] },
+    pendingMove: null,
+  });
+
   // Filter games to only those in the selected division's pools (memoized to prevent re-renders)
   const existingGames = useMemo(() => {
     const divisionPools = pools.filter(
@@ -729,29 +764,100 @@ export function DragScheduleBuilder({
     },
   });
 
-  // Move game mutation
+  // Type for conflict details
+  type ConflictDetails = { errors: string[]; warnings: string[]; conflictTypes: string[] };
+  
+  // Type for move game mutation result with discriminated union
+  type MoveGameResult = 
+    | { conflict: true; conflicts: ConflictDetails; pendingMove: { gameId: string; date: string; time: string; diamondId: string } }
+    | { conflict: false; game: Game; warnings: string[]; wasOverridden: boolean; conflicts: ConflictDetails | null };
+
+  // Move game mutation with conflict handling (uses fetch directly to handle 409)
   const moveGameMutation = useMutation({
     mutationFn: async (gameData: {
       gameId: string;
       date: string;
       time: string;
       diamondId: string;
-    }) => {
-      const { gameId, ...payload } = gameData;
-      const response = await apiRequest('PUT', `/api/games/${gameId}/move`, payload);
+      forceOverride?: boolean;
+    }): Promise<MoveGameResult> => {
+      const { gameId, forceOverride, ...movePayload } = gameData;
+      
+      // Use fetch directly to properly handle 409 responses
+      const response = await fetch(`/api/games/${gameId}/move`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...movePayload,
+          forceOverride: forceOverride || false
+        }),
+      });
+      
       const data = await response.json();
-      return data.game;
+      
+      // Handle 409 conflict response
+      if (response.status === 409 && data.canOverride) {
+        return { 
+          conflict: true, 
+          conflicts: data.conflicts || { errors: [data.error || 'Conflict detected'], warnings: [], conflictTypes: [] },
+          pendingMove: { gameId, date: movePayload.date, time: movePayload.time, diamondId: movePayload.diamondId }
+        };
+      }
+      
+      // Handle other errors
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to move game');
+      }
+      
+      // Backend returns { game, warnings, wasOverridden, conflicts }
+      return { 
+        conflict: false, 
+        game: data.game as Game,
+        warnings: data.warnings || [],
+        wasOverridden: data.wasOverridden === true,
+        conflicts: data.conflicts || null
+      };
     },
-    onSuccess: (updatedGame) => {
+    onSuccess: (result) => {
+      if (result.conflict) {
+        // Show conflict override dialog
+        setConflictDialog({
+          open: true,
+          conflicts: result.conflicts,
+          pendingMove: result.pendingMove,
+        });
+        return;
+      }
+      
       // Invalidate the games query to force a refetch
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
       
-      toast({
-        title: 'Game Moved',
-        description: 'Game successfully rescheduled',
-      });
+      // Show appropriate message based on whether override was used
+      if (result.wasOverridden) {
+        // Include conflict details for audit trail
+        const conflictSummary = result.conflicts?.errors?.length 
+          ? `Overridden: ${result.conflicts.errors[0]}` 
+          : 'Game placement was forced despite conflicts.';
+        toast({
+          title: 'Game Moved (Override Applied)',
+          description: conflictSummary,
+          variant: 'default',
+        });
+      } else if (result.warnings && result.warnings.length > 0) {
+        toast({
+          title: 'Game Moved (with notes)',
+          description: result.warnings.join('. '),
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Game Moved',
+          description: 'Game successfully rescheduled',
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -761,6 +867,26 @@ export function DragScheduleBuilder({
       });
     },
   });
+
+  // Handle force override
+  const handleForceOverride = () => {
+    if (!conflictDialog.pendingMove) return;
+    
+    setConflictDialog(prev => ({ ...prev, open: false }));
+    
+    moveGameMutation.mutate({
+      ...conflictDialog.pendingMove,
+      forceOverride: true,
+    });
+  };
+
+  const handleCancelOverride = () => {
+    setConflictDialog({
+      open: false,
+      conflicts: { errors: [], warnings: [], conflictTypes: [] },
+      pendingMove: null,
+    });
+  };
 
   // Coordinate-based cell detection (accounts for scroll offsets)
   const getSlotFromCoordinates = (x: number, y: number) => {
@@ -822,8 +948,14 @@ export function DragScheduleBuilder({
     }
   };
 
-  // Shared validation helper: checks diamond availability and overlaps
-  // Returns error message if invalid, null if valid
+  // Helper to parse time to minutes
+  const parseTimeToMinutes = (t: string): number => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  // Shared validation helper: checks diamond availability, allocations, and overlaps
+  // Returns { error, warning } - error blocks the move, warning is informational
   const validatePlacement = (params: {
     date: string;
     time: string;
@@ -832,13 +964,58 @@ export function DragScheduleBuilder({
     awayTeamId: string;
     durationMinutes: number;
     ignoreGameId?: string; // Skip checking this game (for moves)
-  }): string | null => {
+  }): { error: string | null; warning: string | null } => {
     const { date, time, diamondId, homeTeamId, awayTeamId, durationMinutes, ignoreGameId } = params;
+    let warning: string | null = null;
 
     // Check diamond availability
     const targetDiamond = diamonds.find((d) => d.id === diamondId);
     if (targetDiamond && !isTimeAvailable(time, targetDiamond)) {
-      return `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`;
+      return { 
+        error: `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
+        warning: null 
+      };
+    }
+
+    // Check diamond status (closed globally)
+    if (targetDiamond?.status === 'closed') {
+      return { 
+        error: `${targetDiamond.name} is marked as CLOSED`,
+        warning: null 
+      };
+    }
+
+    // Check allocations - does this diamond have a reserved time block for this tournament?
+    const gameStartMin = parseTimeToMinutes(time);
+    const gameEndMin = gameStartMin + durationMinutes;
+    
+    const matchingAllocation = allocations.find(a => 
+      a.diamondId === diamondId && 
+      a.date === date &&
+      parseTimeToMinutes(a.startTime) <= gameStartMin &&
+      parseTimeToMinutes(a.endTime) >= gameEndMin
+    );
+
+    if (allocations.length > 0 && !matchingAllocation) {
+      // No allocation covers this slot - this is an error
+      return { 
+        error: `No reserved time block for ${targetDiamond?.name || 'this diamond'} at ${time}. Use Field Allocations to reserve time.`,
+        warning: null 
+      };
+    }
+
+    // Check division restriction on allocation
+    if (matchingAllocation?.divisionId) {
+      const homeTeam = teams.find(t => t.id === homeTeamId);
+      const awayTeam = teams.find(t => t.id === awayTeamId);
+      const teamDivisionId = homeTeam?.ageDivisionId || awayTeam?.ageDivisionId;
+      
+      if (teamDivisionId && matchingAllocation.divisionId !== teamDivisionId) {
+        return { 
+          error: `This time block is reserved for a different division`,
+          warning: null 
+        };
+      }
     }
 
     // Check for overlapping games
@@ -859,7 +1036,10 @@ export function DragScheduleBuilder({
       ) {
         const endTime = getEndTime(time, durationMinutes);
         const existingEndTime = getEndTime(existingGame.time, existingDuration);
-        return `This ${durationMinutes}-minute game (${time}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`;
+        return { 
+          error: `This ${durationMinutes}-minute game (${time}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
+          warning: null 
+        };
       }
 
       // Check team conflicts
@@ -883,11 +1063,39 @@ export function DragScheduleBuilder({
           .filter(Boolean)
           .join(" and ");
 
-        return `${conflictingTeamNames || "A team"} already has a game that overlaps with this time slot`;
+        return { 
+          error: `${conflictingTeamNames || "A team"} already has a game that overlaps with this time slot`,
+          warning: null 
+        };
       }
     }
 
-    return null; // Valid
+    // Check scheduling requests (warnings only)
+    const checkTeamRequests = (teamId: string) => {
+      const team = teams.find(t => t.id === teamId);
+      if (!team?.schedulingRequests) return;
+      const req = team.schedulingRequests.toLowerCase();
+      
+      const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      
+      if (req.includes(`no ${dayName}`)) {
+        warning = `${team.name}: Requested to avoid ${dayName}s`;
+      }
+      if (req.includes("no morning") && gameStartMin < 720) {
+        warning = `${team.name}: Requested to avoid mornings`;
+      }
+      if (req.includes("no afternoon") && gameStartMin >= 720 && gameStartMin < 1020) {
+        warning = `${team.name}: Requested to avoid afternoons`;
+      }
+      if (req.includes("no evening") && gameStartMin >= 1020) {
+        warning = `${team.name}: Requested to avoid evenings`;
+      }
+    };
+
+    checkTeamRequests(homeTeamId);
+    checkTeamRequests(awayTeamId);
+
+    return { error: null, warning };
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -928,7 +1136,7 @@ export function DragScheduleBuilder({
         }
 
         // Validate placement using game's own duration
-        const validationError = validatePlacement({
+        const validation = validatePlacement({
           date: targetDate,
           time: targetTime,
           diamondId: targetDiamondId,
@@ -938,16 +1146,16 @@ export function DragScheduleBuilder({
           ignoreGameId: activeGame.id, // Skip self-collision
         });
 
-        if (validationError) {
+        // Show warning if there's one (but still allow the move)
+        if (validation.warning && !validation.error) {
           toast({
-            title: "Cannot Move Game",
-            description: validationError,
-            variant: "destructive",
+            title: "Scheduling Note",
+            description: validation.warning,
           });
-          return;
         }
 
-        // Execute move mutation
+        // For moves, let the backend do the final validation with override support
+        // Execute move mutation - backend will return 409 with conflict details if needed
         moveGameMutation.mutate({
           gameId: activeGame.id,
           date: targetDate,
@@ -956,7 +1164,7 @@ export function DragScheduleBuilder({
         });
       } else if (activeMatchup) {
         // Placing a new matchup
-        const validationError = validatePlacement({
+        const validation = validatePlacement({
           date: targetDate,
           time: targetTime,
           diamondId: targetDiamondId,
@@ -965,13 +1173,21 @@ export function DragScheduleBuilder({
           durationMinutes: gameDuration,
         });
 
-        if (validationError) {
+        if (validation.error) {
           toast({
             title: "Cannot Place Game",
-            description: validationError,
+            description: validation.error,
             variant: "destructive",
           });
           return;
+        }
+
+        // Show warning if there's one
+        if (validation.warning) {
+          toast({
+            title: "Scheduling Note",
+            description: validation.warning,
+          });
         }
 
         // Execute place mutation
@@ -1474,6 +1690,59 @@ export function DragScheduleBuilder({
           </div>
         )}
       </DragOverlay>
+
+      {/* Conflict Override Dialog */}
+      <AlertDialog open={conflictDialog.open} onOpenChange={(open) => !open && handleCancelOverride()}>
+        <AlertDialogContent data-testid="dialog-conflict-override">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-[var(--clay-red)]">
+              <AlertTriangle className="w-5 h-5" />
+              Scheduling Conflict Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>This game placement has the following issues:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {conflictDialog.conflicts.errors.map((error, i) => (
+                    <li key={i} className="text-red-600 dark:text-red-400 font-medium">
+                      {error}
+                    </li>
+                  ))}
+                </ul>
+                {conflictDialog.conflicts.conflictTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {conflictDialog.conflicts.conflictTypes.includes('diamond_closed') && (
+                      <Badge variant="destructive">Diamond Closed</Badge>
+                    )}
+                    {conflictDialog.conflicts.conflictTypes.includes('allocation_conflict') && (
+                      <Badge variant="destructive">No Time Block</Badge>
+                    )}
+                    {conflictDialog.conflicts.conflictTypes.includes('game_overlap') && (
+                      <Badge variant="destructive">Game Overlap</Badge>
+                    )}
+                    {conflictDialog.conflicts.conflictTypes.includes('team_conflict') && (
+                      <Badge variant="destructive">Team Conflict</Badge>
+                    )}
+                  </div>
+                )}
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                  As an admin, you can override this conflict if you're sure about the placement.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-override">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleForceOverride}
+              className="bg-[var(--clay-red)] hover:bg-[var(--clay-red)]/90"
+              data-testid="button-force-override"
+            >
+              Override & Place Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DndContext>
   );
 }
