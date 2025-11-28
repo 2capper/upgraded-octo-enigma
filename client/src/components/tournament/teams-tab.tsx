@@ -523,9 +523,9 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
         
         <div className="flex items-center gap-2">
           {/* Expected game count preview */}
-          {assignedTeams.length >= 2 && (
+          {filteredTeams.filter(t => t.poolId).length >= 2 && (
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              ~{Math.ceil(assignedTeams.length * 3 / 2)} games (3 per team)
+              ~{Math.ceil(filteredTeams.filter(t => t.poolId).length * 3 / 2)} games (3 per team)
             </span>
           )}
           
@@ -545,7 +545,7 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
             onClick={() => generateMatchupsMutation.mutate()}
             disabled={generateMatchupsMutation.isPending}
             data-testid="button-generate-matchups"
-            title={`Will generate ~${Math.ceil(assignedTeams.length * 3 / 2)} games (3 games per team)`}
+            title={`Will generate ~${Math.ceil(filteredTeams.filter(t => t.poolId).length * 3 / 2)} games (3 games per team)`}
           >
             {generateMatchupsMutation.isPending ? 'Generating...' : 'Generate Schedule'}
           </Button>
