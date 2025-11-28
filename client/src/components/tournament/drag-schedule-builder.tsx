@@ -777,6 +777,9 @@ export function DragScheduleBuilder({
       queryClient.invalidateQueries({ 
         queryKey: ['/api/tournaments', tournamentId, 'games'] 
       });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      });
       
       if (data.placedCount > 0) {
         toast({
