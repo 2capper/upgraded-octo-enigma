@@ -162,6 +162,91 @@ export function calculateMinGamesPerTeam(teamCount: number): number {
 }
 
 /**
+ * Generate matchups with a cap on games per team
+ * Instead of full round-robin (everyone plays everyone), 
+ * this generates only enough games to meet the minGames target
+ * 
+ * For 13 teams with minGames=3: generates ~20 games (not 78)
+ */
+export function generateCappedMatchups(teamCount: number, minGames: number): [number, number][] {
+  const matchups: [number, number][] = [];
+  
+  if (teamCount < 2 || minGames < 1) return matchups;
+  
+  // If minGames >= teamCount-1, just do full round-robin
+  if (minGames >= teamCount - 1) {
+    return generateSimpleMatchups(teamCount);
+  }
+  
+  // Track games played per team
+  const gamesPlayed: Record<number, number> = {};
+  const playedAgainst: Record<number, Set<number>> = {};
+  
+  for (let i = 0; i < teamCount; i++) {
+    gamesPlayed[i] = 0;
+    playedAgainst[i] = new Set();
+  }
+  
+  // Safety counter to prevent infinite loops
+  let attempts = 0;
+  const maxAttempts = teamCount * minGames * 3;
+  
+  while (attempts < maxAttempts) {
+    // Find teams that still need games (haven't reached minGames yet)
+    const needyTeams = [];
+    for (let i = 0; i < teamCount; i++) {
+      if (gamesPlayed[i] < minGames) {
+        needyTeams.push(i);
+      }
+    }
+    
+    // All teams have enough games
+    if (needyTeams.length === 0) break;
+    
+    // Sort by fewest games (most desperate first)
+    needyTeams.sort((a, b) => gamesPlayed[a] - gamesPlayed[b]);
+    const teamA = needyTeams[0];
+    
+    // Find an opponent teamA hasn't played yet
+    let opponent: number | null = null;
+    
+    // Preference 1: Another needy team they haven't played
+    for (const candidate of needyTeams) {
+      if (candidate !== teamA && !playedAgainst[teamA].has(candidate)) {
+        opponent = candidate;
+        break;
+      }
+    }
+    
+    // Preference 2: Any team they haven't played (even if that team has enough games)
+    if (opponent === null) {
+      for (let i = 0; i < teamCount; i++) {
+        if (i !== teamA && !playedAgainst[teamA].has(i)) {
+          opponent = i;
+          break;
+        }
+      }
+    }
+    
+    // Record the matchup
+    if (opponent !== null) {
+      matchups.push([teamA, opponent]);
+      gamesPlayed[teamA]++;
+      gamesPlayed[opponent]++;
+      playedAgainst[teamA].add(opponent);
+      playedAgainst[opponent].add(teamA);
+    } else {
+      // No valid opponent found - mark team as done to prevent infinite loop
+      gamesPlayed[teamA] = minGames;
+    }
+    
+    attempts++;
+  }
+  
+  return matchups;
+}
+
+/**
  * Parse time string (HH:MM) to minutes since midnight
  */
 function parseTimeToMinutes(time: string): number {
@@ -311,13 +396,19 @@ export function generatePoolPlaySchedule(
       return;
     }
     
-    // Generate round-robin matchups
-    const matchups = generateRoundRobinMatchups(teamCount);
+    // Generate matchups based on minGameGuarantee setting
+    // If minGameGuarantee is set and less than full round-robin, use capped matchups
     const naturalMinGames = calculateMinGamesPerTeam(teamCount);
+    const targetGames = minGameGuarantee || naturalMinGames;
     
-    console.log(`Pool ${pool.name}: ${matchups.length} matchups, naturalMinGames=${naturalMinGames}, minGameGuarantee=${minGameGuarantee}`);
+    // Use capped matchups when target is less than full round-robin
+    const matchups = (targetGames < naturalMinGames)
+      ? generateCappedMatchups(teamCount, targetGames)
+      : generateRoundRobinMatchups(teamCount);
     
-    // Determine how many times to run round-robin to meet guarantee
+    console.log(`Pool ${pool.name}: ${matchups.length} matchups, naturalMinGames=${naturalMinGames}, targetGames=${targetGames}, minGameGuarantee=${minGameGuarantee}`);
+    
+    // Only need multiple rounds if targeting MORE than natural round-robin
     let roundsNeeded = 1;
     if (minGameGuarantee && minGameGuarantee > naturalMinGames) {
       roundsNeeded = Math.ceil(minGameGuarantee / naturalMinGames);
@@ -473,11 +564,16 @@ export function generateUnplacedMatchups(
       return;
     }
     
-    // Generate simple matchups for drag-and-drop (order doesn't matter)
-    const roundRobinMatchups = generateSimpleMatchups(teamCount);
+    // Generate matchups based on minGameGuarantee
     const naturalMinGames = calculateMinGamesPerTeam(teamCount);
+    const targetGames = options.minGameGuarantee || naturalMinGames;
     
-    // Determine how many times to run round-robin to meet guarantee
+    // Use capped matchups when target is less than full round-robin
+    const poolMatchups = (targetGames < naturalMinGames)
+      ? generateCappedMatchups(teamCount, targetGames)
+      : generateSimpleMatchups(teamCount);
+    
+    // Only need multiple rounds if targeting MORE than natural round-robin
     let roundsNeeded = 1;
     if (options.minGameGuarantee && options.minGameGuarantee > naturalMinGames) {
       roundsNeeded = Math.ceil(options.minGameGuarantee / naturalMinGames);
@@ -486,7 +582,7 @@ export function generateUnplacedMatchups(
     // Generate matchups for required number of rounds
     let poolMatchupCount = 0;
     for (let round = 0; round < roundsNeeded; round++) {
-      for (const matchup of roundRobinMatchups) {
+      for (const matchup of poolMatchups) {
         const [homeIdx, awayIdx] = matchup;
         const homeTeamId = teamIds[homeIdx];
         const awayTeamId = teamIds[awayIdx];
