@@ -241,6 +241,7 @@ export const games = pgTable("games", {
   team1Source: jsonb("team1_source"), // { gameNumber: number, position: 'winner' | 'loser' }
   team2Source: jsonb("team2_source"), // { gameNumber: number, position: 'winner' | 'loser' }
   weatherStatus: text("weather_status").default("normal"), // "normal" | "watch" | "warning" | "cancelled" - Weather safety status
+  isCrossPool: boolean("is_cross_pool").notNull().default(false), // True for bridge games between pools
 });
 
 // Tournament Diamond Allocations - "Tetris Schema" for multi-division field management

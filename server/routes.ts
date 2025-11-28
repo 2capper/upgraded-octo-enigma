@@ -38,6 +38,7 @@ import { validateGameSlot } from "@shared/validation/gameSlotValidator";
 import { setupAuth, isAuthenticated, requireAdmin, requireSuperAdmin, requireOrgAdmin, requireDiamondBooking, sanitizeUser } from "./auth";
 import { generateValidationReport } from "./validationReport";
 import { generatePoolPlaySchedule, generateUnplacedMatchups, validateGameGuarantee } from "@shared/scheduleGeneration";
+import { generateGuaranteedMatchups } from "./utils/matchup-generator";
 import { nanoid } from "nanoid";
 import { calculateStats, resolveTie } from "@shared/standings";
 import { calculateStandingsWithTiebreaking } from "@shared/standingsCalculation";
@@ -2901,6 +2902,440 @@ Waterdown 10U AA
     } catch (error: any) {
       console.error("Error generating matchups:", error);
       res.status(500).json({ error: "Failed to generate matchups" });
+    }
+  });
+
+  // Auto-distribute teams into pools using snake-draft pattern
+  app.post("/api/tournaments/:tournamentId/auto-distribute", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { divisionId } = req.body;
+
+      // Get tournament
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Get all teams and pools
+      const allTeams = await teamService.getTeams(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
+
+      // Filter by division if provided
+      const pools = divisionId 
+        ? allPools.filter(p => p.ageDivisionId === divisionId && !p.name.includes("Playoff"))
+        : allPools.filter(p => !p.name.includes("Playoff"));
+
+      if (pools.length === 0) {
+        return res.status(400).json({ error: "No pools found. Create pools first." });
+      }
+
+      // Get teams without pool assignment (or all teams in division)
+      const teamsToDistribute = divisionId
+        ? allTeams.filter(t => t.ageDivisionId === divisionId && !t.isPlaceholder)
+        : allTeams.filter(t => !t.isPlaceholder);
+
+      if (teamsToDistribute.length === 0) {
+        return res.status(400).json({ error: "No teams found to distribute" });
+      }
+
+      // Sort: "Willing to play extra" teams go FIRST so they land in larger pools
+      // This ensures bridge game candidates are in the right pools
+      teamsToDistribute.sort((a, b) => {
+        if (a.willingToPlayExtra !== b.willingToPlayExtra) {
+          return a.willingToPlayExtra ? -1 : 1;
+        }
+        return 0;
+      });
+
+      // Snake-draft distribution (1,2,3,4 -> 4,3,2,1 -> 1,2,3,4 ...)
+      const updates: Promise<any>[] = [];
+      let direction = 1;
+      let poolIndex = 0;
+
+      for (let i = 0; i < teamsToDistribute.length; i++) {
+        const team = teamsToDistribute[i];
+        const pool = pools[poolIndex];
+
+        updates.push(teamService.updateTeam(team.id, { poolId: pool.id }));
+
+        // Snake logic
+        poolIndex += direction;
+        if (poolIndex >= pools.length) {
+          direction = -1;
+          poolIndex = pools.length - 1;
+        } else if (poolIndex < 0) {
+          direction = 1;
+          poolIndex = 0;
+        }
+      }
+
+      await Promise.all(updates);
+
+      // Return updated teams
+      const updatedTeams = await teamService.getTeams(tournamentId);
+
+      res.json({ 
+        success: true, 
+        message: `Distributed ${teamsToDistribute.length} teams across ${pools.length} pools`,
+        teams: updatedTeams
+      });
+
+    } catch (error: any) {
+      console.error("Auto-distribute failed:", error);
+      res.status(500).json({ error: "Distribution failed" });
+    }
+  });
+
+  // Generate guaranteed matchups with bridge game logic for uneven pools
+  app.post("/api/tournaments/:tournamentId/generate-guaranteed-matchups", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { divisionId } = req.body;
+
+      // Get tournament
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      if (tournament.type !== 'pool_play') {
+        return res.status(400).json({ error: "Matchup generation is only available for pool play tournaments" });
+      }
+
+      const minGames = tournament.minGameGuarantee || 3;
+
+      // Get teams with pool assignments
+      const allTeams = await teamService.getTeams(tournamentId);
+      const allPools = await tournamentService.getPools(tournamentId);
+
+      // Filter by division if provided
+      const pools = divisionId 
+        ? allPools.filter(p => p.ageDivisionId === divisionId && !p.name.includes("Playoff"))
+        : allPools.filter(p => !p.name.includes("Playoff"));
+
+      const teamsWithPools = allTeams.filter(t => 
+        t.poolId && 
+        pools.some(p => p.id === t.poolId) && 
+        !t.isPlaceholder
+      );
+
+      if (teamsWithPools.length === 0) {
+        return res.status(400).json({ error: "No teams with pool assignments found. Distribute teams first." });
+      }
+
+      // Delete existing pool play games for this division/tournament
+      const allGames = await gameService.getGames(tournamentId);
+      const poolIds = new Set(pools.map(p => p.id));
+      const gamesToDelete = allGames.filter(g => 
+        g.poolId && poolIds.has(g.poolId) && !g.isPlayoff
+      );
+
+      for (const game of gamesToDelete) {
+        await gameService.deleteGame(game.id);
+      }
+
+      console.log(`Deleted ${gamesToDelete.length} existing pool play games`);
+
+      // Generate matchups using the smart algorithm with bridge games
+      const matchups = generateGuaranteedMatchups(teamsWithPools, minGames);
+
+      console.log(`Generated ${matchups.length} matchups with minGames=${minGames}`);
+
+      // Save matchups to database
+      const savedGames: any[] = [];
+      for (const matchup of matchups) {
+        const game = await gameService.createGame({
+          id: nanoid(),
+          tournamentId,
+          poolId: matchup.poolId,
+          homeTeamId: matchup.homeTeamId,
+          awayTeamId: matchup.awayTeamId,
+          status: 'scheduled',
+          date: null,
+          time: null,
+          diamondId: null,
+          isPlayoff: false,
+          isCrossPool: matchup.isCrossPool,
+        });
+        savedGames.push(game);
+      }
+
+      // Count cross-pool games (bridge games)
+      const crossPoolCount = matchups.filter(m => m.isCrossPool).length;
+
+      res.json({
+        success: true,
+        message: `Generated ${savedGames.length} matchups (${crossPoolCount} bridge games)`,
+        games: savedGames,
+        metadata: {
+          totalMatchups: savedGames.length,
+          crossPoolGames: crossPoolCount,
+          minGamesPerTeam: minGames
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Generate guaranteed matchups failed:", error);
+      res.status(500).json({ error: "Matchup generation failed" });
+    }
+  });
+
+  // Auto-place unscheduled games onto the schedule grid
+  app.post("/api/tournaments/:tournamentId/auto-place", requireAdmin, async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const { selectedDate, diamondIds } = req.body;
+
+      // Get tournament details
+      const tournament = await tournamentService.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Get all games, teams, diamonds, and allocations
+      const allGames = await gameService.getGames(tournamentId);
+      const allTeams = await teamService.getTeams(tournamentId);
+      const allDiamonds = await diamondService.getDiamonds(tournament.organizationId);
+      const allocations = await allocationService.getAllocations(tournamentId);
+
+      // Filter diamonds if specific ones are selected
+      const diamonds = diamondIds?.length > 0
+        ? allDiamonds.filter(d => diamondIds.includes(d.id))
+        : allDiamonds.filter(d => tournament.selectedDiamondIds?.includes(d.id));
+
+      if (diamonds.length === 0) {
+        return res.status(400).json({ error: "No diamonds available for scheduling" });
+      }
+
+      // Get unplaced games (no date/time/diamond)
+      const unplacedGames = allGames.filter(g => !g.date || !g.time || !g.diamondId);
+      
+      if (unplacedGames.length === 0) {
+        return res.json({ 
+          success: true, 
+          message: "All games are already placed",
+          placedCount: 0,
+          failedCount: 0
+        });
+      }
+
+      // Determine dates to use
+      const dates: string[] = [];
+      if (selectedDate) {
+        dates.push(selectedDate);
+      } else {
+        // Use tournament date range
+        const start = new Date(tournament.startDate);
+        const end = new Date(tournament.endDate);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          dates.push(d.toISOString().split('T')[0]);
+        }
+      }
+
+      // Generate time slots (8 AM to 8 PM, 30-min intervals)
+      const timeSlots: string[] = [];
+      for (let hour = 8; hour < 20; hour++) {
+        timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+        timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+      }
+
+      const minRestMinutes = tournament.minRestMinutes || 30;
+      const maxGamesPerDay = tournament.maxGamesPerDay || 3;
+      const gameDuration = 90; // Default game duration
+
+      // Build a mutable schedule tracking structure
+      // Track ALL team games by date (for rest and max-games-per-day checks)
+      type GameSlot = { date: string; startMinutes: number; endMinutes: number };
+      const teamSchedule: Record<string, GameSlot[]> = {};
+      
+      // Initialize from already-placed games
+      for (const game of allGames) {
+        if (game.date && game.time) {
+          const [h, m] = game.time.split(':').map(Number);
+          const startMinutes = h * 60 + m;
+          const endMinutes = startMinutes + (game.durationMinutes || gameDuration);
+          const slot = { date: game.date, startMinutes, endMinutes };
+          
+          [game.homeTeamId, game.awayTeamId].forEach(teamId => {
+            if (!teamId) return;
+            if (!teamSchedule[teamId]) teamSchedule[teamId] = [];
+            teamSchedule[teamId].push(slot);
+          });
+        }
+      }
+
+      // Track diamond schedule for overlap detection (mutable)
+      const diamondSchedule: Record<string, Record<string, GameSlot[]>> = {};
+      for (const game of allGames) {
+        if (game.date && game.time && game.diamondId) {
+          const [h, m] = game.time.split(':').map(Number);
+          const startMinutes = h * 60 + m;
+          const endMinutes = startMinutes + (game.durationMinutes || gameDuration);
+          
+          if (!diamondSchedule[game.diamondId]) diamondSchedule[game.diamondId] = {};
+          if (!diamondSchedule[game.diamondId][game.date]) diamondSchedule[game.diamondId][game.date] = [];
+          diamondSchedule[game.diamondId][game.date].push({ date: game.date, startMinutes, endMinutes });
+        }
+      }
+
+      // Helper: check rest time compliance for a team on a given slot
+      const checkRestTime = (teamId: string | null, date: string, startMinutes: number, endMinutes: number): boolean => {
+        if (!teamId) return true;
+        const slots = teamSchedule[teamId] || [];
+        const sameDay = slots.filter(s => s.date === date);
+        
+        for (const existing of sameDay) {
+          // Check if proposed slot conflicts with existing (with rest buffer)
+          // New game can't start before existing game ends + rest
+          if (startMinutes < existing.endMinutes + minRestMinutes && endMinutes > existing.startMinutes - minRestMinutes) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      // Helper: check max games per day for a team
+      const checkMaxGamesPerDay = (teamId: string | null, date: string): boolean => {
+        if (!teamId) return true;
+        const slots = teamSchedule[teamId] || [];
+        const gamesOnDay = slots.filter(s => s.date === date).length;
+        return gamesOnDay < maxGamesPerDay;
+      };
+
+      // Helper: check diamond slot availability
+      const checkDiamondSlot = (diamondId: string, date: string, startMinutes: number, endMinutes: number): boolean => {
+        const slots = diamondSchedule[diamondId]?.[date] || [];
+        for (const existing of slots) {
+          // Check for overlap
+          if (startMinutes < existing.endMinutes && endMinutes > existing.startMinutes) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      const placedGames: any[] = [];
+      const failedGames: any[] = [];
+
+      // Try to place each unplaced game
+      for (const game of unplacedGames) {
+        let placed = false;
+        
+        // Get team info for validation
+        const homeTeam = allTeams.find(t => t.id === game.homeTeamId);
+        const awayTeam = allTeams.find(t => t.id === game.awayTeamId);
+
+        for (const date of dates) {
+          if (placed) break;
+
+          // Check max games per day for both teams first
+          if (!checkMaxGamesPerDay(game.homeTeamId, date) || !checkMaxGamesPerDay(game.awayTeamId, date)) {
+            continue;
+          }
+
+          for (const time of timeSlots) {
+            if (placed) break;
+
+            const [hours, minutes] = time.split(':').map(Number);
+            const startMinutes = hours * 60 + minutes;
+            const endMinutes = startMinutes + gameDuration;
+
+            // Check rest time for both teams
+            if (!checkRestTime(game.homeTeamId, date, startMinutes, endMinutes) ||
+                !checkRestTime(game.awayTeamId, date, startMinutes, endMinutes)) {
+              continue;
+            }
+
+            // Try each diamond
+            for (const diamond of diamonds) {
+              // Quick diamond slot check
+              if (!checkDiamondSlot(diamond.id, date, startMinutes, endMinutes)) {
+                continue;
+              }
+
+              // Full validation using validateGameSlot (includes allocation checks)
+              const gamesOnDiamond = allGames.filter(g => 
+                g.diamondId === diamond.id && 
+                g.date === date &&
+                g.id !== game.id
+              );
+
+              const validation = validateGameSlot(
+                homeTeam,
+                awayTeam,
+                diamond,
+                date,
+                time,
+                gameDuration,
+                gamesOnDiamond,
+                allocations,
+                { 
+                  skipGameId: game.id,
+                  teamDivisionId: homeTeam?.ageDivisionId || awayTeam?.ageDivisionId || undefined
+                }
+              );
+
+              if (validation.valid) {
+                // Place the game
+                const updatedGame = await gameService.updateGame(game.id, {
+                  date,
+                  time,
+                  diamondId: diamond.id
+                });
+
+                // Update mutable tracking for subsequent games
+                const newSlot = { date, startMinutes, endMinutes };
+                
+                [game.homeTeamId, game.awayTeamId].forEach(teamId => {
+                  if (!teamId) return;
+                  if (!teamSchedule[teamId]) teamSchedule[teamId] = [];
+                  teamSchedule[teamId].push(newSlot);
+                });
+
+                if (!diamondSchedule[diamond.id]) diamondSchedule[diamond.id] = {};
+                if (!diamondSchedule[diamond.id][date]) diamondSchedule[diamond.id][date] = [];
+                diamondSchedule[diamond.id][date].push(newSlot);
+
+                // Also add to allGames for subsequent validateGameSlot calls
+                (allGames as any[]).push({
+                  ...game,
+                  date,
+                  time,
+                  diamondId: diamond.id,
+                  durationMinutes: gameDuration
+                });
+
+                placedGames.push(updatedGame);
+                placed = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!placed) {
+          failedGames.push({
+            id: game.id,
+            homeTeam: homeTeam?.name,
+            awayTeam: awayTeam?.name,
+            reason: "No valid slot found (rest time, max games per day, or diamond conflict)"
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Placed ${placedGames.length} of ${unplacedGames.length} games`,
+        placedCount: placedGames.length,
+        failedCount: failedGames.length,
+        games: placedGames,
+        failed: failedGames
+      });
+
+    } catch (error: any) {
+      console.error("Auto-place failed:", error);
+      res.status(500).json({ error: "Auto-placement failed" });
     }
   });
 

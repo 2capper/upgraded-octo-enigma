@@ -381,6 +381,50 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
     },
   });
 
+  const autoDistributeMutation = useMutation({
+    mutationFn: async () => {
+      const divisionId = divisionFilter !== 'all' ? divisionFilter : undefined;
+      return apiRequest('POST', `/api/tournaments/${tournamentId}/auto-distribute`, { divisionId });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      toast({
+        title: "Teams Distributed",
+        description: data.message || "Teams have been distributed across pools",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Distribution Failed",
+        description: error instanceof Error ? error.message : "Failed to distribute teams",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateMatchupsMutation = useMutation({
+    mutationFn: async () => {
+      const divisionId = divisionFilter !== 'all' ? divisionFilter : undefined;
+      return apiRequest('POST', `/api/tournaments/${tournamentId}/generate-guaranteed-matchups`, { divisionId });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      toast({
+        title: "Schedule Generated",
+        description: data.message || `Generated ${data.metadata?.totalMatchups || 0} matchups`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate matchups",
+        variant: "destructive",
+      });
+    },
+  });
+
   const formatPhoneDisplay = (phone: string | null | undefined): string => {
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
@@ -478,6 +522,26 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
         <h3 className="text-lg font-medium">Teams ({filteredTeams.length})</h3>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => autoDistributeMutation.mutate()}
+            disabled={autoDistributeMutation.isPending}
+            data-testid="button-auto-distribute"
+          >
+            {autoDistributeMutation.isPending ? 'Distributing...' : 'Auto Distribute'}
+          </Button>
+          
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={() => generateMatchupsMutation.mutate()}
+            disabled={generateMatchupsMutation.isPending}
+            data-testid="button-generate-matchups"
+          >
+            {generateMatchupsMutation.isPending ? 'Generating...' : 'Generate Schedule'}
+          </Button>
+          
           <Select value={divisionFilter} onValueChange={setDivisionFilter}>
             <SelectTrigger className="w-48" data-testid="select-division-filter">
               <SelectValue />

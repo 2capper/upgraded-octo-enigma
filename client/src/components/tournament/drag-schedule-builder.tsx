@@ -764,6 +764,50 @@ export function DragScheduleBuilder({
     },
   });
 
+  // Auto-place mutation
+  const autoPlaceMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/auto-place`, {
+        selectedDate,
+        diamondIds: selectedDiamonds.map(d => d.id)
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      });
+      
+      if (data.placedCount > 0) {
+        toast({
+          title: "Auto-Place Complete",
+          description: data.message || `Placed ${data.placedCount} games`,
+        });
+      } else {
+        toast({
+          title: "No Games Placed",
+          description: "All games are already placed or no valid slots found",
+          variant: "default",
+        });
+      }
+
+      if (data.failedCount > 0) {
+        toast({
+          title: "Some Games Could Not Be Placed",
+          description: `${data.failedCount} games need manual placement`,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Auto-Place Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Type for conflict details
   type ConflictDetails = { errors: string[]; warnings: string[]; conflictTypes: string[] };
   
@@ -1342,6 +1386,18 @@ export function DragScheduleBuilder({
                 </p>
               </div>
               <div className="flex gap-2 items-center">
+                {unplacedMatchups.length > 0 && (
+                  <Button
+                    onClick={() => autoPlaceMutation.mutate()}
+                    disabled={autoPlaceMutation.isPending}
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5"
+                    data-testid="button-auto-place"
+                  >
+                    {autoPlaceMutation.isPending ? 'Placing...' : 'Auto Place'}
+                  </Button>
+                )}
                 {placedCount > 0 && (
                   <Button
                     onClick={handleExportCSV}
