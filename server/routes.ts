@@ -3109,53 +3109,36 @@ Waterdown 10U AA
         return res.status(400).json({ error: "No diamonds available for scheduling" });
       }
 
-      // STEP 1: Convert any unplaced matchups to games first
-      const createdFromMatchups: any[] = [];
+      // STEP 1: Identify matchups that need placement (no corresponding game exists yet)
+      const matchupsToPlace: typeof matchups = [];
       for (const matchup of matchups) {
-        // Check if a game already exists for this matchup (check both home/away teams)
-        // Some games might not have poolId set, so check by teams only to be safe
+        // Check if a game already exists for this matchup (check both home/away orderings)
         const existingGame = allGames.find(g => 
           (g.homeTeamId === matchup.homeTeamId && g.awayTeamId === matchup.awayTeamId) ||
           (g.homeTeamId === matchup.awayTeamId && g.awayTeamId === matchup.homeTeamId)
         );
         
         if (!existingGame) {
-          // Create a new game from the matchup (without date/time/diamond)
-          const homeTeam = allTeams.find(t => t.id === matchup.homeTeamId);
-          const pool = await tournamentService.getPoolById(matchup.poolId);
-          
-          const newGame = await gameService.createGame({
-            id: `${tournamentId}-pool-${matchup.poolId}-game-${nanoid(8)}`,
-            tournamentId,
-            poolId: matchup.poolId,
-            homeTeamId: matchup.homeTeamId,
-            awayTeamId: matchup.awayTeamId,
-            status: 'scheduled',
-            homeScore: null,
-            awayScore: null,
-            isPlayoff: false,
-            ageDivisionId: homeTeam?.ageDivisionId || pool?.ageDivisionId || null,
-          });
-          
-          allGames.push(newGame);
-          createdFromMatchups.push(newGame);
+          matchupsToPlace.push(matchup);
         }
       }
 
-      console.log(`[Auto-Place] Created ${createdFromMatchups.length} games from matchups`);
-
-      // Get unplaced games (no date/time/diamond)
+      // Get unplaced games (already in games table but no date/time/diamond)
       const unplacedGames = allGames.filter(g => !g.date || !g.time || !g.diamondId);
       
-      if (unplacedGames.length === 0) {
+      const totalToPlace = matchupsToPlace.length + unplacedGames.length;
+      
+      if (totalToPlace === 0) {
         return res.json({ 
           success: true, 
           message: "All games are already placed",
           placedCount: 0,
           failedCount: 0,
-          createdFromMatchups: createdFromMatchups.length
+          createdFromMatchups: 0
         });
       }
+
+      console.log(`[Auto-Place] ${matchupsToPlace.length} matchups to convert, ${unplacedGames.length} unplaced games`);
 
       // Determine dates to use
       const dates: string[] = [];
@@ -3291,33 +3274,31 @@ Waterdown 10U AA
 
       const placedGames: any[] = [];
       const failedGames: any[] = [];
+      let createdFromMatchups = 0;
 
-      // Try to place each unplaced game
-      for (const game of unplacedGames) {
-        let placed = false;
-        
-        // Get team info for validation
-        const homeTeam = allTeams.find(t => t.id === game.homeTeamId);
-        const awayTeam = allTeams.find(t => t.id === game.awayTeamId);
+      // Helper function to find a valid slot for a game
+      const findValidSlot = (
+        homeTeamId: string, 
+        awayTeamId: string, 
+        skipGameId?: string
+      ): { date: string; time: string; diamond: typeof diamonds[0] } | null => {
+        const homeTeam = allTeams.find(t => t.id === homeTeamId);
+        const awayTeam = allTeams.find(t => t.id === awayTeamId);
 
         for (const date of dates) {
-          if (placed) break;
-
           // Check max games per day for both teams first
-          if (!checkMaxGamesPerDay(game.homeTeamId, date) || !checkMaxGamesPerDay(game.awayTeamId, date)) {
+          if (!checkMaxGamesPerDay(homeTeamId, date) || !checkMaxGamesPerDay(awayTeamId, date)) {
             continue;
           }
 
           for (const time of timeSlots) {
-            if (placed) break;
-
             const [hours, minutes] = time.split(':').map(Number);
             const startMinutes = hours * 60 + minutes;
             const endMinutes = startMinutes + gameDuration;
 
             // Check rest time for both teams (includes same-day and cross-day rest)
-            if (!checkRestTime(game.homeTeamId, date, startMinutes, endMinutes) ||
-                !checkRestTime(game.awayTeamId, date, startMinutes, endMinutes)) {
+            if (!checkRestTime(homeTeamId, date, startMinutes, endMinutes) ||
+                !checkRestTime(awayTeamId, date, startMinutes, endMinutes)) {
               continue;
             }
 
@@ -3332,7 +3313,7 @@ Waterdown 10U AA
               const gamesOnDiamond = allGames.filter(g => 
                 g.diamondId === diamond.id && 
                 g.date === date &&
-                g.id !== game.id
+                g.id !== skipGameId
               );
 
               const validation = validateGameSlot(
@@ -3345,50 +3326,134 @@ Waterdown 10U AA
                 gamesOnDiamond,
                 allocations,
                 { 
-                  skipGameId: game.id,
+                  skipGameId,
                   teamDivisionId: homeTeam?.ageDivisionId || awayTeam?.ageDivisionId || undefined
                 }
               );
 
               if (validation.valid) {
-                // Place the game
-                const updatedGame = await gameService.updateGame(game.id, {
-                  date,
-                  time,
-                  diamondId: diamond.id
-                });
-
-                // Update mutable tracking for subsequent games
-                const newSlot = { date, startMinutes, endMinutes };
-                
-                [game.homeTeamId, game.awayTeamId].forEach(teamId => {
-                  if (!teamId) return;
-                  if (!teamSchedule[teamId]) teamSchedule[teamId] = [];
-                  teamSchedule[teamId].push(newSlot);
-                });
-
-                if (!diamondSchedule[diamond.id]) diamondSchedule[diamond.id] = {};
-                if (!diamondSchedule[diamond.id][date]) diamondSchedule[diamond.id][date] = [];
-                diamondSchedule[diamond.id][date].push(newSlot);
-
-                // Also add to allGames for subsequent validateGameSlot calls
-                (allGames as any[]).push({
-                  ...game,
-                  date,
-                  time,
-                  diamondId: diamond.id,
-                  durationMinutes: gameDuration
-                });
-
-                placedGames.push(updatedGame);
-                placed = true;
-                break;
+                return { date, time, diamond };
               }
             }
           }
         }
+        return null;
+      };
 
-        if (!placed) {
+      // Helper to update tracking structures after placing a game
+      const updateTracking = (homeTeamId: string, awayTeamId: string, date: string, time: string, diamondId: string) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        const startMinutes = hours * 60 + minutes;
+        const endMinutes = startMinutes + gameDuration;
+        const newSlot = { date, startMinutes, endMinutes };
+
+        [homeTeamId, awayTeamId].forEach(teamId => {
+          if (!teamId) return;
+          if (!teamSchedule[teamId]) teamSchedule[teamId] = [];
+          teamSchedule[teamId].push(newSlot);
+        });
+
+        if (!diamondSchedule[diamondId]) diamondSchedule[diamondId] = {};
+        if (!diamondSchedule[diamondId][date]) diamondSchedule[diamondId][date] = [];
+        diamondSchedule[diamondId][date].push(newSlot);
+      };
+
+      // STEP 2a: Place matchups by creating new games with slots
+      for (const matchup of matchupsToPlace) {
+        const slot = findValidSlot(matchup.homeTeamId, matchup.awayTeamId);
+        const homeTeam = allTeams.find(t => t.id === matchup.homeTeamId);
+        const awayTeam = allTeams.find(t => t.id === matchup.awayTeamId);
+        
+        if (slot) {
+          try {
+            const pool = await tournamentService.getPoolById(matchup.poolId);
+            
+            // Create game directly with date/time/diamond
+            const newGame = await gameService.createGame({
+              id: `${tournamentId}-pool-${matchup.poolId}-game-${nanoid(8)}`,
+              tournamentId,
+              poolId: matchup.poolId,
+              homeTeamId: matchup.homeTeamId,
+              awayTeamId: matchup.awayTeamId,
+              date: slot.date,
+              time: slot.time,
+              diamondId: slot.diamond.id,
+              status: 'scheduled',
+              homeScore: null,
+              awayScore: null,
+              isPlayoff: false,
+              ageDivisionId: homeTeam?.ageDivisionId || pool?.ageDivisionId || null,
+              durationMinutes: gameDuration,
+            });
+
+            // Update tracking for subsequent games - must happen before next findValidSlot call
+            updateTracking(matchup.homeTeamId, matchup.awayTeamId, slot.date, slot.time, slot.diamond.id);
+
+            // Add to allGames for subsequent validation calls
+            (allGames as any[]).push(newGame);
+
+            // Delete the matchup since it's now a game
+            await db.delete(schema.matchups).where(eq(schema.matchups.id, matchup.id));
+
+            placedGames.push(newGame);
+            createdFromMatchups++;
+            console.log(`[Auto-Place] Placed ${homeTeam?.name} vs ${awayTeam?.name} at ${slot.date} ${slot.time} on ${slot.diamond.name}`);
+          } catch (err: any) {
+            console.error(`[Auto-Place] Failed to create game for matchup ${matchup.id}:`, err.message);
+            failedGames.push({
+              id: matchup.id,
+              homeTeam: homeTeam?.name,
+              awayTeam: awayTeam?.name,
+              reason: `Database error: ${err.message}`
+            });
+          }
+        } else {
+          failedGames.push({
+            id: matchup.id,
+            homeTeam: homeTeam?.name,
+            awayTeam: awayTeam?.name,
+            reason: "No valid slot found (rest time, max games/day, cross-day rest, or diamond conflict)"
+          });
+        }
+      }
+
+      // STEP 2b: Place any existing unplaced games
+      for (const game of unplacedGames) {
+        const slot = findValidSlot(game.homeTeamId!, game.awayTeamId!, game.id);
+        const homeTeam = allTeams.find(t => t.id === game.homeTeamId);
+        const awayTeam = allTeams.find(t => t.id === game.awayTeamId);
+        
+        if (slot) {
+          try {
+            const updatedGame = await gameService.updateGame(game.id, {
+              date: slot.date,
+              time: slot.time,
+              diamondId: slot.diamond.id
+            });
+
+            updateTracking(game.homeTeamId!, game.awayTeamId!, slot.date, slot.time, slot.diamond.id);
+
+            // Update in allGames
+            (allGames as any[]).push({
+              ...game,
+              date: slot.date,
+              time: slot.time,
+              diamondId: slot.diamond.id,
+              durationMinutes: gameDuration
+            });
+
+            placedGames.push(updatedGame);
+            console.log(`[Auto-Place] Placed ${homeTeam?.name} vs ${awayTeam?.name} at ${slot.date} ${slot.time} on ${slot.diamond.name}`);
+          } catch (err: any) {
+            console.error(`[Auto-Place] Failed to update game ${game.id}:`, err.message);
+            failedGames.push({
+              id: game.id,
+              homeTeam: homeTeam?.name,
+              awayTeam: awayTeam?.name,
+              reason: `Database error: ${err.message}`
+            });
+          }
+        } else {
           failedGames.push({
             id: game.id,
             homeTeam: homeTeam?.name,
@@ -3398,27 +3463,12 @@ Waterdown 10U AA
         }
       }
 
-      // Delete matchups that were successfully placed as games
-      if (placedGames.length > 0) {
-        for (const game of placedGames) {
-          // Find and delete the corresponding matchup
-          const matchup = matchups.find(m => 
-            m.homeTeamId === game.homeTeamId && 
-            m.awayTeamId === game.awayTeamId &&
-            m.poolId === game.poolId
-          );
-          if (matchup) {
-            await db.delete(schema.matchups).where(eq(schema.matchups.id, matchup.id));
-          }
-        }
-      }
-
       res.json({
         success: true,
-        message: `Placed ${placedGames.length} of ${unplacedGames.length} games`,
+        message: `Placed ${placedGames.length} of ${totalToPlace} games`,
         placedCount: placedGames.length,
         failedCount: failedGames.length,
-        createdFromMatchups: createdFromMatchups.length,
+        createdFromMatchups,
         games: placedGames,
         failed: failedGames
       });
