@@ -31,6 +31,7 @@ import {
   insertCommunicationTemplateSchema,
   tournaments,
   games,
+  matchups,
 } from "@shared/schema";
 import allocationRoutes from "./routes/allocationRoutes";
 import { allocationService } from "./services/allocationService";
@@ -3456,7 +3457,7 @@ Waterdown 10U AA
             (allGames as any[]).push(newGame);
 
             // Delete the matchup since it's now a game
-            await db.delete(schema.matchups).where(eq(schema.matchups.id, matchup.id));
+            await db.delete(matchups).where(eq(matchups.id, matchup.id));
 
             placedGames.push(newGame);
             createdFromMatchups++;
