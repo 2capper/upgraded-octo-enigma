@@ -3141,17 +3141,39 @@ Waterdown 10U AA
       console.log(`[Auto-Place] ${matchupsToPlace.length} matchups to convert, ${unplacedGames.length} unplaced games`);
 
       // Determine dates to use
-      const dates: string[] = [];
+      const allDates: string[] = [];
       if (selectedDate) {
-        dates.push(selectedDate);
+        allDates.push(selectedDate);
       } else {
         // Use tournament date range
         const start = new Date(tournament.startDate);
         const end = new Date(tournament.endDate);
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          dates.push(d.toISOString().split('T')[0]);
+          allDates.push(d.toISOString().split('T')[0]);
         }
       }
+
+      // 3-DAY TOURNAMENT LOGIC:
+      // If tournament has 3+ days, treat as: Day 1 = pool play (1 game), Day 2 = pool play (2 games), Day 3+ = playoffs only
+      // Pool play games should only be placed on Days 1 and 2
+      const poolPlayDates = allDates.length >= 3 
+        ? allDates.slice(0, 2)  // First 2 days for pool play
+        : allDates;             // Use all dates if shorter tournament
+      
+      const playoffDates = allDates.length >= 3
+        ? allDates.slice(2)     // Day 3+ for playoffs
+        : allDates;             // Use all dates if shorter tournament
+      
+      // Pitch count distribution: Day 1 = max 1 game per team, Day 2 = max 2 games per team
+      // This maps to specific days for per-day limits
+      type DayGameLimit = { date: string; maxGames: number };
+      const perDayLimits: DayGameLimit[] = poolPlayDates.map((date, index) => ({
+        date,
+        maxGames: index === 0 ? 1 : 2  // Day 1: 1 game, Day 2+: 2 games
+      }));
+      
+      console.log(`[Auto-Place] Pool play dates: ${poolPlayDates.join(', ')}`);
+      console.log(`[Auto-Place] Per-day limits:`, perDayLimits.map(l => `${l.date}=${l.maxGames}`).join(', '));
 
       // Generate time slots (8 AM to 8 PM, 30-min intervals)
       const timeSlots: string[] = [];
@@ -3161,7 +3183,6 @@ Waterdown 10U AA
       }
 
       const minRestMinutes = tournament.minRestMinutes || 30;
-      const maxGamesPerDay = tournament.maxGamesPerDay || 3;
       const gameDuration = 90; // Default game duration
       
       // Cross-day rest: minimum hours between last game one day and first game next day
@@ -3252,12 +3273,17 @@ Waterdown 10U AA
         return true;
       };
 
-      // Helper: check max games per day for a team
+      // Helper: check max games per day for a team (uses pitch count distribution)
       const checkMaxGamesPerDay = (teamId: string | null, date: string): boolean => {
         if (!teamId) return true;
         const slots = teamSchedule[teamId] || [];
         const gamesOnDay = slots.filter(s => s.date === date).length;
-        return gamesOnDay < maxGamesPerDay;
+        
+        // Use pitch count distribution if this is a pool play date
+        const dayLimit = perDayLimits.find(l => l.date === date);
+        const maxForThisDay = dayLimit ? dayLimit.maxGames : 3; // Default to 3 if not a pool play date
+        
+        return gamesOnDay < maxForThisDay;
       };
 
       // Helper: check diamond slot availability
@@ -3280,12 +3306,16 @@ Waterdown 10U AA
       const findValidSlot = (
         homeTeamId: string, 
         awayTeamId: string, 
-        skipGameId?: string
+        skipGameId?: string,
+        isPlayoff: boolean = false
       ): { date: string; time: string; diamond: typeof diamonds[0] } | null => {
         const homeTeam = allTeams.find(t => t.id === homeTeamId);
         const awayTeam = allTeams.find(t => t.id === awayTeamId);
+        
+        // Use appropriate dates based on game type
+        const datesToUse = isPlayoff ? playoffDates : poolPlayDates;
 
-        for (const date of dates) {
+        for (const date of datesToUse) {
           // Check max games per day for both teams first
           if (!checkMaxGamesPerDay(homeTeamId, date) || !checkMaxGamesPerDay(awayTeamId, date)) {
             continue;
@@ -3358,9 +3388,41 @@ Waterdown 10U AA
         diamondSchedule[diamondId][date].push(newSlot);
       };
 
-      // STEP 2a: Place matchups by creating new games with slots
-      for (const matchup of matchupsToPlace) {
-        const slot = findValidSlot(matchup.homeTeamId, matchup.awayTeamId);
+      // SNAKE PLACEMENT: Interleave matchups from different pools
+      // Instead of placing all Pool A games, then all Pool B, etc., we interleave:
+      // Pool A Game 1, Pool B Game 1, Pool C Game 1, Pool A Game 2, Pool B Game 2, etc.
+      const organizeMatchupsSnakeOrder = (matchups: typeof matchupsToPlace): typeof matchupsToPlace => {
+        // Group matchups by pool
+        const byPool: Record<string, typeof matchupsToPlace> = {};
+        for (const matchup of matchups) {
+          if (!byPool[matchup.poolId]) byPool[matchup.poolId] = [];
+          byPool[matchup.poolId].push(matchup);
+        }
+        
+        const poolIds = Object.keys(byPool);
+        const snakeOrdered: typeof matchupsToPlace = [];
+        
+        // Find max games in any pool
+        const maxGamesPerPool = Math.max(...poolIds.map(p => byPool[p].length));
+        
+        // Interleave: take game index i from each pool in sequence
+        for (let i = 0; i < maxGamesPerPool; i++) {
+          for (const poolId of poolIds) {
+            if (byPool[poolId][i]) {
+              snakeOrdered.push(byPool[poolId][i]);
+            }
+          }
+        }
+        
+        return snakeOrdered;
+      };
+      
+      const snakeOrderedMatchups = organizeMatchupsSnakeOrder(matchupsToPlace);
+      console.log(`[Auto-Place] Snake ordering: ${snakeOrderedMatchups.length} matchups interleaved across pools`);
+
+      // STEP 2a: Place matchups by creating new games with slots (snake order)
+      for (const matchup of snakeOrderedMatchups) {
+        const slot = findValidSlot(matchup.homeTeamId, matchup.awayTeamId, undefined, false);
         const homeTeam = allTeams.find(t => t.id === matchup.homeTeamId);
         const awayTeam = allTeams.find(t => t.id === matchup.awayTeamId);
         
@@ -3418,9 +3480,9 @@ Waterdown 10U AA
         }
       }
 
-      // STEP 2b: Place any existing unplaced games
+      // STEP 2b: Place any existing unplaced games (use isPlayoff flag from game)
       for (const game of unplacedGames) {
-        const slot = findValidSlot(game.homeTeamId!, game.awayTeamId!, game.id);
+        const slot = findValidSlot(game.homeTeamId!, game.awayTeamId!, game.id, game.isPlayoff === true);
         const homeTeam = allTeams.find(t => t.id === game.homeTeamId);
         const awayTeam = allTeams.find(t => t.id === game.awayTeamId);
         
