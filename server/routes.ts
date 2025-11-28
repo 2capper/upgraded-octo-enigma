@@ -4484,10 +4484,20 @@ Waterdown 10U AA
         createdPools.push(pool);
       }
       
-      // Distribute teams evenly across pools (round-robin)
+      // Distribute teams evenly across pools using SNAKE PATTERN
+      // Round 1: 1→A, 2→B, 3→C, 4→D
+      // Round 2: 5→D, 6→C, 7→B, 8→A (reverse)
+      // Round 3: 9→A, 10→B, 11→C, 12→D
+      // This ensures balanced pool strength when teams are seeded/ranked
       const updatedTeams = [];
       for (let i = 0; i < teams.length; i++) {
-        const poolIndex = i % numberOfPools;
+        const round = Math.floor(i / numberOfPools);
+        const positionInRound = i % numberOfPools;
+        // Alternate direction each round (snake pattern)
+        const poolIndex = round % 2 === 0 
+          ? positionInRound  // Forward: 0,1,2,3
+          : (numberOfPools - 1 - positionInRound);  // Reverse: 3,2,1,0
+        
         const team = teams[i];
         const updated = await teamService.updateTeam(team.id, {
           poolId: createdPools[poolIndex].id

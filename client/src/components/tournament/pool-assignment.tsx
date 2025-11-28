@@ -241,7 +241,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
     return `Pool ${letter}`;
   };
 
-  // Create pools mutation
+  // Create pools AND auto-distribute teams mutation (one-click)
   const createPoolsMutation = useMutation({
     mutationFn: async () => {
       if (!divisionId) {
@@ -251,23 +251,19 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
         throw new Error('Number of pools must be configured in tournament settings');
       }
       
-      const promises = [];
-      for (let i = 0; i < numberOfPools; i++) {
-        promises.push(
-          apiRequest('POST', `/api/tournaments/${tournamentId}/pools`, {
-            id: nanoid(),
-            name: getPoolName(i),
-            ageDivisionId: divisionId,
-          })
-        );
-      }
-      return await Promise.all(promises);
+      // Call auto-distribute endpoint which creates pools AND distributes teams
+      const response = await apiRequest('POST', `/api/tournaments/${tournamentId}/auto-distribute-pools`, {
+        numberOfPools,
+        divisionId,
+      });
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'pools'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'teams'] });
       toast({
-        title: 'Pools Created',
-        description: `Successfully created ${numberOfPools} pools`,
+        title: 'Pools Created & Teams Distributed',
+        description: data.message || `Created ${numberOfPools} pools and distributed teams using snake pattern`,
       });
     },
     onError: (error: Error) => {
@@ -359,7 +355,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
                   No pools have been created yet for this division.
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Click below to create {numberOfPools} pools based on your tournament settings.
+                  Click below to create {numberOfPools} pools and automatically distribute {filteredTeams.length} teams using snake pattern (balanced seeding).
                 </p>
               </div>
               <Button
@@ -368,7 +364,7 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
                 style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
                 data-testid="button-create-pools"
               >
-                {createPoolsMutation.isPending ? 'Creating...' : `Create ${numberOfPools} Pools`}
+                {createPoolsMutation.isPending ? 'Creating Pools & Distributing Teams...' : `Create ${numberOfPools} Pools & Distribute Teams`}
               </Button>
             </div>
           ) : (
