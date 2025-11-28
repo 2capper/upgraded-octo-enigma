@@ -135,6 +135,54 @@ router.post("/tournaments/:tournamentId/allocations/bulk", requireAdmin, async (
       })
     );
 
+    const conflicts: string[] = [];
+    
+    for (const newAlloc of validatedAllocations) {
+      const existingAllocations = await allocationService.getExistingAllocations(
+        tournamentId,
+        newAlloc.diamondId,
+        newAlloc.date
+      );
+
+      for (const existing of existingAllocations) {
+        if (allocationService.checkTimeOverlap(
+          newAlloc.startTime,
+          newAlloc.endTime,
+          existing.startTime,
+          existing.endTime
+        )) {
+          conflicts.push(`Diamond allocation on ${newAlloc.date} overlaps with existing block (${existing.startTime}-${existing.endTime})`);
+        }
+      }
+
+      for (const otherNew of validatedAllocations) {
+        if (newAlloc === otherNew) continue;
+        if (newAlloc.diamondId !== otherNew.diamondId || newAlloc.date !== otherNew.date) continue;
+        
+        if (allocationService.checkTimeOverlap(
+          newAlloc.startTime,
+          newAlloc.endTime,
+          otherNew.startTime,
+          otherNew.endTime
+        )) {
+          const conflictKey = `${newAlloc.diamondId}-${newAlloc.date}-${Math.min(
+            parseInt(newAlloc.startTime.replace(':', '')),
+            parseInt(otherNew.startTime.replace(':', ''))
+          )}`;
+          if (!conflicts.some(c => c.includes(conflictKey))) {
+            conflicts.push(`Multiple allocations on ${newAlloc.date} overlap with each other`);
+          }
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: "Time slot conflicts detected",
+        conflicts: [...new Set(conflicts)]
+      });
+    }
+
     const createdAllocations = await allocationService.bulkCreate(validatedAllocations);
     res.status(201).json({
       message: `Created ${createdAllocations.length} allocations`,
