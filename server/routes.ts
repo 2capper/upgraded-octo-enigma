@@ -3378,6 +3378,7 @@ Waterdown 10U AA
               date: slot.date,
               time: slot.time,
               diamondId: slot.diamond.id,
+              location: slot.diamond.name,
               status: 'scheduled',
               homeScore: null,
               awayScore: null,
@@ -3428,7 +3429,8 @@ Waterdown 10U AA
             const updatedGame = await gameService.updateGame(game.id, {
               date: slot.date,
               time: slot.time,
-              diamondId: slot.diamond.id
+              diamondId: slot.diamond.id,
+              location: slot.diamond.name
             });
 
             updateTracking(game.homeTeamId!, game.awayTeamId!, slot.date, slot.time, slot.diamond.id);
@@ -3439,6 +3441,7 @@ Waterdown 10U AA
               date: slot.date,
               time: slot.time,
               diamondId: slot.diamond.id,
+              location: slot.diamond.name,
               durationMinutes: gameDuration
             });
 
