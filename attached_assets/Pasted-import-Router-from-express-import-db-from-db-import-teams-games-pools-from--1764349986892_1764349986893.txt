@@ -1,0 +1,100 @@
+import { Router } from "express";
+import { db } from "../db";
+import { teams, games, pools } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { generateGuaranteedMatchups } from "../utils/matchup-generator";
+
+const router = Router();
+
+// AUTO-DISTRIBUTE TEAMS INTO POOLS
+router.post("/tournaments/:tournamentId/auto-distribute", async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { divisionName, poolCount } = req.body; 
+
+    // 1. Get Teams in Division
+    const allTeams = await db.select().from(teams).where(eq(teams.tournamentId, tournamentId));
+    // Filter by division name match
+    const divisionTeams = allTeams.filter(t => t.division === divisionName);
+
+    if (divisionTeams.length === 0) return res.status(400).json({ error: "No teams found in division" });
+
+    // 2. Get Pools
+    const allPools = await db.select().from(pools).where(eq(pools.tournamentId, tournamentId));
+    
+    // We need to find the pools associated with this division
+    // Note: This relies on your UI passing the correct poolCount or us finding them
+    // For simplicity, we grab the first 'poolCount' pools available for this division logic
+    // OR create them if you prefer. Assuming pools exist:
+    
+    // Sort logic: Put "Willing to play extra" teams at the front of the list
+    // This ensures they drop into Pool A/B (the potentially larger pools)
+    divisionTeams.sort((a, b) => {
+        if (a.willingToPlayExtra === b.willingToPlayExtra) return 0;
+        return a.willingToPlayExtra ? -1 : 1; 
+    });
+
+    const targetPools = allPools
+        .filter(p => !p.name.includes("Playoff")) // Exclude playoff pools
+        .slice(0, poolCount);
+
+    if (targetPools.length === 0) return res.status(400).json({ error: "No pools found. Create pools first." });
+
+    // 3. Distribute
+    const updates = divisionTeams.map((team, index) => {
+        const poolIndex = index % targetPools.length;
+        const pool = targetPools[poolIndex];
+        
+        return db.update(teams)
+            .set({ poolId: pool.id })
+            .where(eq(teams.id, team.id));
+    });
+
+    await Promise.all(updates);
+    res.json({ success: true, message: `Distributed ${divisionTeams.length} teams.` });
+
+  } catch (error) {
+    console.error("Distribution failed:", error);
+    res.status(500).json({ error: "Distribution failed" });
+  }
+});
+
+// GENERATE MATCHUPS (Game Guarantee)
+router.post("/tournaments/:tournamentId/generate-matchups", async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { divisionName, minGames } = req.body;
+
+    const allTeams = await db.select().from(teams).where(eq(teams.tournamentId, tournamentId));
+    const divisionTeams = allTeams.filter(t => t.division === divisionName && t.poolId);
+
+    // Run the Smart Generator
+    // This handles the "16 teams = 120 games" bug by only generating 'minGames' per team.
+    const matchups = generateGuaranteedMatchups(divisionTeams, minGames || 3);
+
+    // Save to DB
+    for (const m of matchups) {
+        await db.insert(games).values({
+            id: nanoid(),
+            tournamentId,
+            poolId: m.poolId,
+            homeTeamId: m.homeTeamId,
+            awayTeamId: m.awayTeamId,
+            status: 'scheduled',
+            date: "", // To be filled by scheduler
+            time: "",
+            location: "", 
+            // Mark cross-pool games? Add notes?
+        });
+    }
+
+    res.json({ success: true, count: matchups.length });
+
+  } catch (error) {
+    console.error("Generation failed:", error);
+    res.status(500).json({ error: "Matchup generation failed" });
+  }
+});
+
+export default router;
