@@ -3093,11 +3093,12 @@ Waterdown 10U AA
         return res.status(404).json({ error: "Tournament not found" });
       }
 
-      // Get all games, teams, diamonds, and allocations
+      // Get all data needed
       const allGames = await gameService.getGames(tournamentId);
       const allTeams = await teamService.getTeams(tournamentId);
       const allDiamonds = await diamondService.getDiamonds(tournament.organizationId);
       const allocations = await allocationService.getAllocations(tournamentId);
+      const matchups = await tournamentService.getMatchups(tournamentId);
 
       // Filter diamonds if specific ones are selected
       const diamonds = diamondIds?.length > 0
@@ -3108,6 +3109,41 @@ Waterdown 10U AA
         return res.status(400).json({ error: "No diamonds available for scheduling" });
       }
 
+      // STEP 1: Convert any unplaced matchups to games first
+      const createdFromMatchups: any[] = [];
+      for (const matchup of matchups) {
+        // Check if a game already exists for this matchup (check both home/away teams)
+        // Some games might not have poolId set, so check by teams only to be safe
+        const existingGame = allGames.find(g => 
+          (g.homeTeamId === matchup.homeTeamId && g.awayTeamId === matchup.awayTeamId) ||
+          (g.homeTeamId === matchup.awayTeamId && g.awayTeamId === matchup.homeTeamId)
+        );
+        
+        if (!existingGame) {
+          // Create a new game from the matchup (without date/time/diamond)
+          const homeTeam = allTeams.find(t => t.id === matchup.homeTeamId);
+          const pool = await tournamentService.getPoolById(matchup.poolId);
+          
+          const newGame = await gameService.createGame({
+            id: `${tournamentId}-pool-${matchup.poolId}-game-${nanoid(8)}`,
+            tournamentId,
+            poolId: matchup.poolId,
+            homeTeamId: matchup.homeTeamId,
+            awayTeamId: matchup.awayTeamId,
+            status: 'scheduled',
+            homeScore: null,
+            awayScore: null,
+            isPlayoff: false,
+            ageDivisionId: homeTeam?.ageDivisionId || pool?.ageDivisionId || null,
+          });
+          
+          allGames.push(newGame);
+          createdFromMatchups.push(newGame);
+        }
+      }
+
+      console.log(`[Auto-Place] Created ${createdFromMatchups.length} games from matchups`);
+
       // Get unplaced games (no date/time/diamond)
       const unplacedGames = allGames.filter(g => !g.date || !g.time || !g.diamondId);
       
@@ -3116,7 +3152,8 @@ Waterdown 10U AA
           success: true, 
           message: "All games are already placed",
           placedCount: 0,
-          failedCount: 0
+          failedCount: 0,
+          createdFromMatchups: createdFromMatchups.length
         });
       }
 
@@ -3143,9 +3180,11 @@ Waterdown 10U AA
       const minRestMinutes = tournament.minRestMinutes || 30;
       const maxGamesPerDay = tournament.maxGamesPerDay || 3;
       const gameDuration = 90; // Default game duration
+      
+      // Cross-day rest: minimum hours between last game one day and first game next day
+      const crossDayRestHours = 10; // e.g., game ending at 9pm means earliest next day is 7am
 
       // Build a mutable schedule tracking structure
-      // Track ALL team games by date (for rest and max-games-per-day checks)
       type GameSlot = { date: string; startMinutes: number; endMinutes: number };
       const teamSchedule: Record<string, GameSlot[]> = {};
       
@@ -3179,19 +3218,54 @@ Waterdown 10U AA
         }
       }
 
-      // Helper: check rest time compliance for a team on a given slot
+      // Helper: get the next day's date string
+      const getNextDay = (dateStr: string): string => {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+      };
+
+      // Helper: get the previous day's date string
+      const getPrevDay = (dateStr: string): string => {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() - 1);
+        return d.toISOString().split('T')[0];
+      };
+
+      // Helper: check rest time compliance for a team (same-day and cross-day)
       const checkRestTime = (teamId: string | null, date: string, startMinutes: number, endMinutes: number): boolean => {
         if (!teamId) return true;
         const slots = teamSchedule[teamId] || [];
-        const sameDay = slots.filter(s => s.date === date);
         
+        // Same-day rest check
+        const sameDay = slots.filter(s => s.date === date);
         for (const existing of sameDay) {
           // Check if proposed slot conflicts with existing (with rest buffer)
-          // New game can't start before existing game ends + rest
           if (startMinutes < existing.endMinutes + minRestMinutes && endMinutes > existing.startMinutes - minRestMinutes) {
             return false;
           }
         }
+        
+        // Cross-day rest check: late game yesterday vs early game today
+        const prevDay = getPrevDay(date);
+        const prevDaySlots = slots.filter(s => s.date === prevDay);
+        for (const existing of prevDaySlots) {
+          // If yesterday's game ended late (after 6pm = 1080 minutes)
+          if (existing.endMinutes >= 18 * 60) {
+            // Calculate cross-day rest: remaining minutes yesterday + minutes into today
+            const minutesAfterMidnightYesterday = (24 * 60) - existing.endMinutes;
+            const totalRestMinutes = minutesAfterMidnightYesterday + startMinutes;
+            const requiredRestMinutes = crossDayRestHours * 60;
+            
+            if (totalRestMinutes < requiredRestMinutes) {
+              return false;
+            }
+          }
+        }
+        
+        // Also check: if we're scheduling late today, ensure tomorrow's early games are ok
+        // (This is handled when we schedule tomorrow's games, so we just need to track properly)
+        
         return true;
       };
 
@@ -3241,7 +3315,7 @@ Waterdown 10U AA
             const startMinutes = hours * 60 + minutes;
             const endMinutes = startMinutes + gameDuration;
 
-            // Check rest time for both teams
+            // Check rest time for both teams (includes same-day and cross-day rest)
             if (!checkRestTime(game.homeTeamId, date, startMinutes, endMinutes) ||
                 !checkRestTime(game.awayTeamId, date, startMinutes, endMinutes)) {
               continue;
@@ -3319,8 +3393,23 @@ Waterdown 10U AA
             id: game.id,
             homeTeam: homeTeam?.name,
             awayTeam: awayTeam?.name,
-            reason: "No valid slot found (rest time, max games per day, or diamond conflict)"
+            reason: "No valid slot found (rest time, max games/day, cross-day rest, or diamond conflict)"
           });
+        }
+      }
+
+      // Delete matchups that were successfully placed as games
+      if (placedGames.length > 0) {
+        for (const game of placedGames) {
+          // Find and delete the corresponding matchup
+          const matchup = matchups.find(m => 
+            m.homeTeamId === game.homeTeamId && 
+            m.awayTeamId === game.awayTeamId &&
+            m.poolId === game.poolId
+          );
+          if (matchup) {
+            await db.delete(schema.matchups).where(eq(schema.matchups.id, matchup.id));
+          }
         }
       }
 
@@ -3329,6 +3418,7 @@ Waterdown 10U AA
         message: `Placed ${placedGames.length} of ${unplacedGames.length} games`,
         placedCount: placedGames.length,
         failedCount: failedGames.length,
+        createdFromMatchups: createdFromMatchups.length,
         games: placedGames,
         failed: failedGames
       });
