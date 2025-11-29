@@ -445,7 +445,7 @@ export function DiamondAllocationsTab({
                 <Grid3X3 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Field Allocation Manager</h2>
+                <h2 className="text-2xl font-bold text-foreground dark:text-gray-100">Field Allocation Manager</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Reserve diamond time blocks for your tournament divisions
                 </p>
@@ -1109,7 +1109,7 @@ export function DiamondAllocationsTab({
                   {diamonds.map(diamond => (
                     <label 
                       key={diamond.id} 
-                      className="flex items-center gap-2 p-2 rounded hover:bg-white cursor-pointer"
+                      className="flex items-center gap-2 p-2 rounded hover:bg-card cursor-pointer"
                       data-testid={`checkbox-quickfill-diamond-${diamond.id}`}
                     >
                       <Checkbox 

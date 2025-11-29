@@ -214,9 +214,9 @@ export function TournamentManager({ tournaments }: TournamentManagerProps) {
     <>
       <div className="space-y-3">
         {tournaments.map((tournament) => (
-          <div key={tournament.id} className="flex items-center justify-between p-4 border rounded-lg bg-white hover:shadow-sm transition-shadow">
+          <div key={tournament.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:shadow-sm transition-shadow">
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-900">{tournament.name}</h4>
+              <h4 className="font-semibold text-foreground">{tournament.name}</h4>
               <p className="text-sm text-gray-600 mt-1">
                 {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
               </p>

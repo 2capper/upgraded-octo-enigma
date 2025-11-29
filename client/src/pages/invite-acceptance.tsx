@@ -272,7 +272,7 @@ export default function InviteAcceptance() {
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Users className="w-5 h-5 text-green-600" />
-                  <h3 className="font-semibold text-gray-900">Your Teams</h3>
+                  <h3 className="font-semibold text-foreground">Your Teams</h3>
                 </div>
                 <ul className="space-y-2">
                   {invitedTeams.map((team) => (

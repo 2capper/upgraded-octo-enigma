@@ -406,7 +406,7 @@ export function TeamManagementDialog({
                     {openSlots.map((slot) => (
                       <div
                         key={slot.gameId}
-                        className="flex items-center justify-between bg-white rounded-md p-3 border border-amber-100"
+                        className="flex items-center justify-between bg-card rounded-md p-3 border border-amber-100"
                       >
                         <div className="flex items-center gap-3">
                           <Calendar className="w-4 h-4 text-gray-400" />

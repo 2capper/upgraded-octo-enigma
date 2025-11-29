@@ -120,7 +120,7 @@ export function QRCodeShare({ tournament, organizationLogoUrl }: QRCodeShareProp
       <CardContent className="space-y-4">
         <div className="flex justify-center">
           <div 
-            className="rounded-lg border-2 p-2 bg-white"
+            className="rounded-lg border-2 p-2 bg-card"
             style={{ borderColor: primaryColor }}
           >
             <QRCodeSVG

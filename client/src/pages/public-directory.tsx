@@ -66,7 +66,7 @@ export default function PublicDirectory() {
   }, [tournaments, searchQuery, typeFilter]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-card">
       {/* Header */}
       <header className="bg-[var(--deep-navy)] border-b border-white/10 sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto px-4 py-4">
@@ -195,7 +195,7 @@ export default function PublicDirectory() {
       </section>
 
       {/* How It Works */}
-      <section className="py-16 md:py-20 bg-white">
+      <section className="py-16 md:py-20 bg-card">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h3 className="text-3xl md:text-4xl font-bold text-[var(--deep-navy)] mb-4 font-['Oswald']">
@@ -287,7 +287,7 @@ export default function PublicDirectory() {
               {sortedAndFilteredTournaments.map((tournament) => (
                 <Card
                   key={tournament.id}
-                  className="bg-white hover:shadow-2xl transition-all cursor-pointer border-2 border-gray-200 hover:border-[var(--field-green)] overflow-hidden group"
+                  className="bg-card hover:shadow-2xl transition-all cursor-pointer border-2 border-gray-200 hover:border-[var(--field-green)] overflow-hidden group"
                   onClick={() => setLocation(`/tournament/${tournament.id}`)}
                   data-testid={`card-tournament-${tournament.id}`}
                 >

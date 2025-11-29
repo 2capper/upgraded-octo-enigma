@@ -79,76 +79,77 @@
 }
 
 .dark {
-  --background: hsl(222, 20%, 10%);
-  --foreground: hsl(210, 20%, 95%);
-  --muted: hsl(222, 18%, 16%);
-  --muted-foreground: hsl(215, 15%, 65%);
-  --popover: hsl(222, 20%, 12%);
-  --popover-foreground: hsl(210, 20%, 95%);
-  --card: hsl(222, 18%, 14%);
-  --card-foreground: hsl(210, 20%, 95%);
-  --border: hsl(220, 15%, 25%);
-  --input: hsl(220, 15%, 20%);
+  /* Pro Slate Foundation - Rich slate-blue, not pure black */
+  --background: hsl(222, 47%, 11%);
+  --foreground: hsl(210, 40%, 98%);
+  --muted: hsl(217, 33%, 17%);
+  --muted-foreground: hsl(215, 20%, 65%);
+  --popover: hsl(222, 47%, 11%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --card: hsl(217, 33%, 17%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --border: hsl(217, 33%, 25%);
+  --input: hsl(217, 33%, 17%);
   --primary: hsl(5, 50%, 55%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(113, 40%, 38%);
+  --secondary: hsl(113, 40%, 42%);
   --secondary-foreground: hsl(0, 0%, 100%);
-  --accent: hsl(222, 18%, 20%);
-  --accent-foreground: hsl(210, 20%, 95%);
-  --destructive: hsl(0, 70%, 55%);
+  --accent: hsl(217, 33%, 22%);
+  --accent-foreground: hsl(210, 40%, 98%);
+  --destructive: hsl(0, 63%, 51%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --ring: hsl(113, 40%, 38%);
+  --ring: hsl(113, 40%, 42%);
   --radius: 0rem;
 
-  /* Dugout Desk Brand Colors - Dark Mode */
-  --deep-navy: hsl(210, 20%, 95%);
-  --field-green: hsl(113, 45%, 42%);
-  --clay-red: hsl(5, 50%, 55%);
-  --light-gray: hsl(222, 18%, 16%);
-  --white: hsl(210, 20%, 95%);
+  /* Dugout Desk Brand Colors - Dark Mode Pro Slate */
+  --deep-navy: hsl(210, 40%, 98%);
+  --field-green: hsl(113, 45%, 45%);
+  --clay-red: hsl(5, 55%, 58%);
+  --light-gray: hsl(217, 33%, 17%);
+  --white: hsl(210, 40%, 98%);
   
   /* Legacy color aliases for dark mode */
-  --splash-orange: hsl(5, 50%, 55%);
-  --splash-dark-orange: hsl(5, 50%, 45%);
-  --splash-navy: hsl(210, 20%, 95%);
-  --splash-dark-navy: hsl(222, 18%, 20%);
-  --splash-white: hsl(210, 20%, 95%);
-  --splash-light-gray: hsl(222, 18%, 16%);
-  --splash-gray: hsl(215, 15%, 65%);
-  --splash-dark-gray: hsl(210, 20%, 95%);
+  --splash-orange: hsl(5, 55%, 58%);
+  --splash-dark-orange: hsl(5, 50%, 48%);
+  --splash-navy: hsl(210, 40%, 98%);
+  --splash-dark-navy: hsl(217, 33%, 22%);
+  --splash-white: hsl(210, 40%, 98%);
+  --splash-light-gray: hsl(217, 33%, 17%);
+  --splash-gray: hsl(215, 20%, 65%);
+  --splash-dark-gray: hsl(210, 40%, 98%);
   
   /* Forest Green for backward compatibility */
-  --forest-green: hsl(113, 45%, 42%);
-  --falcons-green: hsl(113, 45%, 42%);
+  --forest-green: hsl(113, 45%, 45%);
+  --falcons-green: hsl(113, 45%, 45%);
   --yellow: hsl(45, 100%, 55%);
   
-  /* Text colors for dark mode - HIGH CONTRAST */
-  --text-primary: hsl(210, 20%, 95%);
-  --text-secondary: hsl(215, 15%, 70%);
-  --text-light: hsl(215, 12%, 55%);
+  /* Text colors - Pro Slate hierarchy (lighter = closer to user) */
+  --text-primary: hsl(210, 40%, 98%);
+  --text-secondary: hsl(215, 20%, 70%);
+  --text-light: hsl(215, 15%, 55%);
   --text-white: hsl(0, 0%, 100%);
   
-  /* Background colors for dark mode - DARKER BASE */
-  --bg-primary: hsl(222, 20%, 10%);
-  --bg-secondary: hsl(222, 18%, 14%);
-  --bg-dark: hsl(222, 22%, 8%);
-  --bg-darker: hsl(222, 25%, 6%);
-  --bg-hero: linear-gradient(135deg, hsl(222, 20%, 12%) 0%, hsl(222, 22%, 8%) 100%);
+  /* Background depth - lighter surfaces feel "lifted" */
+  --bg-primary: hsl(222, 47%, 11%);
+  --bg-secondary: hsl(217, 33%, 17%);
+  --bg-dark: hsl(222, 47%, 9%);
+  --bg-darker: hsl(222, 47%, 7%);
+  --bg-hero: linear-gradient(135deg, hsl(217, 33%, 17%) 0%, hsl(222, 47%, 11%) 100%);
   
-  /* Component colors for dark mode - BETTER CONTRAST */
-  --header-bg: hsl(222, 22%, 8%);
+  /* Component colors - Pro Slate depth hierarchy */
+  --header-bg: hsl(222, 47%, 9%);
   --header-text: hsl(0, 0%, 100%);
-  --card-bg: hsl(222, 18%, 14%);
-  --card-border: hsl(220, 15%, 22%);
-  --table-header: hsl(222, 18%, 12%);
-  --table-row-even: hsl(222, 18%, 11%);
-  --table-row-hover: hsl(222, 18%, 18%);
+  --card-bg: hsl(217, 33%, 17%);
+  --card-border: hsl(217, 33%, 25%);
+  --table-header: hsl(217, 33%, 14%);
+  --table-row-even: hsl(217, 33%, 13%);
+  --table-row-hover: hsl(217, 33%, 20%);
   
-  /* Shadow and effects for dark mode */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  /* Shadows use subtle glow for depth instead of pure black */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 @layer base {

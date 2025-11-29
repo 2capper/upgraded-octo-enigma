@@ -284,7 +284,7 @@ export default function AdminPortal() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-card border border-gray-200 rounded-lg p-4">
             <div className="flex items-center">
               <Database className="h-6 w-6 mr-3" style={{ color: 'var(--field-green)' }} />
               <div>
@@ -294,7 +294,7 @@ export default function AdminPortal() {
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-card border border-gray-200 rounded-lg p-4">
             <div className="flex items-center">
               <Users className="h-6 w-6 mr-3" style={{ color: 'var(--field-green)' }} />
               <div>
@@ -304,7 +304,7 @@ export default function AdminPortal() {
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-card border border-gray-200 rounded-lg p-4">
             <div className="flex items-center">
               <Calendar className="h-6 w-6 mr-3" style={{ color: 'var(--field-green)' }} />
               <div>
@@ -314,7 +314,7 @@ export default function AdminPortal() {
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-card border border-gray-200 rounded-lg p-4">
             <div className="flex items-center">
               <Calendar className="h-6 w-6 mr-3" style={{ color: 'var(--clay-red)' }} />
               <div>
@@ -740,19 +740,19 @@ export default function AdminPortal() {
                   <div>
                     <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Tournament Overview</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="bg-white border border-[var(--card-border)] p-3 rounded">
+                      <div className="bg-card border border-[var(--card-border)] p-3 rounded">
                         <p className="text-[var(--text-secondary)]">Age Divisions</p>
                         <p className="text-xl font-bold" style={{ color: 'var(--deep-navy)' }}>{ageDivisions.length}</p>
                       </div>
-                      <div className="bg-white border border-[var(--card-border)] p-3 rounded">
+                      <div className="bg-card border border-[var(--card-border)] p-3 rounded">
                         <p className="text-[var(--text-secondary)]">Pools</p>
                         <p className="text-xl font-bold" style={{ color: 'var(--deep-navy)' }}>{pools.length}</p>
                       </div>
-                      <div className="bg-white border border-[var(--card-border)] p-3 rounded">
+                      <div className="bg-card border border-[var(--card-border)] p-3 rounded">
                         <p className="text-[var(--text-secondary)]">Teams</p>
                         <p className="text-xl font-bold" style={{ color: 'var(--deep-navy)' }}>{teams.length}</p>
                       </div>
-                      <div className="bg-white border border-[var(--card-border)] p-3 rounded">
+                      <div className="bg-card border border-[var(--card-border)] p-3 rounded">
                         <p className="text-[var(--text-secondary)]">Total Games</p>
                         <p className="text-xl font-bold" style={{ color: 'var(--deep-navy)' }}>{games.length}</p>
                       </div>
@@ -761,7 +761,7 @@ export default function AdminPortal() {
                   
                   <div>
                     <h4 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Game Progress</h4>
-                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
+                    <div className="bg-card border border-[var(--card-border)] p-4 rounded">
                       <div className="flex justify-between items-center">
                         <span className="text-[var(--text-secondary)]">Completion Rate</span>
                         <span className="font-semibold" style={{ color: 'var(--deep-navy)' }}>
@@ -789,7 +789,7 @@ export default function AdminPortal() {
                     </div>
                     
                     {/* Post-Pool Play Report */}
-                    <div className="bg-white border border-[var(--card-border)] p-4 rounded mb-4">
+                    <div className="bg-card border border-[var(--card-border)] p-4 rounded mb-4">
                       <h5 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Post-Pool Play Report</h5>
                       <p className="text-sm text-[var(--text-secondary)] mb-4">
                         Generate after pool play ends. Shows complete pool standings with tie-breaker explanations, 
@@ -808,7 +808,7 @@ export default function AdminPortal() {
                     </div>
 
                     {/* Final Convenor Report */}
-                    <div className="bg-white border border-[var(--card-border)] p-4 rounded">
+                    <div className="bg-card border border-[var(--card-border)] p-4 rounded">
                       <h5 className="font-semibold mb-2" style={{ color: 'var(--deep-navy)' }}>Final Convenor Report</h5>
                       <p className="text-sm text-[var(--text-secondary)] mb-4">
                         Generate when tournament is complete. Includes all post-pool play information plus completed 

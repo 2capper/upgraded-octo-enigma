@@ -282,7 +282,7 @@ export function PublicPlayoffsTab({
                         return (
                           <div 
                             key={game.id} 
-                            className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                            className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow"
                             style={{ borderColor: "var(--brand-muted)" }}
                             data-testid={`playoff-game-${game.id}`}
                           >

@@ -37,7 +37,7 @@ export default function OrganizationPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Organization Not Found</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Organization Not Found</h2>
           <p className="text-gray-600 mb-6">The organization you're looking for doesn't exist.</p>
           <Link href="/">
             <Button>
@@ -119,7 +119,7 @@ export default function OrganizationPage() {
       {/* Tournaments Section */}
       <div className="container mx-auto px-4 py-12">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Tournaments</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Tournaments</h2>
           <p className="text-gray-600">
             {tournaments && tournaments.length > 0
               ? `${tournaments.length} tournament${tournaments.length > 1 ? 's' : ''} organized by ${organization.name}`
@@ -173,9 +173,9 @@ export default function OrganizationPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <div className="text-center py-12 bg-card rounded-lg border border-gray-200">
             <CalendarDays className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-xl font-semibold text-foreground mb-2">
               No Tournaments Yet
             </h3>
             <p className="text-gray-600">

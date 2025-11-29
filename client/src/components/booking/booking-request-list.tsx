@@ -169,7 +169,7 @@ export function BookingRequestList({ organizationId }: BookingRequestListProps) 
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No requests found</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">No requests found</h3>
             <p className="text-gray-500 mb-4">
               {selectedStatus === "all" 
                 ? "You haven't created any booking requests yet." 

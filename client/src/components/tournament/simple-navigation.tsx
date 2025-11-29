@@ -79,7 +79,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
     : (tournament?.secondaryColor || '#ffffff');
   
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
+    <nav className="bg-card shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
@@ -199,7 +199,7 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
         
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden pb-4 bg-white">
+          <div className="md:hidden pb-4 bg-card">
             <div className="flex flex-col space-y-2">
               <Link href={`/tournament/${tournamentId}`}>
                 <Button

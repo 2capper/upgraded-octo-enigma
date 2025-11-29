@@ -270,7 +270,7 @@ function ImpactAnalysisDialog({
                       : allTeams.find(t => t.id === game.homeTeamId);
                     
                     return (
-                      <div key={game.id} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-red-100">
+                      <div key={game.id} className="flex items-center justify-between text-sm bg-card p-2 rounded border border-red-100">
                         <span>{formatDate(game.date)} at {game.time || 'TBD'}</span>
                         <span className="text-gray-600">vs {opponent?.name || 'TBD'}</span>
                       </div>

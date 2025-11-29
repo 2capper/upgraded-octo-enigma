@@ -179,7 +179,7 @@ export const GameResultEditor = ({ games, teams, tournamentId }: GameResultEdito
   };
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-card border border-gray-200">
       <CardHeader>
         <CardTitle className="flex items-center">
           <Edit3 className="w-5 h-5 text-[var(--falcons-green)] mr-2" />

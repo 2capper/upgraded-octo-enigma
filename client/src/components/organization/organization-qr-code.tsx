@@ -45,7 +45,7 @@ export function OrganizationQRCode({
 
   const qrCodeContent = (
     <div className="flex flex-col items-center gap-4">
-      <div className="p-4 bg-white rounded-lg shadow-sm border">
+      <div className="p-4 bg-card rounded-lg shadow-sm border">
         <QRCodeSVG
           id={qrCodeId}
           value={targetUrl}

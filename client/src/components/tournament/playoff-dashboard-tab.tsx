@@ -71,7 +71,7 @@ export function PlayoffDashboardTab({ tournament, ageDivisions, diamonds }: Play
           
           <div className="space-y-8">
             <div>
-              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold mb-2 text-foreground dark:text-gray-100">
                 Step 1: Schedule Playoff Games (When & Where)
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -88,7 +88,7 @@ export function PlayoffDashboardTab({ tournament, ageDivisions, diamonds }: Play
             <div className="border-t border-gray-200 dark:border-gray-700" />
 
             <div>
-              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold mb-2 text-foreground dark:text-gray-100">
                 Step 2: Generate Playoff Bracket (Who Plays)
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">

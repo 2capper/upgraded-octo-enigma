@@ -165,7 +165,7 @@ export const StandingsTable = ({
 
   if (standingsByDivision.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 text-center">
+      <div className="bg-card rounded-xl shadow-lg p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No teams or games available to display standings.</p>
       </div>
     );
@@ -176,7 +176,7 @@ export const StandingsTable = ({
       {/* Mobile view - Cards */}
       <div className="md:hidden space-y-3">
         {teams.map((team, index) => (
-          <div key={team.id} className={`bg-white border rounded-lg p-4 ${team.forfeitLosses > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+          <div key={team.id} className={`bg-card border rounded-lg p-4 ${team.forfeitLosses > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div 
@@ -187,7 +187,7 @@ export const StandingsTable = ({
                 </div>
                 <div>
                   <div className="flex items-center">
-                    <span className="font-semibold text-gray-900">{team.name}</span>
+                    <span className="font-semibold text-foreground">{team.name}</span>
                     {team.isPoolWinner && (
                       <span 
                         className="ml-2 px-2 py-1 text-white text-xs rounded-full font-bold"
@@ -206,13 +206,13 @@ export const StandingsTable = ({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-gray-900">{team.points}</div>
+                <div className="text-2xl font-bold text-foreground">{team.points}</div>
                 <div className="text-xs text-gray-500">PTS</div>
               </div>
             </div>
             <div className={`grid gap-3 text-center ${(tournament?.showTiebreakers !== false) ? 'grid-cols-4' : 'grid-cols-2'}`}>
               <div>
-                <div className="text-sm font-semibold text-gray-900">{team.wins}-{team.losses}-{team.ties}</div>
+                <div className="text-sm font-semibold text-foreground">{team.wins}-{team.losses}-{team.ties}</div>
                 <div className="text-xs text-gray-500">W-L-T</div>
               </div>
               <div>
@@ -226,11 +226,11 @@ export const StandingsTable = ({
               {(tournament?.showTiebreakers !== false) && (
                 <>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">{team.runsAgainstPerInning.toFixed(3)}</div>
+                    <div className="text-sm font-semibold text-foreground">{team.runsAgainstPerInning.toFixed(3)}</div>
                     <div className="text-xs text-gray-500">RA/Inn</div>
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">{team.runsForPerInning.toFixed(3)}</div>
+                    <div className="text-sm font-semibold text-foreground">{team.runsForPerInning.toFixed(3)}</div>
                     <div className="text-xs text-gray-500">RF/Inn</div>
                   </div>
                 </>
@@ -261,7 +261,7 @@ export const StandingsTable = ({
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-card divide-y divide-gray-200">
             {teams.map((team, index) => (
               <tr key={team.id} className={`hover:bg-gray-50 transition-colors ${team.forfeitLosses > 0 ? 'bg-red-50' : ''}`}>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -274,7 +274,7 @@ export const StandingsTable = ({
                     </div>
                     <div className="ml-4">
                       <div className="flex items-center">
-                        <span className="text-sm font-medium text-gray-900">{team.name}</span>
+                        <span className="text-sm font-medium text-foreground">{team.name}</span>
                         {team.isPoolWinner && (
                           <span 
                             className="ml-2 px-2 py-1 text-white text-xs rounded-full font-bold"
@@ -305,10 +305,10 @@ export const StandingsTable = ({
                     </span>
                   </td>
                 )}
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground">
                   {team.wins + team.losses + team.ties}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground">
                   {`${team.wins}-${team.losses}-${team.ties}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-green-600">
@@ -319,18 +319,18 @@ export const StandingsTable = ({
                 </td>
                 {(tournament?.showTiebreakers !== false) && (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground font-semibold">
                       {team.defensiveInnings}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground font-semibold">
                       {team.runsAgainstPerInning.toFixed(3)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground font-semibold">
                       {team.runsForPerInning.toFixed(3)}
                     </td>
                   </>
                 )}
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-bold">
+                <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-foreground font-bold">
                   {team.points}
                 </td>
               </tr>
@@ -385,9 +385,9 @@ export const StandingsTable = ({
       {displayedDivisions.map(({ division, pools: divisionPools, overallStandings, poolStandings }) => (
         <div key={division.id} className="space-y-6">
           {/* Overall Division Standings */}
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 pl-[12px] pr-[12px] pt-[12px] pb-[12px]">
+          <div className="bg-card rounded-xl shadow-lg p-6 border border-gray-200 pl-[12px] pr-[12px] pt-[12px] pb-[12px]">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">{division.name} Overall Standings</h3>
+              <h3 className="text-xl font-semibold text-foreground">{division.name} Overall Standings</h3>
               <div className="text-sm text-gray-500">
                 {divisionPools.length} Pools • {overallStandings.length} Teams
               </div>
@@ -396,8 +396,8 @@ export const StandingsTable = ({
           </div>
 
           {/* Pool Standings with Tabs */}
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">{division.name} Pool Standings</h4>
+          <div className="bg-card rounded-xl shadow-lg p-6 border border-gray-200">
+            <h4 className="text-lg font-semibold text-foreground mb-4">{division.name} Pool Standings</h4>
             
             <Tabs defaultValue={poolStandings[0]?.pool.id} className="w-full">
               <TabsList className="grid w-full bg-gray-100" style={{ gridTemplateColumns: `repeat(${poolStandings.length}, minmax(0, 1fr))` }}>
@@ -424,8 +424,8 @@ export const StandingsTable = ({
 
       {/* Tiebreaker Information Section */}
       {(tournament?.showTiebreakers !== false) && (
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-8">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <div className="bg-card rounded-xl shadow-lg p-6 border border-gray-200 mt-8">
+          <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center">
             <span 
               className="text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3"
               style={{ backgroundColor: "var(--brand-primary)" }}
@@ -434,14 +434,14 @@ export const StandingsTable = ({
           </h4>
           <div className="text-sm text-gray-700 space-y-3">
             <div>
-              <p className="font-medium text-gray-900 mb-2">Point System:</p>
+              <p className="font-medium text-foreground mb-2">Point System:</p>
               <div className="ml-4 text-xs space-y-1">
                 <div><strong>Win</strong> = 2 pts | <strong>Tie</strong> = 1 pt | <strong>Loss</strong> = 0 pts</div>
               </div>
             </div>
             
             <div>
-              <p className="font-medium text-gray-900">When teams are tied in points, rankings are determined by:</p>
+              <p className="font-medium text-foreground">When teams are tied in points, rankings are determined by:</p>
               <ol className="list-decimal list-inside space-y-1 ml-4">
                 <li><strong>Teams with a forfeit loss are ineligible</strong> for tiebreakers</li>
                 <li><strong>Head-to-head record</strong> among tied teams</li>

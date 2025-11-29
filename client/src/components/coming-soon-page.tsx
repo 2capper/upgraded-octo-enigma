@@ -21,7 +21,7 @@ export const ComingSoonPage = ({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
-      <div className="bg-white border-b border-gray-200 py-4">
+      <div className="bg-card border-b border-gray-200 py-4">
         <div className="container mx-auto px-4">
           <Link href="/">
             <Button variant="ghost" size="sm" className="text-[var(--forest-green)]">
@@ -50,7 +50,7 @@ export const ComingSoonPage = ({
                 {icon}
               </div>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
               {featureName}
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -70,8 +70,8 @@ export const ComingSoonPage = ({
           )}
 
           {/* Benefits List */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">What's Included</h2>
+          <div className="bg-card rounded-xl shadow-lg p-8 mb-8">
+            <h2 className="text-2xl font-bold text-foreground mb-6">What's Included</h2>
             <div className="space-y-4">
               {benefits.map((benefit, index) => (
                 <div key={index} className="flex items-start gap-3">

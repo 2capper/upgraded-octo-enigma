@@ -85,7 +85,7 @@ export function WelcomePage() {
             <Trophy className="w-10 h-10 text-white" />
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Welcome, {capitalizedFirstName}! <Sparkles className="inline w-8 h-8 text-yellow-500 ml-2" />
           </h1>
           
@@ -142,7 +142,7 @@ export function WelcomePage() {
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="font-semibold text-gray-900 flex items-center gap-2">
+                        <div className="font-semibold text-foreground flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-blue-600" />
                           {org.name}
                         </div>
@@ -252,7 +252,7 @@ export function WelcomePage() {
           <CardContent className="pt-6 pb-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-center sm:text-left">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2 justify-center sm:justify-start">
+                <h3 className="font-semibold text-foreground flex items-center gap-2 justify-center sm:justify-start">
                   <LogIn className="w-5 h-5 text-green-600" />
                   Already an admin?
                 </h3>

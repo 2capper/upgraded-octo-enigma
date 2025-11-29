@@ -117,7 +117,7 @@ export const OnboardingOrganizationForm = () => {
         <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-blue-600 rounded-full mb-6 animate-in zoom-in duration-700 delay-150">
           <Check className="w-10 h-10 text-white" strokeWidth={3} />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-3 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+        <h2 className="text-3xl font-bold text-foreground mb-3 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
           Success! <Sparkles className="inline w-6 h-6 text-yellow-500" />
         </h2>
         <p className="text-lg text-gray-600 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
@@ -155,7 +155,7 @@ export const OnboardingOrganizationForm = () => {
           {currentStep === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Tell us about your organization</h3>
+                <h3 className="text-2xl font-bold text-foreground mb-2">Tell us about your organization</h3>
                 <p className="text-gray-600">We'll use this to set up your workspace</p>
               </div>
 
@@ -269,7 +269,7 @@ export const OnboardingOrganizationForm = () => {
           {currentStep === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Customize your workspace</h3>
+                <h3 className="text-2xl font-bold text-foreground mb-2">Customize your workspace</h3>
                 <p className="text-gray-600">Optional - you can always change these later</p>
               </div>
 

@@ -36,7 +36,7 @@ function DraggableTeam({ team }: { team: Team }) {
       style={style}
       {...listeners}
       {...attributes}
-      className="group flex items-center gap-2 p-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all"
+      className="group flex items-center gap-2 p-3 bg-card dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all"
       data-testid={`draggable-team-${team.id}`}
     >
       <GripVertical className="w-4 h-4 text-gray-400" />

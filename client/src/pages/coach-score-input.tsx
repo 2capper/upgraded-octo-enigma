@@ -58,7 +58,7 @@ export default function CoachScoreInput() {
 
       <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
         <div className="mb-4">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 text-center">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground text-center">
             Game Score Submission
           </h1>
           <p className="text-sm text-gray-600 text-center mt-2">
@@ -76,7 +76,7 @@ export default function CoachScoreInput() {
           secondaryColor={secondaryColor}
         />
 
-        <details className="mt-6 bg-white rounded-lg border border-gray-200 p-4">
+        <details className="mt-6 bg-card rounded-lg border border-gray-200 p-4">
           <summary 
             className="font-semibold cursor-pointer"
             style={{ color: primaryColor }}
@@ -85,7 +85,7 @@ export default function CoachScoreInput() {
           </summary>
           <div className="mt-4 space-y-4">
             <div>
-              <h4 className="font-semibold text-gray-900 text-sm">How to Submit Scores:</h4>
+              <h4 className="font-semibold text-foreground text-sm">How to Submit Scores:</h4>
               <ol className="list-decimal list-inside space-y-1 text-gray-700 text-sm mt-2">
                 <li>Select your age division (11U or 13U)</li>
                 <li>Choose your team from the division</li>
@@ -98,7 +98,7 @@ export default function CoachScoreInput() {
             </div>
             
             <div>
-              <h4 className="font-semibold text-gray-900 text-sm">Important Notes:</h4>
+              <h4 className="font-semibold text-foreground text-sm">Important Notes:</h4>
               <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm mt-2">
                 <li>Double-check all information before submitting</li>
                 <li>Scores cannot be edited once submitted without admin intervention</li>

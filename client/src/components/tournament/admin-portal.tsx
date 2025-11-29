@@ -788,7 +788,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
   };
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-card border border-gray-200">
       <CardHeader>
         <CardTitle className="flex items-center">
           <Settings className="w-6 h-6 text-[var(--falcons-green)] mr-2" />
@@ -820,7 +820,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="px-2 bg-white text-gray-500">Step 1: Import Team Registrations</span>
+            <span className="px-2 bg-card text-gray-500">Step 1: Import Team Registrations</span>
           </div>
         </div>
 
@@ -880,7 +880,7 @@ export const AdminPortalNew = ({ tournamentId, onImportSuccess }: AdminPortalNew
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="px-2 bg-white text-gray-500">Step 2: Import Game Schedule</span>
+            <span className="px-2 bg-card text-gray-500">Step 2: Import Game Schedule</span>
           </div>
         </div>
 

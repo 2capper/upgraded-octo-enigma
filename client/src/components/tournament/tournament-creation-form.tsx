@@ -274,7 +274,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
   }
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-card border border-gray-200">
       <CardHeader>
         <CardTitle className="flex items-center">
           <Plus className="w-5 h-5 text-[var(--falcons-green)] mr-2" />
@@ -308,7 +308,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
             ) : isSingleOrgAdmin ? (
               // Single-org admins: Show read-only field with their organization
               <div className="mt-1 p-3 border border-green-200 rounded-md bg-green-50">
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-foreground">
                   {userOrgs.find(org => org.id === formData.organizationId)?.name || 'Loading...'}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
@@ -388,7 +388,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
           
           {/* Tournament Configuration */}
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-900 flex items-center">
+            <h3 className="font-semibold text-foreground flex items-center">
               <Trophy className="w-4 h-4 mr-2" />
               Tournament Configuration
             </h3>
@@ -556,7 +556,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
           {/* Diamond Selection Section */}
           {formData.organizationId && (
             <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <h3 className="font-semibold text-gray-900 flex items-center">
+              <h3 className="font-semibold text-foreground flex items-center">
                 <MapPin className="w-4 h-4 mr-2" />
                 Diamond Selection
               </h3>
@@ -574,7 +574,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
                   {diamonds.map((diamond) => (
                     <div 
                       key={diamond.id} 
-                      className="flex items-center space-x-2 p-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+                      className="flex items-center space-x-2 p-2 bg-card border border-gray-200 rounded-md hover:bg-gray-50"
                     >
                       <Checkbox
                         id={`diamond-${diamond.id}`}
@@ -604,7 +604,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
           
           {/* Scheduling Rules Section */}
           <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="font-semibold text-gray-900 flex items-center">
+            <h3 className="font-semibold text-foreground flex items-center">
               <Clock className="w-4 h-4 mr-2" />
               Scheduling Rules
             </h3>
@@ -689,7 +689,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
           
           {/* Branding & Appearance Section */}
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-900 flex items-center">
+            <h3 className="font-semibold text-foreground flex items-center">
               <Palette className="w-4 h-4 mr-2" />
               Branding & Appearance
             </h3>
@@ -780,7 +780,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
             
             {/* Logo Preview */}
             {formData.logoUrl && (
-              <div className="mt-3 p-3 bg-white border border-gray-200 rounded-md">
+              <div className="mt-3 p-3 bg-card border border-gray-200 rounded-md">
                 <p className="text-xs text-gray-600 mb-2">Logo Preview:</p>
                 <img 
                   src={formData.logoUrl} 
@@ -797,7 +797,7 @@ export const TournamentCreationForm = ({ onSuccess, showForm = false }: Tourname
           
           {/* Visibility & Access Section */}
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-900 flex items-center">
+            <h3 className="font-semibold text-foreground flex items-center">
               <Eye className="w-4 h-4 mr-2" />
               Visibility & Access
             </h3>

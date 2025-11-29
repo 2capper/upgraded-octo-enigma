@@ -151,7 +151,7 @@ export const HierarchicalScoreInput = ({
   };
 
   return (
-    <Card className="bg-white border border-gray-200">
+    <Card className="bg-card border border-gray-200">
       <CardHeader>
         <CardTitle className="flex items-center">
           <ListChecks className="w-6 h-6 mr-2" style={{ color: primaryColor }} />
@@ -241,8 +241,8 @@ export const HierarchicalScoreInput = ({
                 Enter Final Score & Innings
               </Label>
               
-              <div className="text-center p-3 bg-white rounded border">
-                <div className="text-lg font-semibold text-gray-900">
+              <div className="text-center p-3 bg-card rounded border">
+                <div className="text-lg font-semibold text-foreground">
                   {getTeamName(selectedGame.homeTeamId)} vs {getTeamName(selectedGame.awayTeamId)}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">

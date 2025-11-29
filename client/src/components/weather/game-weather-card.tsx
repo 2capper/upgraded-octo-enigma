@@ -67,7 +67,7 @@ export function GameWeatherCard({ gameId, compact = false, showRefresh = false }
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
+      <div className="flex items-center gap-3 p-3 bg-card dark:bg-gray-800 rounded-lg border">
         {hasAnyAlert && (
           <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
         )}

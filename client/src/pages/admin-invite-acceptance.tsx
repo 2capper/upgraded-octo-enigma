@@ -161,7 +161,7 @@ export default function AdminInviteAcceptance() {
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4" data-testid="card-invitation-details">
               <p className="text-sm text-gray-600 mb-2">You've been invited to become an administrator for:</p>
-              <p className="font-semibold text-lg text-gray-900">{invitation.organizationName}</p>
+              <p className="font-semibold text-lg text-foreground">{invitation.organizationName}</p>
               <p className="text-sm text-gray-500 mt-2">
                 Invited email: <span className="font-medium">{invitation.email}</span>
               </p>
@@ -220,7 +220,7 @@ export default function AdminInviteAcceptance() {
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4" data-testid="card-invitation-details">
             <p className="text-sm text-gray-600 mb-2">You've been invited to become an administrator for:</p>
-            <p className="font-semibold text-lg text-gray-900">{invitation.organizationName}</p>
+            <p className="font-semibold text-lg text-foreground">{invitation.organizationName}</p>
             <p className="text-sm text-gray-500 mt-2">
               Invited email: <span className="font-medium">{invitation.email}</span>
             </p>

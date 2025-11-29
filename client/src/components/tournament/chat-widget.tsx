@@ -138,7 +138,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(({
 
   return (
     <div
-      className="fixed bottom-4 right-4 w-[360px] h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col z-50 border overflow-hidden"
+      className="fixed bottom-4 right-4 w-[360px] h-[500px] bg-card dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col z-50 border overflow-hidden"
       data-testid="chat-widget-container"
       style={widgetStyle}
     >

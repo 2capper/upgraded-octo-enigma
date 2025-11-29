@@ -180,7 +180,7 @@ export const SmartRosterImport = ({ team, onClose }: SmartRosterImportProps) => 
               <CardContent className="pt-6">
                 <div className="text-center py-8">
                   <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Teams Found</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Teams Found</h3>
                   <p className="text-gray-600">
                     No OBA teams found matching "{team.name}". Try a shorter search term.
                   </p>

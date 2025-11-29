@@ -507,7 +507,7 @@ export function PlayoffSlotManager({ tournament, ageDivision, diamonds }: Playof
             })}
           </div>
           {/* Sticky Save Button */}
-          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t pt-4 pb-2 -mx-6 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          <div className="sticky bottom-0 bg-card dark:bg-gray-900 border-t pt-4 pb-2 -mx-6 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <Button
               type="submit"
               disabled={saveSlotsMutation.isPending}

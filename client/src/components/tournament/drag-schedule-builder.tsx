@@ -96,7 +96,7 @@ function DraggableMatchup({
       style={style}
       {...listeners}
       {...attributes}
-      className="group p-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all touch-manipulation"
+      className="group p-3 bg-card dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all touch-manipulation"
       data-testid={`matchup-${matchup.id}`}
       role="button"
       aria-label={`Drag to schedule ${homeTeam?.name || "Unknown"} vs ${awayTeam?.name || "Unknown"}`}

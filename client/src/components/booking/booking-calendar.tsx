@@ -377,11 +377,11 @@ export function BookingCalendar({ organizationId, isCoachView = false }: Booking
                 <div
                   key={day.toISOString()}
                   className={`min-h-[120px] border rounded-lg p-2 ${
-                    isToday ? 'bg-blue-50 border-blue-300' : 'bg-white'
+                    isToday ? 'bg-blue-50 border-blue-300' : 'bg-card'
                   }`}
                   data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
                 >
-                  <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                  <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : 'text-foreground'}`}>
                     {format(day, 'd')}
                   </div>
                   <div className="space-y-1 overflow-y-auto max-h-[90px]">

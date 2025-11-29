@@ -113,7 +113,7 @@ export default function BookingRequestDetail() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Request not found</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Request not found</h2>
           <p className="text-gray-600 mb-4">The booking request you're looking for doesn't exist.</p>
           <Link href={`/booking/${orgId}/hub`}>
             <Button>Back to Dashboard</Button>

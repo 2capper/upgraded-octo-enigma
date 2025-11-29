@@ -10,12 +10,12 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <Trophy className="h-8 w-8 text-[var(--falcons-green)] mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">DUGOUT DESK</h1>
+              <h1 className="text-2xl font-bold text-foreground">DUGOUT DESK</h1>
             </div>
             <Button 
               onClick={handleSignIn}
@@ -33,7 +33,7 @@ export default function Landing() {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
-          <h2 className="text-4xl font-bold text-gray-900 mb-6">
+          <h2 className="text-4xl font-bold text-foreground mb-6">
             Professional Tournament Management
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">

@@ -127,7 +127,7 @@ export function AdminRequestForm() {
           </Alert>
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600 mb-1">Your message:</p>
-            <p className="text-sm text-gray-900">{request.message}</p>
+            <p className="text-sm text-foreground">{request.message}</p>
             <p className="text-xs text-gray-500 mt-2">
               Submitted: {new Date(request.createdAt).toLocaleDateString()}
             </p>
@@ -155,7 +155,7 @@ export function AdminRequestForm() {
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
               <div className="flex items-center gap-2 mb-2">
                 <Building2 className="w-5 h-5 text-[var(--falcons-green)]" />
-                <h3 className="font-semibold text-gray-900">Organization Details</h3>
+                <h3 className="font-semibold text-foreground">Organization Details</h3>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

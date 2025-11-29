@@ -311,8 +311,8 @@ export function CrossPoolBracketView({
   return (
     <div className="space-y-8">
       {/* Pool Standings */}
-      <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 border border-gray-200">
-        <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6">Pool Standings - Top 2 Teams</h4>
+      <div className="bg-card rounded-xl shadow-lg p-4 md:p-6 border border-gray-200">
+        <h4 className="text-lg md:text-xl font-bold text-foreground mb-4 md:mb-6">Pool Standings - Top 2 Teams</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {poolNames.map(poolName => (
             <div key={poolName} className="border-2 rounded-lg p-4" style={{ borderColor: primaryColor }}>
@@ -332,7 +332,7 @@ export function CrossPoolBracketView({
                       </span>
                       {index === 0 && <Medal className="w-4 h-4 text-yellow-500" />}
                     </div>
-                    <div className="text-sm font-semibold text-gray-900 mb-1">{team.name}</div>
+                    <div className="text-sm font-semibold text-foreground mb-1">{team.name}</div>
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>{team.wins}-{team.losses}-{team.ties}</span>
                       <span>{team.points} pts</span>

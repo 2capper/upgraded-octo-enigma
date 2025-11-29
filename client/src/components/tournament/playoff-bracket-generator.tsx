@@ -127,19 +127,19 @@ export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBra
         <div className="bg-gray-50 p-4 rounded-lg space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Tournament Type:</span>
-            <span className="text-sm text-gray-900 capitalize">{tournament.type.replace('_', ' ')}</span>
+            <span className="text-sm text-foreground capitalize">{tournament.type.replace('_', ' ')}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Playoff Format:</span>
-            <span className="text-sm text-gray-900">{tournament.playoffFormat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+            <span className="text-sm text-foreground">{tournament.playoffFormat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Number of Pools:</span>
-            <span className="text-sm text-gray-900">{tournament.numberOfPools}</span>
+            <span className="text-sm text-foreground">{tournament.numberOfPools}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Playoff Teams:</span>
-            <span className="text-sm text-gray-900">
+            <span className="text-sm text-foreground">
               {getPlayoffTeamCount(tournament.playoffFormat as PlayoffFormat, tournament.numberOfTeams || 0)}
             </span>
           </div>
@@ -170,7 +170,7 @@ export function PlayoffBracketGenerator({ tournamentId, divisionId }: PlayoffBra
 
         {/* Instructions */}
         <div className="border-t pt-4 mt-4">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">How It Works</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">How It Works</h4>
           <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
             <li>Pool play games must be completed to calculate standings</li>
             <li>Teams are seeded based on pool standings and the selected playoff format</li>

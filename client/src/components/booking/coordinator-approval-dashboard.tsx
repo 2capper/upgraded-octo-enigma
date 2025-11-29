@@ -166,7 +166,7 @@ export function CoordinatorApprovalDashboard({ organizationId, userRole }: Coord
           <Card>
             <CardContent className="py-12 text-center">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">All caught up!</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">All caught up!</h3>
               <p className="text-gray-500">No pending requests to review at this time.</p>
             </CardContent>
           </Card>

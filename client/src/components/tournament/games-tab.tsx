@@ -228,7 +228,7 @@ export const GamesTab = ({
   return (
     <div className="p-6" style={brandStyle}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h3 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">Game Schedule</h3>
+        <h3 className="text-2xl font-bold text-foreground mb-4 md:mb-0">Game Schedule</h3>
         <div className="flex flex-col sm:flex-row gap-3">
           <Select value={teamFilter} onValueChange={setTeamFilter} data-testid="select-team-filter">
             <SelectTrigger className="w-48" data-testid="select-team-filter-trigger">
@@ -297,7 +297,7 @@ export const GamesTab = ({
                       const forecast = weatherMap.get(game.id);
                       
                       return (
-                        <div key={game.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
+                        <div key={game.id} className="bg-card border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
                           {isAdmin && (
                             <div className="absolute top-4 right-4 z-10">
                               <Button 
@@ -317,7 +317,7 @@ export const GamesTab = ({
                           <div className="flex flex-col space-y-3">
                             <div className="flex justify-between items-start">
                               <div>
-                                <p className="font-semibold text-gray-900 text-sm">{formatDate(game.date)}</p>
+                                <p className="font-semibold text-foreground text-sm">{formatDate(game.date)}</p>
                                 <p className="text-xs text-gray-600">
                                   {formatTime(game.time || game.location)}
                                 </p>

@@ -69,13 +69,13 @@ export function AdminRequestsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Access Requests</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Admin Access Requests</h2>
         <p className="text-gray-600">Review and manage admin access requests from users.</p>
       </div>
 
       {/* Pending Requests */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-yellow-500" />
           Pending Requests ({pendingRequests.length})
         </h3>
@@ -100,7 +100,7 @@ export function AdminRequestsTab() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-white rounded border">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-card rounded border">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Organization Name</p>
                       <p className="text-sm font-semibold text-[var(--falcons-green)]">{request.organizationName}</p>
@@ -169,7 +169,7 @@ export function AdminRequestsTab() {
       {/* Processed Requests */}
       {processedRequests.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg font-semibold text-foreground mb-4">
             Processed Requests ({processedRequests.length})
           </h3>
           <div className="space-y-4">

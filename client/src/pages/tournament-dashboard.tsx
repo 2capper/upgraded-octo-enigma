@@ -182,7 +182,7 @@ export default function TournamentDashboard() {
               )}
               
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
                   {currentTournament.customName || currentTournament.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
@@ -245,14 +245,14 @@ export default function TournamentDashboard() {
                     return (
                       <div
                         key={diamond.id}
-                        className="border-2 rounded-lg p-4 bg-white shadow-sm"
+                        className="border-2 rounded-lg p-4 bg-card shadow-sm"
                         style={{ borderColor: config.color.split(' ')[0].replace('bg-', '') }}
                         data-testid={`field-status-${diamond.id}`}
                       >
                         <div className="flex items-start gap-3">
                           <MapPin className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <div className="font-semibold text-gray-900 mb-1">{diamond.name}</div>
+                            <div className="font-semibold text-foreground mb-1">{diamond.name}</div>
                             {diamond.location && (
                               <div className="text-xs text-gray-600 mb-2">{diamond.location}</div>
                             )}

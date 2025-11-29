@@ -28,7 +28,7 @@ export function PlayoffBracketPreview({
       return (
         <div className="text-center p-8 bg-gray-50 rounded-xl">
           <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Bracket Preview Unavailable</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">Bracket Preview Unavailable</h3>
           <p className="text-gray-500">Cross-pool playoff format requires 4 pools (A, B, C, D) to be created first.</p>
         </div>
       );
@@ -164,7 +164,7 @@ export function PlayoffBracketPreview({
     return (
       <div className="text-center p-8 bg-gray-50 rounded-xl">
         <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Playoff Format Not Configured</h3>
+        <h3 className="text-lg font-medium text-foreground mb-2">Playoff Format Not Configured</h3>
         <p className="text-gray-500">Configure your tournament's playoff format to see the bracket preview.</p>
       </div>
     );
@@ -181,7 +181,7 @@ export function PlayoffBracketPreview({
 
       <div className="text-center p-8 bg-gray-50 rounded-xl">
         <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">{playoffFormat.replace('_', ' ').toUpperCase()} Playoff Bracket</h3>
+        <h3 className="text-lg font-medium text-foreground mb-2">{playoffFormat.replace('_', ' ').toUpperCase()} Playoff Bracket</h3>
         <p className="text-gray-500">
           {teamsInPlayoff} teams will compete in the playoff bracket.
         </p>
