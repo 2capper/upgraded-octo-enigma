@@ -1,0 +1,470 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { format } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Loader2, Calendar, GripVertical, ChevronUp, ChevronDown, Search, ZoomIn, ZoomOut, Filter } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
+import type { Game, Diamond, Team, TournamentDiamondAllocation } from "@shared/schema";
+
+interface ScheduleBuilderProps {
+  tournamentId: string;
+  startDate: string;
+  endDate: string;
+  diamonds: Diamond[];
+  teams: Team[];
+}
+
+// --- TEAM LOGO COMPONENT ---
+// Generates a deterministic color "Jersey Icon" based on team name
+function TeamLogo({ team, size = "sm" }: { team?: Team, size?: "sm" | "md" }) {
+  const sizeClasses = size === "sm" ? "w-5 h-5 text-[9px]" : "w-8 h-8 text-xs";
+  
+  if (!team) return <div className={cn("rounded-full bg-muted flex-shrink-0 border border-border", sizeClasses)} />;
+
+  // Hash function to pick a stable color from the name
+  const stringToColor = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 40%)`; // Saturation 70%, Lightness 40% for contrast
+  };
+
+  // If schema adds logoUrl later, use it here:
+  // if (team.logoUrl) return <img src={team.logoUrl} className={cn("rounded-full object-cover", sizeClasses)} />;
+
+  const bgColor = stringToColor(team.name);
+  const initials = team.name.substring(0, 2).toUpperCase();
+
+  return (
+    <div 
+      className={cn("rounded-full flex items-center justify-center font-bold text-white shadow-sm flex-shrink-0 border border-white/20", sizeClasses)}
+      style={{ backgroundColor: bgColor }}
+      title={team.name}
+    >
+      {initials}
+    </div>
+  );
+}
+
+// --- DRAGGABLE GAME CARD ---
+function DraggableGame({ game, teams, isOverlay = false, isCompact = false }: { game: Game, teams: Team[], isOverlay?: boolean, isCompact?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: game.id,
+    data: { game },
+    disabled: isOverlay
+  });
+
+  const style = transform ? {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: 999,
+  } : undefined;
+
+  const homeTeam = teams.find(t => t.id === game.homeTeamId);
+  const awayTeam = teams.find(t => t.id === game.awayTeamId);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        "bg-card border rounded shadow-sm cursor-grab active:cursor-grabbing text-xs transition-all hover:border-primary group overflow-hidden select-none",
+        // "Compact" is for the Bottom Deck (Wide card)
+        isCompact 
+            ? "w-[220px] flex-shrink-0 h-full border-l-4 border-l-muted-foreground p-2 flex flex-col justify-center hover:translate-y-[-2px]" 
+            // "Standard" is for the Grid (Vertical fit)
+            : "p-1.5 w-full h-full border-l-4 border-l-primary flex flex-col",
+        isOverlay ? "scale-105 shadow-xl rotate-2 w-[220px] cursor-grabbing z-[999]" : "",
+        game.status === 'completed' ? "opacity-60 grayscale" : ""
+      )}
+    >
+      {/* Matchup Row */}
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+             <TeamLogo team={awayTeam} size="sm" />
+             <span className="truncate font-semibold">{awayTeam?.name || "TBD"}</span>
+        </div>
+        
+        <div className="text-[10px] text-muted-foreground font-bold px-0.5">vs</div>
+        
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+             <span className="truncate font-semibold text-right">{homeTeam?.name || "TBD"}</span>
+             <TeamLogo team={homeTeam} size="sm" />
+        </div>
+      </div>
+
+      {/* Metadata Row */}
+      <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-auto pt-1 border-t border-border/50">
+        <div className="flex items-center gap-1">
+            <GripVertical className="h-3 w-3 opacity-30 group-hover:opacity-100 transition-opacity" />
+            <Badge variant="secondary" className="text-[9px] h-4 px-1 rounded-[2px] font-normal bg-muted/50 border-0">
+                {game.poolId ? "Pool" : "Bracket"}
+            </Badge>
+        </div>
+        <span className="font-mono bg-muted/30 px-1 rounded">
+            {game.durationMinutes || 90}m
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// --- DROP ZONE SLOT ---
+function TimeSlot({ 
+  diamondId, 
+  time, 
+  game, 
+  teams, 
+  allocation,
+  isOver,
+  height
+}: { 
+  diamondId: string, 
+  time: string, 
+  game?: Game, 
+  teams: Team[],
+  allocation?: TournamentDiamondAllocation,
+  isOver: boolean,
+  height: number
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `${diamondId}::${time}`,
+    data: { diamondId, time }
+  });
+
+  // Visual State Logic
+  let bgClass = "bg-background"; // Default empty
+  
+  if (!allocation) {
+    // Locked / No Permit: Striped pattern
+    bgClass = "bg-muted/20 repeating-linear-gradient(45deg,transparent,transparent_5px,var(--muted)_5px,var(--muted)_10px)";
+  } else {
+    // Open: clean card background
+    bgClass = "bg-card/30 hover:bg-accent/5"; 
+  }
+
+  // Active Drop Target Highlight
+  if (isOver) bgClass = "bg-primary/10 ring-2 ring-primary ring-inset z-10"; 
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ height: `${height}px` }}
+      className={cn(
+        "border-b border-r relative p-0.5 transition-all",
+        bgClass,
+        game ? "overflow-hidden" : "" // Clip content if occupied
+      )}
+    >
+      {/* Empty Slot Time Label (Helper text) */}
+      {!game && (
+        <span className="absolute top-1 left-1 text-[9px] text-muted-foreground/20 select-none pointer-events-none font-mono group-hover:text-muted-foreground/50">
+          {time}
+        </span>
+      )}
+
+      {/* Game Content */}
+      {game && (
+        <DraggableGame game={game} teams={teams} />
+      )}
+    </div>
+  );
+}
+
+// --- MAIN COMPONENT ---
+export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, teams }: ScheduleBuilderProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // State Management
+  const [selectedDate, setSelectedDate] = useState(startDate);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [draggedGame, setDraggedGame] = useState<Game | null>(null);
+  const [isDeckExpanded, setIsDeckExpanded] = useState(true);
+  const [bullpenSearch, setBullpenSearch] = useState("");
+  const [zoomLevel, setZoomLevel] = useState(80); // Default slot height in px
+
+  // 1. Data Fetching
+  const { data: games = [] } = useQuery<Game[]>({
+    queryKey: [`/api/tournaments/${tournamentId}/games`],
+  });
+  const { data: allocations = [] } = useQuery<TournamentDiamondAllocation[]>({
+    queryKey: [`/api/tournaments/${tournamentId}/allocations`],
+  });
+
+  // 2. Move Game Mutation
+  const moveGameMutation = useMutation({
+    mutationFn: async (data: { gameId: string, date: string, time: string, diamondId: string }) => {
+      return apiRequest("PUT", `/api/games/${data.gameId}/move`, {
+        date: data.date,
+        time: data.time,
+        diamondId: data.diamondId
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tournaments/${tournamentId}/games`] });
+      toast({ title: "Success", description: "Game rescheduled." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Conflict", description: err.message, variant: "destructive" });
+    }
+  });
+
+  // 3. Derived Data Processing
+  const unscheduledGames = useMemo(() => 
+    games.filter(g => !g.diamondId || !g.time || !g.date)
+         .filter(g => {
+            // Search Filter Logic
+            if (!bullpenSearch) return true;
+            const home = teams.find(t => t.id === g.homeTeamId)?.name.toLowerCase() || "";
+            const away = teams.find(t => t.id === g.awayTeamId)?.name.toLowerCase() || "";
+            const q = bullpenSearch.toLowerCase();
+            return home.includes(q) || away.includes(q);
+         }), 
+  [games, bullpenSearch, teams]);
+
+  const scheduledGames = useMemo(() => 
+    games.filter(g => g.diamondId && g.time && g.date === selectedDate), 
+  [games, selectedDate]);
+
+  const dayAllocations = useMemo(() => 
+    allocations.filter(a => a.date === selectedDate),
+  [allocations, selectedDate]);
+
+  const dateOptions = useMemo(() => {
+    const dates = [];
+    let curr = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    while (curr <= end) {
+      dates.push(format(curr, "yyyy-MM-dd"));
+      curr.setDate(curr.getDate() + 1);
+    }
+    return dates;
+  }, [startDate, endDate]);
+
+  const timeSlots = useMemo(() => {
+    const times = [];
+    for (let h = 8; h < 23; h++) { // 8 AM to 11 PM
+      times.push(`${h.toString().padStart(2, '0')}:00`);
+      times.push(`${h.toString().padStart(2, '0')}:30`);
+    }
+    return times;
+  }, []);
+
+  // 4. Drag & Drop Handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+    // Find the game object from either scheduled or unscheduled lists
+    const game = games.find(g => g.id === event.active.id);
+    if (game) setDraggedGame(game);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    // Only move if dropped on a valid target that is different from current
+    if (over && active.id !== over.id) {
+      // Parse drop target ID "diamondId::time"
+      const dropId = over.id as string;
+      
+      if (dropId.includes("::")) {
+        const [diamondId, time] = dropId.split("::");
+        if (diamondId && time) {
+          moveGameMutation.mutate({
+            gameId: active.id as string,
+            date: selectedDate,
+            time,
+            diamondId
+          });
+        }
+      }
+    }
+    
+    // Cleanup state
+    setActiveDragId(null);
+    setDraggedGame(null);
+  };
+
+  return (
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="flex flex-col h-[calc(100vh-140px)] bg-background">
+        
+        {/* --- TOP BAR: CONTROLS --- */}
+        <div className="flex justify-between items-center p-3 border-b bg-card shadow-sm z-10 gap-4 h-16">
+            <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Viewing Date</span>
+                    <Select value={selectedDate} onValueChange={setSelectedDate}>
+                        <SelectTrigger className="w-[220px] bg-background h-8 border-muted-foreground/20 text-sm">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {dateOptions.map(d => (
+                                <SelectItem key={d} value={d}>{format(new Date(d + "T00:00:00"), "EEEE, MMM d")}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Zoom Control */}
+                <div className="hidden md:flex flex-col border-l pl-4 h-full justify-center">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">Grid Zoom</span>
+                    <div className="flex items-center gap-2">
+                        <ZoomOut className="h-3 w-3 text-muted-foreground" />
+                        <Slider 
+                            value={[zoomLevel]} 
+                            onValueChange={(v) => setZoomLevel(v[0])} 
+                            min={50} 
+                            max={150} 
+                            step={10} 
+                            className="w-[100px]" 
+                        />
+                        <ZoomIn className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                </div>
+            </div>
+            
+            <div className="flex gap-4 text-xs text-muted-foreground items-center bg-muted/30 px-3 py-1 rounded-full border">
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-card/50 border rounded-full"/> Open</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-muted/20 border rounded-full"/> Locked</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-primary rounded-full"/> Game</div>
+            </div>
+        </div>
+
+        {/* --- MAIN: SCHEDULING GRID --- */}
+        <div className="flex-1 overflow-hidden relative flex bg-muted/5">
+            {/* Y-Axis: Time Labels (Sticky Left) */}
+            <div className="w-16 flex-shrink-0 border-r bg-card z-20 overflow-hidden shadow-lg">
+                <div className="h-10 border-b bg-muted/50" /> {/* Corner Spacer */}
+                <ScrollArea className="h-full">
+                    {timeSlots.map(t => (
+                        <div key={t} style={{ height: `${zoomLevel}px` }} className="border-b text-[10px] text-muted-foreground flex items-center justify-center font-mono bg-card select-none">
+                            {t}
+                        </div>
+                    ))}
+                    <div className="h-32" /> {/* Bottom Padding for scroll */}
+                </ScrollArea>
+            </div>
+
+            {/* The Grid */}
+            <ScrollArea className="flex-1" type="always">
+                <div className="flex min-w-max">
+                   {diamonds.map(diamond => (
+                       <div key={diamond.id} className="flex flex-col w-[240px] border-r border-border/50">
+                           {/* Sticky Header */}
+                           <div className="h-10 sticky top-0 z-10 bg-card border-b flex items-center justify-center px-2 shadow-sm group hover:bg-accent/5 transition-colors">
+                               <span className="text-xs font-bold truncate text-card-foreground group-hover:text-primary transition-colors">
+                                 {diamond.name}
+                               </span>
+                           </div>
+                           
+                           {/* Slots */}
+                           {timeSlots.map(time => {
+                               const alloc = dayAllocations.find(a => a.diamondId === diamond.id && a.startTime <= time && a.endTime > time);
+                               const game = scheduledGames.find(g => g.diamondId === diamond.id && g.time === time);
+                               
+                               return (
+                                   <TimeSlot 
+                                       key={`${diamond.id}-${time}`}
+                                       diamondId={diamond.id}
+                                       time={time}
+                                       game={game}
+                                       teams={teams}
+                                       allocation={alloc}
+                                       isOver={false}
+                                       height={zoomLevel}
+                                   />
+                               );
+                           })}
+                           <div className="h-32 bg-muted/5" /> {/* Bottom Padding */}
+                       </div>
+                   ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+        </div>
+
+        {/* --- BOTTOM DECK: BULLPEN --- */}
+        <div className={cn(
+            "border-t bg-card transition-all duration-300 flex flex-col shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-30 relative",
+            isDeckExpanded ? "h-60" : "h-12"
+        )}>
+            {/* Toggle Tab (Center) */}
+            <div 
+                className="absolute -top-5 left-1/2 -translate-x-1/2 bg-card border border-b-0 rounded-t-xl px-6 py-1 cursor-pointer shadow-sm hover:text-primary group"
+                onClick={() => setIsDeckExpanded(!isDeckExpanded)}
+            >
+                {isDeckExpanded ? 
+                    <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary" /> : 
+                    <ChevronUp className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                }
+            </div>
+
+            {/* Header Bar */}
+            <div className="h-12 border-b flex items-center justify-between px-4 bg-muted/10">
+                <div className="flex items-center gap-2 text-sm font-bold">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <span>Unscheduled Games</span>
+                    <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-primary/20">{unscheduledGames.length}</Badge>
+                </div>
+                
+                {/* Bullpen Filter */}
+                <div className="relative w-64">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input 
+                        className="h-8 pl-8 text-xs bg-background border-border/60 focus-visible:ring-primary/20" 
+                        placeholder="Filter by team name..." 
+                        value={bullpenSearch}
+                        onChange={(e) => setBullpenSearch(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* Deck Content */}
+            {isDeckExpanded && (
+                <ScrollArea className="flex-1 p-4 bg-muted/5">
+                    <div className="flex gap-3 pb-2 min-w-max">
+                        {unscheduledGames.length === 0 ? (
+                             <div className="w-full flex flex-col items-center justify-center text-sm text-muted-foreground italic border-2 border-dashed border-muted/50 rounded-lg h-32 w-[600px] mx-auto bg-card/50">
+                                 <div className="bg-primary/10 p-3 rounded-full mb-2">
+                                     <Calendar className="h-6 w-6 text-primary" />
+                                 </div>
+                                 <span>All games scheduled for {format(new Date(selectedDate), "MMM d")}!</span>
+                             </div>
+                        ) : (
+                            unscheduledGames.map(game => (
+                                <div key={game.id} className="h-32">
+                                    <DraggableGame game={game} teams={teams} isCompact={true} />
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+            )}
+        </div>
+
+      </div>
+
+      {/* DRAG OVERLAY (Ghost Image) */}
+      <DragOverlay>
+        {activeDragId && draggedGame ? (
+           <DraggableGame game={draggedGame} teams={teams} isOverlay={true} isCompact={true} />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
