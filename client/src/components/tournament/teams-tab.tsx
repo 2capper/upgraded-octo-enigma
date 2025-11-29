@@ -6,11 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, CheckCircle, Users, ExternalLink, Edit, Ghost, AlertTriangle, Trash2, Zap, Clock, Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Download, CheckCircle, Users, ExternalLink, Edit, Ghost, AlertTriangle, Trash2, Zap, Clock, Calendar, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { TeamManagementDialog } from './team-management-dialog';
 import type { Team, Game, Pool, AgeDivision } from '@shared/schema';
+import { nanoid } from 'nanoid';
 
 interface TeamsTabProps {
   teams: Team[];
@@ -332,6 +335,189 @@ function ImpactAnalysisDialog({
   );
 }
 
+function AddTeamDialog({ tournamentId, ageDivisions, onSuccess }: { tournamentId: string; ageDivisions: AgeDivision[]; onSuccess: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [teamName, setTeamName] = useState('');
+  const [division, setDivision] = useState('');
+  const [coachFirstName, setCoachFirstName] = useState('');
+  const [coachLastName, setCoachLastName] = useState('');
+  const [coachEmail, setCoachEmail] = useState('');
+  const [coachPhone, setCoachPhone] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
+
+  const resetForm = () => {
+    setTeamName('');
+    setDivision('');
+    setCoachFirstName('');
+    setCoachLastName('');
+    setCoachEmail('');
+    setCoachPhone('');
+  };
+
+  const handleCreate = async () => {
+    if (!teamName.trim()) {
+      toast({
+        title: "Team name required",
+        description: "Please enter a team name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await apiRequest('POST', `/api/tournaments/${tournamentId}/teams`, {
+        id: `team-${nanoid(8)}`,
+        name: teamName.trim(),
+        division: division || null,
+        coachFirstName: coachFirstName.trim() || null,
+        coachLastName: coachLastName.trim() || null,
+        coachEmail: coachEmail.trim() || null,
+        coachPhone: coachPhone.trim() || null,
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Team Added",
+          description: `${teamName} has been added to the tournament.`,
+        });
+        resetForm();
+        setIsOpen(false);
+        onSuccess();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create team');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add team",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) resetForm();
+    }}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+          data-testid="button-add-team"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Team
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add New Team</DialogTitle>
+          <DialogDescription>
+            Manually add a team to this tournament.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="teamName">Team Name *</Label>
+            <Input
+              id="teamName"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="e.g. Windsor Wildcats"
+              data-testid="input-team-name"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="division">Division</Label>
+            <Select value={division} onValueChange={setDivision}>
+              <SelectTrigger data-testid="select-team-division">
+                <SelectValue placeholder="Select division..." />
+              </SelectTrigger>
+              <SelectContent>
+                {ageDivisions.map((d) => (
+                  <SelectItem key={d.id} value={d.name}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="coachFirstName">Coach First Name</Label>
+              <Input
+                id="coachFirstName"
+                value={coachFirstName}
+                onChange={(e) => setCoachFirstName(e.target.value)}
+                placeholder="John"
+                data-testid="input-coach-first-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="coachLastName">Coach Last Name</Label>
+              <Input
+                id="coachLastName"
+                value={coachLastName}
+                onChange={(e) => setCoachLastName(e.target.value)}
+                placeholder="Smith"
+                data-testid="input-coach-last-name"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="coachEmail">Coach Email</Label>
+            <Input
+              id="coachEmail"
+              type="email"
+              value={coachEmail}
+              onChange={(e) => setCoachEmail(e.target.value)}
+              placeholder="coach@example.com"
+              data-testid="input-coach-email"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="coachPhone">Coach Phone</Label>
+            <Input
+              id="coachPhone"
+              type="tel"
+              value={coachPhone}
+              onChange={(e) => setCoachPhone(e.target.value)}
+              placeholder="(555) 123-4567"
+              data-testid="input-coach-phone"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => setIsOpen(false)} data-testid="button-cancel-add-team">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={isCreating || !teamName.trim()}
+            style={{ backgroundColor: 'var(--field-green)', color: 'white' }}
+            data-testid="button-confirm-add-team"
+          >
+            {isCreating ? 'Adding...' : 'Add Team'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId }: TeamsTabProps) {
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -477,7 +663,14 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Teams ({filteredTeams.length})</h3>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {tournamentId && (
+            <AddTeamDialog 
+              tournamentId={tournamentId} 
+              ageDivisions={ageDivisions}
+              onSuccess={() => queryClient.invalidateQueries({ queryKey: ['/api/tournaments', tournamentId, 'teams'] })}
+            />
+          )}
           <Select value={divisionFilter} onValueChange={setDivisionFilter}>
             <SelectTrigger className="w-48" data-testid="select-division-filter">
               <SelectValue />

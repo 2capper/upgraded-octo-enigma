@@ -309,15 +309,10 @@ export function PoolAssignment({ teams, pools, tournamentId, divisionId, tournam
         queryKey: ['/api/tournaments', tournamentId, 'age-divisions']
       });
 
-      // Show success with placed game count
-      const placedCount = data.placedCount || 0;
-      const failedCount = data.failedCount || 0;
-      
+      // Show success message
       toast({
-        title: "Schedule Generated!",
-        description: placedCount > 0 
-          ? `Placed ${placedCount} games on the schedule${failedCount > 0 ? ` (${failedCount} couldn't be placed)` : ''}.`
-          : `Generated matchups. Scroll down to see the schedule builder.`,
+        title: "Matchups Generated!",
+        description: `Created ${data.matchups?.length || 0} matchups. Drag and drop them onto the schedule below.`,
       });
 
       if (onMatchupsGenerated) {

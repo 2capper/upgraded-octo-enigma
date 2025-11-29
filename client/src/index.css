@@ -79,76 +79,76 @@
 }
 
 .dark {
-  --background: hsl(210, 27%, 18%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(210, 27%, 15%);
-  --muted-foreground: hsl(0, 0%, 60%);
-  --popover: hsl(210, 27%, 18%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(210, 27%, 22%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(210, 27%, 32%);
-  --input: hsl(210, 27%, 32%);
-  --primary: hsl(5, 42%, 50%);
+  --background: hsl(222, 20%, 10%);
+  --foreground: hsl(210, 20%, 95%);
+  --muted: hsl(222, 18%, 16%);
+  --muted-foreground: hsl(215, 15%, 65%);
+  --popover: hsl(222, 20%, 12%);
+  --popover-foreground: hsl(210, 20%, 95%);
+  --card: hsl(222, 18%, 14%);
+  --card-foreground: hsl(210, 20%, 95%);
+  --border: hsl(220, 15%, 25%);
+  --input: hsl(220, 15%, 20%);
+  --primary: hsl(5, 50%, 55%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(113, 35%, 31%);
+  --secondary: hsl(113, 40%, 38%);
   --secondary-foreground: hsl(0, 0%, 100%);
-  --accent: hsl(5, 42%, 50%);
-  --accent-foreground: hsl(0, 0%, 100%);
-  --destructive: hsl(0, 84%, 60%);
+  --accent: hsl(222, 18%, 20%);
+  --accent-foreground: hsl(210, 20%, 95%);
+  --destructive: hsl(0, 70%, 55%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --ring: hsl(5, 42%, 50%);
+  --ring: hsl(113, 40%, 38%);
   --radius: 0rem;
 
   /* Dugout Desk Brand Colors - Dark Mode */
-  --deep-navy: hsl(210, 27%, 18%);
-  --field-green: hsl(113, 35%, 31%);
-  --clay-red: hsl(5, 42%, 50%);
-  --light-gray: hsl(210, 27%, 22%);
-  --white: hsl(0, 0%, 100%);
+  --deep-navy: hsl(210, 20%, 95%);
+  --field-green: hsl(113, 45%, 42%);
+  --clay-red: hsl(5, 50%, 55%);
+  --light-gray: hsl(222, 18%, 16%);
+  --white: hsl(210, 20%, 95%);
   
   /* Legacy color aliases for dark mode */
-  --splash-orange: hsl(5, 42%, 50%);
-  --splash-dark-orange: hsl(5, 42%, 40%);
-  --splash-navy: hsl(210, 27%, 18%);
-  --splash-dark-navy: hsl(210, 27%, 15%);
-  --splash-white: hsl(0, 0%, 100%);
-  --splash-light-gray: hsl(210, 27%, 22%);
-  --splash-gray: hsl(0, 0%, 60%);
-  --splash-dark-gray: hsl(0, 0%, 98%);
+  --splash-orange: hsl(5, 50%, 55%);
+  --splash-dark-orange: hsl(5, 50%, 45%);
+  --splash-navy: hsl(210, 20%, 95%);
+  --splash-dark-navy: hsl(222, 18%, 20%);
+  --splash-white: hsl(210, 20%, 95%);
+  --splash-light-gray: hsl(222, 18%, 16%);
+  --splash-gray: hsl(215, 15%, 65%);
+  --splash-dark-gray: hsl(210, 20%, 95%);
   
   /* Forest Green for backward compatibility */
-  --forest-green: hsl(113, 35%, 31%);
-  --falcons-green: hsl(113, 35%, 31%);
-  --yellow: hsl(45, 100%, 51%);
+  --forest-green: hsl(113, 45%, 42%);
+  --falcons-green: hsl(113, 45%, 42%);
+  --yellow: hsl(45, 100%, 55%);
   
-  /* Text colors for dark mode */
-  --text-primary: hsl(0, 0%, 98%);
-  --text-secondary: hsl(0, 0%, 60%);
-  --text-light: hsl(0, 0%, 45%);
+  /* Text colors for dark mode - HIGH CONTRAST */
+  --text-primary: hsl(210, 20%, 95%);
+  --text-secondary: hsl(215, 15%, 70%);
+  --text-light: hsl(215, 12%, 55%);
   --text-white: hsl(0, 0%, 100%);
   
-  /* Background colors for dark mode */
-  --bg-primary: hsl(210, 27%, 18%);
-  --bg-secondary: hsl(210, 27%, 22%);
-  --bg-dark: hsl(210, 27%, 15%);
-  --bg-darker: hsl(210, 27%, 12%);
-  --bg-hero: linear-gradient(135deg, hsl(5, 42%, 50%) 0%, hsl(210, 27%, 15%) 100%);
+  /* Background colors for dark mode - DARKER BASE */
+  --bg-primary: hsl(222, 20%, 10%);
+  --bg-secondary: hsl(222, 18%, 14%);
+  --bg-dark: hsl(222, 22%, 8%);
+  --bg-darker: hsl(222, 25%, 6%);
+  --bg-hero: linear-gradient(135deg, hsl(222, 20%, 12%) 0%, hsl(222, 22%, 8%) 100%);
   
-  /* Component colors for dark mode */
-  --header-bg: hsl(210, 27%, 15%);
+  /* Component colors for dark mode - BETTER CONTRAST */
+  --header-bg: hsl(222, 22%, 8%);
   --header-text: hsl(0, 0%, 100%);
-  --card-bg: hsl(210, 27%, 22%);
-  --card-border: hsl(210, 27%, 32%);
-  --table-header: hsl(210, 27%, 18%);
-  --table-row-even: hsl(210, 27%, 20%);
-  --table-row-hover: hsl(210, 27%, 28%);
+  --card-bg: hsl(222, 18%, 14%);
+  --card-border: hsl(220, 15%, 22%);
+  --table-header: hsl(222, 18%, 12%);
+  --table-row-even: hsl(222, 18%, 11%);
+  --table-row-hover: hsl(222, 18%, 18%);
   
   /* Shadow and effects for dark mode */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
