@@ -578,19 +578,6 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
     return phone;
   };
 
-  const getRosterStatus = (team: Team) => {
-    if (team.rosterData) {
-      try {
-        const players = JSON.parse(team.rosterData);
-        return `${players.length} players`;
-      } catch {
-        return "Invalid data";
-      }
-    }
-    if (team.rosterLink) return "Link available";
-    return "No roster";
-  };
-
   const getPoolName = (poolId: string | null) => {
     if (!poolId) return 'Unassigned';
     const pool = pools.find(p => p.id === poolId);
@@ -694,9 +681,10 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
               <TableHead>Team Name</TableHead>
               <TableHead>Pool</TableHead>
               <TableHead>Coach</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Games</TableHead>
-              <TableHead>Roster</TableHead>
+              <TableHead>Roster #</TableHead>
               <TableHead className="text-center">Flags</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -722,6 +710,19 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
                     <span className="text-gray-400 text-sm">-</span>
                   )}
                 </TableCell>
+                <TableCell data-testid={`coach-email-${team.id}`}>
+                  {team.coachEmail ? (
+                    <a 
+                      href={`mailto:${team.coachEmail}`} 
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                      data-testid={`link-email-${team.id}`}
+                    >
+                      {team.coachEmail}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </TableCell>
                 <TableCell data-testid={`coach-phone-${team.id}`}>
                   {team.coachPhone || team.phone ? (
                     <span className="text-sm">{formatPhoneDisplay(team.coachPhone || team.phone)}</span>
@@ -732,11 +733,34 @@ export function TeamsTab({ teams, pools, ageDivisions, games = [], tournamentId 
                 <TableCell>
                   <Badge variant="secondary">{getTeamGameCount(team.id)}</Badge>
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm">{getRosterStatus(team)}</span>
-                  </div>
+                <TableCell data-testid={`roster-${team.id}`}>
+                  {team.teamNumber ? (
+                    <a 
+                      href={`https://www.playoba.ca/stats#/2111/team/${team.teamNumber.trim()}/roster`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+                      data-testid={`link-roster-${team.id}`}
+                    >
+                      <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                        {team.teamNumber}
+                      </Badge>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                    </a>
+                  ) : team.rosterLink ? (
+                    <a 
+                      href={team.rosterLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                      data-testid={`link-roster-${team.id}`}
+                    >
+                      View Roster
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1">
