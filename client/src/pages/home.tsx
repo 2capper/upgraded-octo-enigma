@@ -8,6 +8,7 @@ import { CalendarDays, Users, Trophy, LogIn, Building2, TrendingUp, Shield, BarC
 import { format } from "date-fns";
 import dugoutDeskLogo from "@assets/Gemini_Generated_Image_cj7rofcj7rofcj7r (1)_1764008382610.png";
 import { FeatureShowcase } from "@/components/feature-showcase";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useHostnameContext } from "@/hooks/useHostnameContext";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -74,18 +75,23 @@ export default function Home() {
                   Dugout Desk
                 </h1>
               </div>
-              {!isStorefront && (
-                <Link href="/directory">
-                  <Button
-                    variant="outline"
-                    className="bg-white/10 text-white border-white/30 hover:bg-white/20"
-                    data-testid="button-public-directory"
-                  >
-                    <Trophy className="w-4 h-4 mr-2" />
-                    Public Directory
-                  </Button>
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                {!isStorefront && (
+                  <Link href="/directory">
+                    <Button
+                      variant="outline"
+                      className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+                      data-testid="button-public-directory"
+                    >
+                      <Trophy className="w-4 h-4 mr-2" />
+                      Public Directory
+                    </Button>
+                  </Link>
+                )}
+                <div className="text-white">
+                  <ThemeToggle />
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -202,6 +208,9 @@ export default function Home() {
                 <Building2 className="w-4 h-4 mr-0 sm:mr-2" />
                 <span className="hidden sm:inline">Organizations</span>
               </Button>
+              <div className="text-white">
+                <ThemeToggle />
+              </div>
               <Button
                 variant="outline"
                 size="sm"

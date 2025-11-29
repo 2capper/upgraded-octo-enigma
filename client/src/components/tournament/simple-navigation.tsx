@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'wouter';
 import { Trophy, Home, FileText, Shield, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useState } from 'react';
 
 interface TournamentBranding {
@@ -173,6 +174,8 @@ export const SimpleNavigation = ({ tournamentId, currentPage, tournament }: Simp
                 Admin
               </Button>
             </Link>
+            
+            <ThemeToggle />
           </div>
           
           {/* Mobile Menu Button */}
