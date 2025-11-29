@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -29,9 +31,15 @@ import {
   Download,
   AlertTriangle,
   GripVertical,
+  ChevronUp,
+  ChevronDown,
+  Search,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import type { Team, Diamond, Pool, Game, Tournament, TournamentDiamondAllocation } from "@shared/schema";
 import {
   AlertDialog,
@@ -44,7 +52,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Define UnplacedMatchup type locally since it's not exported from schema
 interface UnplacedMatchup {
   id: string;
   homeTeamId: string;
@@ -64,14 +71,56 @@ interface TimeSlot {
   time: string;
 }
 
+function TeamLogo({ team, size = "sm" }: { team?: Team; size?: "sm" | "md" }) {
+  const sizeClasses = size === "sm" ? "w-5 h-5 text-[9px]" : "w-8 h-8 text-xs";
+
+  if (!team) {
+    return (
+      <div
+        className={cn(
+          "rounded-full bg-muted flex-shrink-0 border border-border",
+          sizeClasses
+        )}
+      />
+    );
+  }
+
+  const stringToColor = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 40%)`;
+  };
+
+  const bgColor = stringToColor(team.name);
+  const initials = team.name.substring(0, 2).toUpperCase();
+
+  return (
+    <div
+      className={cn(
+        "rounded-full flex items-center justify-center font-bold text-white shadow-sm flex-shrink-0 border border-white/20",
+        sizeClasses
+      )}
+      style={{ backgroundColor: bgColor }}
+      title={team.name}
+    >
+      {initials}
+    </div>
+  );
+}
+
 function DraggableMatchup({
   matchup,
   teams,
   pools,
+  isCompact = false,
 }: {
   matchup: UnplacedMatchup;
   teams: Team[];
   pools: Pool[];
+  isCompact?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -87,6 +136,7 @@ function DraggableMatchup({
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
         opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 999 : undefined,
       }
     : undefined;
 
@@ -96,42 +146,51 @@ function DraggableMatchup({
       style={style}
       {...listeners}
       {...attributes}
-      className="group p-3 bg-card dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-grab active:cursor-grabbing hover:border-[var(--field-green)] hover:shadow-md transition-all touch-manipulation"
+      className={cn(
+        "group bg-card border-2 rounded-lg cursor-grab active:cursor-grabbing hover:border-primary hover:shadow-md transition-all touch-manipulation select-none",
+        isCompact
+          ? "w-[200px] flex-shrink-0 p-2 border-l-4 border-l-primary hover:translate-y-[-2px]"
+          : "p-3 border-gray-300 dark:border-gray-600"
+      )}
       data-testid={`matchup-${matchup.id}`}
       role="button"
       aria-label={`Drag to schedule ${homeTeam?.name || "Unknown"} vs ${awayTeam?.name || "Unknown"}`}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
-        <div className="flex-1 flex items-center justify-between min-w-0">
-          <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white truncate">
-            {homeTeam?.name || "Unknown"}
+      <div className="flex items-center gap-1 mb-1">
+        <GripVertical className="w-3 h-3 text-muted-foreground flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+        <div className="flex-1 flex items-center justify-between min-w-0 gap-1">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <TeamLogo team={awayTeam} size="sm" />
+            <span className="text-xs font-semibold truncate">
+              {awayTeam?.name || "TBD"}
+            </span>
           </div>
-          <div className="text-xs text-gray-500 px-1 flex-shrink-0">vs</div>
-          <div className="text-sm font-bold text-[var(--deep-navy)] dark:text-white truncate">
-            {awayTeam?.name || "Unknown"}
+          <div className="text-[10px] text-muted-foreground font-bold px-0.5">
+            vs
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+            <span className="text-xs font-semibold truncate text-right">
+              {homeTeam?.name || "TBD"}
+            </span>
+            <TeamLogo team={homeTeam} size="sm" />
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs pl-6">
+      <div className="flex items-center justify-between text-[10px] pl-4">
         <Badge
-          variant="outline"
-          className="bg-[var(--field-green)]/10 text-[var(--field-green)] border-[var(--field-green)]/30"
+          variant="secondary"
+          className="text-[9px] h-4 px-1 rounded-[2px] font-normal bg-muted/50 border-0"
         >
           {pool?.name || matchup.poolName}
         </Badge>
         {homeTeam?.division && (
-          <span className="text-gray-600 dark:text-gray-400">
-            {homeTeam.division}
-          </span>
+          <span className="text-muted-foreground">{homeTeam.division}</span>
         )}
       </div>
     </div>
   );
 }
 
-// Draggable wrapper for placed games
-// This component encapsulates the useDraggable hook to comply with Rules of Hooks
 function DraggableGameCard({
   game,
   gridRowStart,
@@ -163,31 +222,33 @@ function DraggableGameCard({
   }) => void;
   diamonds?: Diamond[];
 }) {
-  // useDraggable hook at component top level (not in loop)
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: game.id,
-    data: {
-      type: 'game',
-      game: game,
-    },
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: game.id,
+      data: {
+        type: "game",
+        game: game,
+      },
+    });
 
-  const style = transform ? {
-    gridRow: `${gridRowStart} / span ${rowSpan}`,
-    gridColumn: gridColumnStart,
-    zIndex: isDragging ? 12 : 10,
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    opacity: isDragging ? 0.5 : 1,
-  } : {
-    gridRow: `${gridRowStart} / span ${rowSpan}`,
-    gridColumn: gridColumnStart,
-    zIndex: 10,
-  };
+  const style = transform
+    ? {
+        gridRow: `${gridRowStart} / span ${rowSpan}`,
+        gridColumn: gridColumnStart,
+        zIndex: isDragging ? 12 : 10,
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.5 : 1,
+      }
+    : {
+        gridRow: `${gridRowStart} / span ${rowSpan}`,
+        gridColumn: gridColumnStart,
+        zIndex: 10,
+      };
 
   return (
     <div
       ref={setNodeRef}
-      className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg cursor-grab active:cursor-grabbing"
+      className="border-2 border-primary bg-primary/5 p-1 rounded-lg cursor-grab active:cursor-grabbing"
       style={style}
       {...listeners}
       {...attributes}
@@ -207,7 +268,6 @@ function DraggableGameCard({
   );
 }
 
-// Game card component for displaying scheduled games
 function GameCard({
   game,
   teams,
@@ -243,10 +303,7 @@ function GameCard({
       className="relative group h-full"
       onMouseDown={(e) => {
         const target = e.target as HTMLElement;
-
-        // Check if the click was on the remove button. If so, DO NOTHING.
-        // This lets the button's own onClick event fire.
-        if (target.closest('.remove-button')) {
+        if (target.closest(".remove-button")) {
           return;
         }
 
@@ -266,7 +323,7 @@ function GameCard({
               timeInterval;
             const newDuration = Math.max(
               timeInterval,
-              Math.min(480, startDuration + deltaMinutes),
+              Math.min(480, startDuration + deltaMinutes)
             );
 
             if (resizeHandle) {
@@ -282,7 +339,7 @@ function GameCard({
               timeInterval;
             const newDuration = Math.max(
               timeInterval,
-              Math.min(480, startDuration + deltaMinutes),
+              Math.min(480, startDuration + deltaMinutes)
             );
 
             if (resizeHandle && newDuration !== startDuration) {
@@ -341,62 +398,64 @@ function GameCard({
       <button
         onClick={() => onRemove(game.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className="remove-button absolute -top-1 -right-1 p-0.5 bg-[var(--clay-red)] text-white rounded-full hover:bg-red-700 z-10"
+        className="remove-button absolute -top-1 -right-1 p-0.5 bg-destructive text-white rounded-full hover:bg-red-700 z-10"
         data-testid={`remove-game-${game.id}`}
       >
         <X className="w-3 h-3" />
       </button>
-      <div className="flex items-center justify-between text-xs font-semibold text-[var(--deep-navy)] dark:text-white mb-0.5">
-        <span className="truncate">{homeTeam?.name || "TBD"}</span>
-        <span className="text-[10px] text-gray-500 mx-1">vs</span>
-        <span className="truncate">{awayTeam?.name || "TBD"}</span>
+      <div className="flex items-center gap-1 mb-0.5">
+        <TeamLogo team={awayTeam} size="sm" />
+        <span className="text-[10px] font-semibold truncate flex-1">
+          {awayTeam?.name || "TBD"}
+        </span>
       </div>
-      <div className="flex items-center justify-between text-xs mb-1">
+      <div className="flex items-center gap-1 mb-1">
+        <TeamLogo team={homeTeam} size="sm" />
+        <span className="text-[10px] font-semibold truncate flex-1">
+          {homeTeam?.name || "TBD"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-[9px] mb-1">
         <Badge
-          variant="outline"
-          className="text-[10px] bg-[var(--field-green)]/20 text-[var(--field-green)] border-[var(--field-green)]/30 px-1 py-0"
+          variant="secondary"
+          className="text-[8px] bg-muted/50 px-1 py-0 h-3"
         >
           {pool?.name || "Pool"}
         </Badge>
-        {homeTeam?.division && (
-          <span className="text-[10px] text-gray-600 dark:text-gray-400">
-            {homeTeam.division}
-          </span>
-        )}
+        <span className="text-muted-foreground font-mono">
+          {game.durationMinutes || 90}m
+        </span>
       </div>
-      {diamond && diamond.status !== 'open' && (
+      {diamond && diamond.status !== "open" && (
         <div className="mb-1">
-          <Badge 
-            className={`text-[9px] px-1 py-0 ${
-              diamond.status === 'closed' ? 'bg-red-500 text-white' :
-              diamond.status === 'delayed' ? 'bg-yellow-500 text-white' :
-              'bg-gray-500 text-white'
+          <Badge
+            className={`text-[8px] px-1 py-0 h-3 ${
+              diamond.status === "closed"
+                ? "bg-red-500 text-white"
+                : diamond.status === "delayed"
+                  ? "bg-yellow-500 text-white"
+                  : "bg-gray-500 text-white"
             }`}
             data-testid={`diamond-status-${diamond.status}`}
           >
-            {diamond.status === 'closed' ? '🔴 Closed' :
-             diamond.status === 'delayed' ? '⚠️ Delayed' :
-             '❓ TBD'}
+            {diamond.status === "closed"
+              ? "Closed"
+              : diamond.status === "delayed"
+                ? "Delayed"
+                : "TBD"}
           </Badge>
-          {diamond.statusMessage && (
-            <div className="text-[9px] text-gray-600 dark:text-gray-400 italic mt-0.5">
-              {diamond.statusMessage}
-            </div>
-          )}
         </div>
       )}
       <div
-        className="resize-handle text-center py-0.5 bg-gray-200 dark:bg-gray-700 rounded cursor-ns-resize text-[10px] text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="resize-handle text-center py-0.5 bg-muted rounded cursor-ns-resize text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         data-testid={`resize-handle-${game.id}`}
       >
-        {game.durationMinutes || 90} min →{" "}
-        {getEndTime(game.time, game.durationMinutes || 90)}
+        {game.durationMinutes || 90}m → {getEndTime(game.time, game.durationMinutes || 90)}
       </div>
     </div>
   );
 }
 
-// Single droppable zone component that covers the entire grid
 function GridDropZone({
   activeMatchup,
   allGames,
@@ -413,7 +472,7 @@ function GridDropZone({
   newGameDuration: number;
   getSlotFromCoordinates: (
     x: number,
-    y: number,
+    y: number
   ) => {
     timeSlot: TimeSlot;
     diamond: Diamond;
@@ -421,7 +480,7 @@ function GridDropZone({
     diamondIndex: number;
   } | null;
   setHoveredCell: (
-    cell: { timeIndex: number; diamondIndex: number } | null,
+    cell: { timeIndex: number; diamondIndex: number } | null
   ) => void;
   timeSlots: TimeSlot[];
   selectedDiamonds: Diamond[];
@@ -430,15 +489,9 @@ function GridDropZone({
     id: "calendar-grid",
   });
 
-  const [dragPosition, setDragPosition] = React.useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-
   React.useEffect(() => {
     if (!activeMatchup) {
       setHoveredCell(null);
-      setDragPosition(null);
       return;
     }
 
@@ -473,7 +526,6 @@ function GridDropZone({
   );
 }
 
-// Helper function to check if a time is within diamond availability
 function isTimeAvailable(time: string, diamond: Diamond): boolean {
   const [hours, minutes] = time.split(":").map(Number);
   const timeMinutes = hours * 60 + minutes;
@@ -483,21 +535,17 @@ function isTimeAvailable(time: string, diamond: Diamond): boolean {
     .map(Number);
   const startTimeMinutes = startHours * 60 + startMinutes;
 
-  const [endHours, endMinutes] = diamond.availableEndTime
-    .split(":")
-    .map(Number);
+  const [endHours, endMinutes] = diamond.availableEndTime.split(":").map(Number);
   const endTimeMinutes = endHours * 60 + endMinutes;
 
   return timeMinutes >= startTimeMinutes && timeMinutes < endTimeMinutes;
 }
 
-// Helper function to convert time string to minutes since midnight
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
 }
 
-// Helper function to calculate end time given start time and duration
 function getEndTime(startTime: string, durationMinutes: number): string {
   const startMinutes = timeToMinutes(startTime);
   const endMinutes = startMinutes + durationMinutes;
@@ -506,19 +554,16 @@ function getEndTime(startTime: string, durationMinutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
-// Helper function to check if two time ranges overlap
 function timeRangesOverlap(
   start1: string,
   duration1: number,
   start2: string,
-  duration2: number,
+  duration2: number
 ): boolean {
   const start1Minutes = timeToMinutes(start1);
   const end1Minutes = start1Minutes + duration1;
   const start2Minutes = timeToMinutes(start2);
   const end2Minutes = start2Minutes + duration2;
-
-  // Ranges overlap if one starts before the other ends
   return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
 }
 
@@ -528,21 +573,26 @@ export function DragScheduleBuilder({
 }: DragScheduleBuilderProps) {
   const { toast } = useToast();
   const gridRef = useRef<HTMLDivElement>(null);
-  const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(
-    null,
-  );
+  const bullpenRef = useRef<HTMLDivElement>(null);
+  const [activeMatchup, setActiveMatchup] = useState<UnplacedMatchup | null>(null);
   const [activeGame, setActiveGame] = useState<Game | null>(null);
-  const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [timeInterval, setTimeInterval] = useState<number>(60); // 15, 30, or 60 minutes
-  const [selectedDate, setSelectedDate] = useState<string | null>(null); // Selected date for day filter
+  const [placedMatchupIds, setPlacedMatchupIds] = useState<Set<string>>(new Set());
+  const [timeInterval, setTimeInterval] = useState<number>(60);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{
     timeIndex: number;
     diamondIndex: number;
   } | null>(null);
+  const [isDeckExpanded, setIsDeckExpanded] = useState(true);
+  const [bullpenSearch, setBullpenSearch] = useState("");
+  const [zoomLevel, setZoomLevel] = useState(70);
+  
+  useEffect(() => {
+    if (isDeckExpanded && bullpenRef.current) {
+      bullpenRef.current.focus();
+    }
+  }, [isDeckExpanded]);
 
-  // Fetch unplaced matchups from database
   const {
     data: allMatchups = [],
     isLoading: matchupsLoading,
@@ -551,22 +601,18 @@ export function DragScheduleBuilder({
     queryKey: ["/api/tournaments", tournamentId, "matchups"],
   });
 
-  // Fetch teams
   const { data: teams = [] } = useQuery<Team[]>({
     queryKey: ["/api/tournaments", tournamentId, "teams"],
   });
 
-  // Fetch pools
   const { data: pools = [] } = useQuery<Pool[]>({
     queryKey: ["/api/tournaments", tournamentId, "pools"],
   });
 
-  // Fetch tournament
   const { data: tournament } = useQuery<Tournament>({
     queryKey: ["/api/tournaments", tournamentId],
   });
 
-  // Fetch age divisions to get defaultGameDuration
   const { data: ageDivisions = [] } = useQuery<
     Array<{
       id: string;
@@ -578,19 +624,15 @@ export function DragScheduleBuilder({
     queryKey: [`/api/tournaments/${tournamentId}/age-divisions`],
   });
 
-  // Get current division's default game duration
   const currentDivision = ageDivisions.find((d) => d.id === divisionId);
   const defaultDuration = currentDivision?.defaultGameDuration || 90;
 
-  // Game duration state (can be overridden)
   const [gameDuration, setGameDuration] = useState<number>(defaultDuration);
 
-  // Update gameDuration when division or defaultDuration changes
   useEffect(() => {
     setGameDuration(defaultDuration);
   }, [defaultDuration]);
 
-  // Fetch diamonds
   const { data: diamonds = [] } = useQuery<Diamond[]>({
     queryKey: [
       "/api/organizations",
@@ -600,22 +642,18 @@ export function DragScheduleBuilder({
     enabled: !!tournament?.organizationId,
   });
 
-  // Get selected diamonds for this tournament
   const selectedDiamonds = diamonds.filter((d: Diamond) =>
-    tournament?.selectedDiamondIds?.includes(d.id),
+    tournament?.selectedDiamondIds?.includes(d.id)
   );
 
-  // Fetch existing games
   const { data: allGames = [] } = useQuery<Game[]>({
     queryKey: ["/api/tournaments", tournamentId, "games"],
   });
 
-  // Fetch allocations for the tournament
   const { data: allocations = [] } = useQuery<TournamentDiamondAllocation[]>({
     queryKey: ["/api/tournaments", tournamentId, "allocations"],
   });
 
-  // State for conflict override dialog
   const [conflictDialog, setConflictDialog] = useState<{
     open: boolean;
     conflicts: {
@@ -635,16 +673,14 @@ export function DragScheduleBuilder({
     pendingMove: null,
   });
 
-  // Filter games to only those in the selected division's pools (memoized to prevent re-renders)
   const existingGames = useMemo(() => {
     const divisionPools = pools.filter(
-      (p) => !divisionId || p.ageDivisionId === divisionId,
+      (p) => !divisionId || p.ageDivisionId === divisionId
     );
     const divisionPoolIds = new Set(divisionPools.map((p) => p.id));
     return allGames.filter((g) => divisionPoolIds.has(g.poolId));
   }, [allGames, pools, divisionId]);
 
-  // Filter matchups by division (client-side)
   const matchups = useMemo(() => {
     if (!divisionId) return allMatchups;
     const divisionPools = pools.filter((p) => p.ageDivisionId === divisionId);
@@ -652,19 +688,13 @@ export function DragScheduleBuilder({
     return allMatchups.filter((m) => divisionPoolIds.has(m.poolId));
   }, [allMatchups, pools, divisionId]);
 
-  // Initialize placedMatchupIds from existing games (runs only when games actually change)
   useEffect(() => {
-    // Extract matchup IDs from existing games
     const idsFromGames = new Set(
-      existingGames.map((game) => game.matchupId).filter(Boolean) as string[],
+      existingGames.map((game) => game.matchupId).filter(Boolean) as string[]
     );
-
-    // Update the state to reflect the games that are already placed
-    // Because existingGames is memoized, this only runs when game data actually changes
     setPlacedMatchupIds(idsFromGames);
   }, [existingGames]);
 
-  // Place game mutation
   const placeMutation = useMutation({
     mutationFn: async (gameData: {
       tournamentId: string;
@@ -682,12 +712,11 @@ export function DragScheduleBuilder({
       return data.game;
     },
     onSuccess: (newGame) => {
-      // Invalidate BOTH queries to refetch from database
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "games"],
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "matchups"],
       });
 
       toast({
@@ -704,19 +733,17 @@ export function DragScheduleBuilder({
     },
   });
 
-  // Remove game mutation
   const removeMutation = useMutation({
     mutationFn: async (gameId: string) => {
       await apiRequest("DELETE", `/api/games/${gameId}`);
       return gameId;
     },
     onSuccess: (gameId) => {
-      // Invalidate BOTH queries to refetch from database
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "games"],
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "matchups"],
       });
 
       toast({
@@ -726,7 +753,6 @@ export function DragScheduleBuilder({
     },
   });
 
-  // Resize game mutation
   const resizeMutation = useMutation({
     mutationFn: async ({
       gameId,
@@ -741,13 +767,12 @@ export function DragScheduleBuilder({
       return response.json();
     },
     onSuccess: (updatedGame) => {
-      // Optimistically update game in cache
       queryClient.setQueryData<Game[]>(
         ["/api/tournaments", tournamentId, "games"],
         (oldGames = []) =>
           oldGames.map((g) =>
-            g.id === updatedGame.game.id ? updatedGame.game : g,
-          ),
+            g.id === updatedGame.game.id ? updatedGame.game : g
+          )
       );
 
       toast({
@@ -764,23 +789,26 @@ export function DragScheduleBuilder({
     },
   });
 
-  // Auto-place mutation
   const autoPlaceMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/auto-place`, {
-        selectedDate,
-        diamondIds: selectedDiamonds.map(d => d.id)
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/tournaments/${tournamentId}/auto-place`,
+        {
+          selectedDate,
+          diamondIds: selectedDiamonds.map((d) => d.id),
+        }
+      );
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "games"],
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'matchups'] 
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "matchups"],
       });
-      
+
       if (data.placedCount > 0) {
         toast({
           title: "Auto-Place Complete",
@@ -811,15 +839,31 @@ export function DragScheduleBuilder({
     },
   });
 
-  // Type for conflict details
-  type ConflictDetails = { errors: string[]; warnings: string[]; conflictTypes: string[] };
-  
-  // Type for move game mutation result with discriminated union
-  type MoveGameResult = 
-    | { conflict: true; conflicts: ConflictDetails; pendingMove: { gameId: string; date: string; time: string; diamondId: string } }
-    | { conflict: false; game: Game; warnings: string[]; wasOverridden: boolean; conflicts: ConflictDetails | null };
+  type ConflictDetails = {
+    errors: string[];
+    warnings: string[];
+    conflictTypes: string[];
+  };
 
-  // Move game mutation with conflict handling (uses fetch directly to handle 409)
+  type MoveGameResult =
+    | {
+        conflict: true;
+        conflicts: ConflictDetails;
+        pendingMove: {
+          gameId: string;
+          date: string;
+          time: string;
+          diamondId: string;
+        };
+      }
+    | {
+        conflict: false;
+        game: Game;
+        warnings: string[];
+        wasOverridden: boolean;
+        conflicts: ConflictDetails | null;
+      };
+
   const moveGameMutation = useMutation({
     mutationFn: async (gameData: {
       gameId: string;
@@ -829,46 +873,50 @@ export function DragScheduleBuilder({
       forceOverride?: boolean;
     }): Promise<MoveGameResult> => {
       const { gameId, forceOverride, ...movePayload } = gameData;
-      
-      // Use fetch directly to properly handle 409 responses
+
       const response = await fetch(`/api/games/${gameId}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           ...movePayload,
-          forceOverride: forceOverride || false
+          forceOverride: forceOverride || false,
         }),
       });
-      
+
       const data = await response.json();
-      
-      // Handle 409 conflict response
+
       if (response.status === 409 && data.canOverride) {
-        return { 
-          conflict: true, 
-          conflicts: data.conflicts || { errors: [data.error || 'Conflict detected'], warnings: [], conflictTypes: [] },
-          pendingMove: { gameId, date: movePayload.date, time: movePayload.time, diamondId: movePayload.diamondId }
+        return {
+          conflict: true,
+          conflicts: data.conflicts || {
+            errors: [data.error || "Conflict detected"],
+            warnings: [],
+            conflictTypes: [],
+          },
+          pendingMove: {
+            gameId,
+            date: movePayload.date,
+            time: movePayload.time,
+            diamondId: movePayload.diamondId,
+          },
         };
       }
-      
-      // Handle other errors
+
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to move game');
+        throw new Error(data.error || "Failed to move game");
       }
-      
-      // Backend returns { game, warnings, wasOverridden, conflicts }
-      return { 
-        conflict: false, 
+
+      return {
+        conflict: false,
         game: data.game as Game,
         warnings: data.warnings || [],
         wasOverridden: data.wasOverridden === true,
-        conflicts: data.conflicts || null
+        conflicts: data.conflicts || null,
       };
     },
     onSuccess: (result) => {
       if (result.conflict) {
-        // Show conflict override dialog
         setConflictDialog({
           open: true,
           conflicts: result.conflicts,
@@ -876,51 +924,47 @@ export function DragScheduleBuilder({
         });
         return;
       }
-      
-      // Invalidate the games query to force a refetch
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/tournaments', tournamentId, 'games'] 
+
+      queryClient.invalidateQueries({
+        queryKey: ["/api/tournaments", tournamentId, "games"],
       });
-      
-      // Show appropriate message based on whether override was used
+
       if (result.wasOverridden) {
-        // Include conflict details for audit trail
-        const conflictSummary = result.conflicts?.errors?.length 
-          ? `Overridden: ${result.conflicts.errors[0]}` 
-          : 'Game placement was forced despite conflicts.';
+        const conflictSummary = result.conflicts?.errors?.length
+          ? `Overridden: ${result.conflicts.errors[0]}`
+          : "Game placement was forced despite conflicts.";
         toast({
-          title: 'Game Moved (Override Applied)',
+          title: "Game Moved (Override Applied)",
           description: conflictSummary,
-          variant: 'default',
+          variant: "default",
         });
       } else if (result.warnings && result.warnings.length > 0) {
         toast({
-          title: 'Game Moved (with notes)',
-          description: result.warnings.join('. '),
-          variant: 'default',
+          title: "Game Moved (with notes)",
+          description: result.warnings.join(". "),
+          variant: "default",
         });
       } else {
         toast({
-          title: 'Game Moved',
-          description: 'Game successfully rescheduled',
+          title: "Game Moved",
+          description: "Game successfully rescheduled",
         });
       }
     },
     onError: (error: Error) => {
       toast({
-        title: 'Cannot Move Game',
+        title: "Cannot Move Game",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
 
-  // Handle force override
   const handleForceOverride = () => {
     if (!conflictDialog.pendingMove) return;
-    
-    setConflictDialog(prev => ({ ...prev, open: false }));
-    
+
+    setConflictDialog((prev) => ({ ...prev, open: false }));
+
     moveGameMutation.mutate({
       ...conflictDialog.pendingMove,
       forceOverride: true,
@@ -935,38 +979,58 @@ export function DragScheduleBuilder({
     });
   };
 
-  // Coordinate-based cell detection (accounts for scroll offsets)
   const getSlotFromCoordinates = (x: number, y: number) => {
     if (!gridRef.current) return null;
 
     const gridRect = gridRef.current.getBoundingClientRect();
-
-    // Add scroll offsets to account for horizontal/vertical scrolling
-    const x_offset = x - gridRect.left + gridRef.current.scrollLeft;
+    
     const y_offset = y - gridRect.top + gridRef.current.scrollTop;
 
-    const HEADER_ROW_HEIGHT = 40;
-    const TIME_SLOT_HEIGHT = 70;
+    const HEADER_ROW_HEIGHT = 48;
+    const TIME_SLOT_HEIGHT = zoomLevel;
 
-    // Adjust for header row
     const adjustedY = y_offset - HEADER_ROW_HEIGHT;
-    if (adjustedY < 0) return null; // Dropped on header
+    if (adjustedY < 0) return null;
 
     const timeIndex = Math.floor(adjustedY / TIME_SLOT_HEIGHT);
-    const columnWidth = gridRect.width / selectedDiamonds.length;
-    const diamondIndex = Math.floor(x_offset / columnWidth);
+    
+    const headerCells = gridRef.current.querySelectorAll('[data-diamond-header]');
+    let diamondIndex = -1;
+    
+    if (headerCells.length > 0) {
+      for (let i = 0; i < headerCells.length; i++) {
+        const cellRect = headerCells[i].getBoundingClientRect();
+        if (x >= cellRect.left && x < cellRect.right) {
+          diamondIndex = i;
+          break;
+        }
+      }
+      if (diamondIndex === -1) {
+        const lastCellRect = headerCells[headerCells.length - 1].getBoundingClientRect();
+        if (x >= lastCellRect.right) {
+          diamondIndex = headerCells.length - 1;
+        }
+        const firstCellRect = headerCells[0].getBoundingClientRect();
+        if (x < firstCellRect.left) {
+          diamondIndex = 0;
+        }
+      }
+    } else {
+      const x_offset = x - gridRect.left + gridRef.current.scrollLeft;
+      const contentWidth = gridRef.current.scrollWidth;
+      const columnWidth = contentWidth / selectedDiamonds.length;
+      diamondIndex = Math.floor(x_offset / columnWidth);
+    }
 
-    // Clamp indices to valid ranges
     const clampedTimeIndex = Math.max(
       0,
-      Math.min(timeIndex, timeSlots.length - 1),
+      Math.min(timeIndex, timeSlots.length - 1)
     );
     const clampedDiamondIndex = Math.max(
       0,
-      Math.min(diamondIndex, selectedDiamonds.length - 1),
+      Math.min(diamondIndex, selectedDiamonds.length - 1)
     );
 
-    // Validate indices are within bounds
     if (timeIndex < 0 || timeIndex >= timeSlots.length) return null;
     if (diamondIndex < 0 || diamondIndex >= selectedDiamonds.length)
       return null;
@@ -980,29 +1044,23 @@ export function DragScheduleBuilder({
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // Reset both active states
     setActiveMatchup(null);
     setActiveGame(null);
 
     const { data } = event.active;
-    
-    // Check if 'type' is 'game'
-    if (data.current?.type === 'game') {
+
+    if (data.current?.type === "game") {
       setActiveGame(data.current.game as Game);
     } else {
-      // Assume it's a matchup
       setActiveMatchup(data.current as UnplacedMatchup);
     }
   };
 
-  // Helper to parse time to minutes
   const parseTimeToMinutes = (t: string): number => {
-    const [h, m] = t.split(':').map(Number);
+    const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
 
-  // Shared validation helper: checks diamond availability, allocations, and overlaps
-  // Returns { error, warning } - error blocks the move, warning is informational
   const validatePlacement = (params: {
     date: string;
     time: string;
@@ -1010,86 +1068,86 @@ export function DragScheduleBuilder({
     homeTeamId: string;
     awayTeamId: string;
     durationMinutes: number;
-    ignoreGameId?: string; // Skip checking this game (for moves)
+    ignoreGameId?: string;
   }): { error: string | null; warning: string | null } => {
-    const { date, time, diamondId, homeTeamId, awayTeamId, durationMinutes, ignoreGameId } = params;
+    const {
+      date,
+      time,
+      diamondId,
+      homeTeamId,
+      awayTeamId,
+      durationMinutes,
+      ignoreGameId,
+    } = params;
     let warning: string | null = null;
 
-    // Check diamond availability
     const targetDiamond = diamonds.find((d) => d.id === diamondId);
     if (targetDiamond && !isTimeAvailable(time, targetDiamond)) {
-      return { 
+      return {
         error: `${targetDiamond.name} is not available at ${time}. Operating hours: ${targetDiamond.availableStartTime} - ${targetDiamond.availableEndTime}`,
-        warning: null 
+        warning: null,
       };
     }
 
-    // Check diamond status (closed globally)
-    if (targetDiamond?.status === 'closed') {
-      return { 
+    if (targetDiamond?.status === "closed") {
+      return {
         error: `${targetDiamond.name} is marked as CLOSED`,
-        warning: null 
+        warning: null,
       };
     }
 
-    // Check allocations - does this diamond have a reserved time block for this tournament?
     const gameStartMin = parseTimeToMinutes(time);
     const gameEndMin = gameStartMin + durationMinutes;
-    
-    const matchingAllocation = allocations.find(a => 
-      a.diamondId === diamondId && 
-      a.date === date &&
-      parseTimeToMinutes(a.startTime) <= gameStartMin &&
-      parseTimeToMinutes(a.endTime) >= gameEndMin
+
+    const matchingAllocation = allocations.find(
+      (a) =>
+        a.diamondId === diamondId &&
+        a.date === date &&
+        parseTimeToMinutes(a.startTime) <= gameStartMin &&
+        parseTimeToMinutes(a.endTime) >= gameEndMin
     );
 
     if (allocations.length > 0 && !matchingAllocation) {
-      // No allocation covers this slot - this is an error
-      return { 
-        error: `No reserved time block for ${targetDiamond?.name || 'this diamond'} at ${time}. Use Field Allocations to reserve time.`,
-        warning: null 
+      return {
+        error: `No reserved time block for ${targetDiamond?.name || "this diamond"} at ${time}. Use Field Allocations to reserve time.`,
+        warning: null,
       };
     }
 
-    // Check division restriction on allocation
     if (matchingAllocation?.divisionId) {
-      const homeTeam = teams.find(t => t.id === homeTeamId);
-      const awayTeam = teams.find(t => t.id === awayTeamId);
+      const homeTeam = teams.find((t) => t.id === homeTeamId);
+      const awayTeam = teams.find((t) => t.id === awayTeamId);
       const teamDivisionId = homeTeam?.ageDivisionId || awayTeam?.ageDivisionId;
-      
+
       if (teamDivisionId && matchingAllocation.divisionId !== teamDivisionId) {
-        return { 
+        return {
           error: `This time block is reserved for a different division`,
-          warning: null 
+          warning: null,
         };
       }
     }
 
-    // Check for overlapping games
     const gamesOnSameDate = existingGames.filter((g) => g.date === date);
-    
+
     for (const existingGame of gamesOnSameDate) {
-      // Skip self-check when moving a game
       if (ignoreGameId && existingGame.id === ignoreGameId) {
         continue;
       }
 
       const existingDuration = existingGame.durationMinutes || 90;
 
-      // Check diamond conflicts
       if (
         existingGame.diamondId === diamondId &&
         timeRangesOverlap(time, durationMinutes, existingGame.time, existingDuration)
       ) {
         const endTime = getEndTime(time, durationMinutes);
         const existingEndTime = getEndTime(existingGame.time, existingDuration);
-        return { 
+        return {
           error: `This ${durationMinutes}-minute game (${time}-${endTime}) would overlap with an existing game at ${existingGame.time}-${existingEndTime} on ${targetDiamond?.name}`,
-          warning: null 
+          warning: null,
         };
       }
 
-      // Check team conflicts
       if (
         (existingGame.homeTeamId === homeTeamId ||
           existingGame.awayTeamId === homeTeamId ||
@@ -1098,10 +1156,16 @@ export function DragScheduleBuilder({
         timeRangesOverlap(time, durationMinutes, existingGame.time, existingDuration)
       ) {
         const conflictingTeamIds = new Set<string>();
-        if (existingGame.homeTeamId === homeTeamId || existingGame.awayTeamId === homeTeamId) {
+        if (
+          existingGame.homeTeamId === homeTeamId ||
+          existingGame.awayTeamId === homeTeamId
+        ) {
           conflictingTeamIds.add(homeTeamId);
         }
-        if (existingGame.homeTeamId === awayTeamId || existingGame.awayTeamId === awayTeamId) {
+        if (
+          existingGame.homeTeamId === awayTeamId ||
+          existingGame.awayTeamId === awayTeamId
+        ) {
           conflictingTeamIds.add(awayTeamId);
         }
 
@@ -1110,28 +1174,33 @@ export function DragScheduleBuilder({
           .filter(Boolean)
           .join(" and ");
 
-        return { 
+        return {
           error: `${conflictingTeamNames || "A team"} already has a game that overlaps with this time slot`,
-          warning: null 
+          warning: null,
         };
       }
     }
 
-    // Check scheduling requests (warnings only)
     const checkTeamRequests = (teamId: string) => {
-      const team = teams.find(t => t.id === teamId);
+      const team = teams.find((t) => t.id === teamId);
       if (!team?.schedulingRequests) return;
       const req = team.schedulingRequests.toLowerCase();
-      
-      const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      
+
+      const dayName = new Date(date)
+        .toLocaleDateString("en-US", { weekday: "long" })
+        .toLowerCase();
+
       if (req.includes(`no ${dayName}`)) {
         warning = `${team.name}: Requested to avoid ${dayName}s`;
       }
       if (req.includes("no morning") && gameStartMin < 720) {
         warning = `${team.name}: Requested to avoid mornings`;
       }
-      if (req.includes("no afternoon") && gameStartMin >= 720 && gameStartMin < 1020) {
+      if (
+        req.includes("no afternoon") &&
+        gameStartMin >= 720 &&
+        gameStartMin < 1020
+      ) {
         warning = `${team.name}: Requested to avoid afternoons`;
       }
       if (req.includes("no evening") && gameStartMin >= 1020) {
@@ -1147,12 +1216,10 @@ export function DragScheduleBuilder({
 
   const handleDragEnd = (event: DragEndEvent) => {
     try {
-      // Determine what's being dragged
       const dragData = event.active.data.current;
       const dragType = dragData?.type;
-      const isMovingGame = dragType === 'game';
+      const isMovingGame = dragType === "game";
 
-      // Get drop location using coordinate math
       const rect = event.active.rect.current.translated;
       if (!rect) {
         return;
@@ -1172,17 +1239,14 @@ export function DragScheduleBuilder({
       const targetDiamondId = diamond.id;
 
       if (isMovingGame && activeGame) {
-        // Moving an existing game
-        // Skip if dropping in same location
         if (
           activeGame.date === targetDate &&
           activeGame.time === targetTime &&
           activeGame.diamondId === targetDiamondId
         ) {
-          return; // No change needed
+          return;
         }
 
-        // Validate placement using game's own duration
         const validation = validatePlacement({
           date: targetDate,
           time: targetTime,
@@ -1190,10 +1254,9 @@ export function DragScheduleBuilder({
           homeTeamId: activeGame.homeTeamId,
           awayTeamId: activeGame.awayTeamId,
           durationMinutes: activeGame.durationMinutes || 90,
-          ignoreGameId: activeGame.id, // Skip self-collision
+          ignoreGameId: activeGame.id,
         });
 
-        // Show warning if there's one (but still allow the move)
         if (validation.warning && !validation.error) {
           toast({
             title: "Scheduling Note",
@@ -1201,8 +1264,6 @@ export function DragScheduleBuilder({
           });
         }
 
-        // For moves, let the backend do the final validation with override support
-        // Execute move mutation - backend will return 409 with conflict details if needed
         moveGameMutation.mutate({
           gameId: activeGame.id,
           date: targetDate,
@@ -1210,7 +1271,6 @@ export function DragScheduleBuilder({
           diamondId: targetDiamondId,
         });
       } else if (activeMatchup) {
-        // Placing a new matchup
         const validation = validatePlacement({
           date: targetDate,
           time: targetTime,
@@ -1229,7 +1289,6 @@ export function DragScheduleBuilder({
           return;
         }
 
-        // Show warning if there's one
         if (validation.warning) {
           toast({
             title: "Scheduling Note",
@@ -1237,7 +1296,6 @@ export function DragScheduleBuilder({
           });
         }
 
-        // Execute place mutation
         placeMutation.mutate({
           tournamentId,
           poolId: activeMatchup.poolId,
@@ -1251,13 +1309,11 @@ export function DragScheduleBuilder({
         });
       }
     } finally {
-      // Always reset both states
       setActiveMatchup(null);
       setActiveGame(null);
     }
   };
 
-  // Generate time slots based on tournament dates, selected interval, and diamond availability
   const generateTimeSlots = (): TimeSlot[] => {
     if (!tournament) return [];
 
@@ -1265,36 +1321,32 @@ export function DragScheduleBuilder({
     const start = new Date(tournament.startDate);
     const end = new Date(tournament.endDate);
 
-    // Get selected diamonds for this tournament
-    const selectedDiamonds = diamonds.filter((d) =>
-      tournament.selectedDiamondIds?.includes(d.id),
+    const localSelectedDiamonds = diamonds.filter((d) =>
+      tournament.selectedDiamondIds?.includes(d.id)
     );
 
-    // Calculate earliest start time and latest end time across all diamonds
-    let earliestStartMinutes = 9 * 60; // Default 9 AM
-    let latestEndMinutes = 17 * 60; // Default 5 PM
+    let earliestStartMinutes = 9 * 60;
+    let latestEndMinutes = 17 * 60;
 
-    if (selectedDiamonds.length > 0) {
+    if (localSelectedDiamonds.length > 0) {
       earliestStartMinutes = Math.min(
-        ...selectedDiamonds.map((d) => {
+        ...localSelectedDiamonds.map((d) => {
           const [hours, minutes] = d.availableStartTime.split(":").map(Number);
           return hours * 60 + minutes;
-        }),
+        })
       );
 
       latestEndMinutes = Math.max(
-        ...selectedDiamonds.map((d) => {
+        ...localSelectedDiamonds.map((d) => {
           const [hours, minutes] = d.availableEndTime.split(":").map(Number);
           return hours * 60 + minutes;
-        }),
+        })
       );
     }
 
-    // Generate slots for each day
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split("T")[0];
 
-      // Generate time slots from earliest to latest based on selected interval
       for (
         let minuteOffset = earliestStartMinutes;
         minuteOffset < latestEndMinutes;
@@ -1312,25 +1364,32 @@ export function DragScheduleBuilder({
 
   const allTimeSlots = generateTimeSlots();
 
-  // Get unique dates from time slots
   const uniqueDates = Array.from(
-    new Set(allTimeSlots.map((slot) => slot.date)),
+    new Set(allTimeSlots.map((slot) => slot.date))
   ).sort();
 
-  // Initialize selected date to first date if not set
   if (selectedDate === null && uniqueDates.length > 0 && tournament) {
     setSelectedDate(uniqueDates[0]);
   }
 
-  // Filter time slots by selected date (or show all if no date selected)
   const timeSlots = selectedDate
     ? allTimeSlots.filter((slot) => slot.date === selectedDate)
     : allTimeSlots;
 
-  // Filter out matchups that have already been placed by their unique matchup IDs
-  const unplacedMatchups = matchups.filter((m) => !placedMatchupIds.has(m.id));
+  const unplacedMatchups = useMemo(() => {
+    return matchups
+      .filter((m) => !placedMatchupIds.has(m.id))
+      .filter((m) => {
+        if (!bullpenSearch) return true;
+        const home =
+          teams.find((t) => t.id === m.homeTeamId)?.name.toLowerCase() || "";
+        const away =
+          teams.find((t) => t.id === m.awayTeamId)?.name.toLowerCase() || "";
+        const q = bullpenSearch.toLowerCase();
+        return home.includes(q) || away.includes(q);
+      });
+  }, [matchups, placedMatchupIds, bullpenSearch, teams]);
 
-  // Calculate progress based on placed matchup IDs
   const placedCount = placedMatchupIds.size;
   const progress =
     matchups.length > 0 ? Math.round((placedCount / matchups.length) * 100) : 0;
@@ -1338,7 +1397,7 @@ export function DragScheduleBuilder({
   if (matchupsLoading || !tournament) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -1364,9 +1423,10 @@ export function DragScheduleBuilder({
           </CardHeader>
           <CardContent>
             <div className="text-center py-12">
-              <p className="text-lg font-medium text-gray-700">No matchups found.</p>
-              <p className="text-gray-500 mt-2">
-                Please go to the "Pool Assignment" tab to lock pools and generate matchups.
+              <p className="text-lg font-medium">No matchups found.</p>
+              <p className="text-muted-foreground mt-2">
+                Please go to the "Pool Assignment" tab to lock pools and generate
+                matchups.
               </p>
             </div>
           </CardContent>
@@ -1377,350 +1437,370 @@ export function DragScheduleBuilder({
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="space-y-4">
-        {/* Progress header */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Schedule Progress</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {placedCount} of {matchups.length} games placed ({progress}%)
-                </p>
-              </div>
-              <div className="flex gap-2 items-center">
-                {unplacedMatchups.length > 0 && (
-                  <Button
-                    onClick={() => autoPlaceMutation.mutate()}
-                    disabled={autoPlaceMutation.isPending}
-                    variant="default"
-                    size="sm"
-                    className="gap-1.5"
-                    data-testid="button-auto-place"
-                  >
-                    {autoPlaceMutation.isPending ? 'Placing...' : 'Auto Place'}
-                  </Button>
-                )}
-                {placedCount > 0 && (
-                  <Button
-                    onClick={handleExportCSV}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    data-testid="button-export-csv"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export CSV
-                  </Button>
-                )}
-                <Badge variant="outline">
-                  {unplacedMatchups.length} unplaced
-                </Badge>
-                {placedCount === matchups.length && matchups.length > 0 && (
-                  <Badge className="bg-green-500">
-                    <Check className="w-3 h-3 mr-1" />
-                    Complete
-                  </Badge>
-                )}
+      <div className="flex flex-col h-[calc(100vh-160px)] bg-background">
+        {/* TOP BAR: Controls */}
+        <div className="flex flex-wrap justify-between items-center p-3 border-b bg-card shadow-sm z-10 gap-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex flex-col">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                Day
+              </span>
+              <Select value={selectedDate || ""} onValueChange={setSelectedDate}>
+                <SelectTrigger
+                  className="w-[180px] bg-background h-8 text-sm"
+                  data-testid="select-day"
+                >
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueDates.map((date) => (
+                    <SelectItem
+                      key={date}
+                      value={date}
+                      data-testid={`select-day-${date}`}
+                    >
+                      {new Date(date + "T12:00:00").toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="hidden md:flex flex-col border-l pl-4">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                Zoom
+              </span>
+              <div className="flex items-center gap-2">
+                <ZoomOut className="h-3 w-3 text-muted-foreground" />
+                <Slider
+                  value={[zoomLevel]}
+                  onValueChange={(v) => setZoomLevel(v[0])}
+                  min={40}
+                  max={120}
+                  step={10}
+                  className="w-[80px]"
+                />
+                <ZoomIn className="h-3 w-3 text-muted-foreground" />
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <div className="grid grid-cols-12 gap-4">
-          {/* Unplaced matchups sidebar */}
-          <div className="col-span-3">
-            <Card className="sticky top-4">
-              <CardHeader>
-                <CardTitle className="text-sm">Unplaced Matchups</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
-                {unplacedMatchups.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    All games placed!
-                  </p>
-                ) : (
-                  unplacedMatchups.map((matchup) => (
-                    <DraggableMatchup
-                      key={matchup.id}
-                      matchup={matchup}
-                      teams={teams}
-                      pools={pools}
-                    />
-                  ))
-                )}
-              </CardContent>
-            </Card>
+            <div className="flex flex-col border-l pl-4">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                Duration
+              </span>
+              <Select
+                value={String(gameDuration)}
+                onValueChange={(value) => setGameDuration(Number(value))}
+                data-testid="select-game-duration"
+              >
+                <SelectTrigger className="w-[90px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="60">60 min</SelectItem>
+                  <SelectItem value="75">75 min</SelectItem>
+                  <SelectItem value="90">90 min</SelectItem>
+                  <SelectItem value="105">105 min</SelectItem>
+                  <SelectItem value="120">120 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="hidden lg:flex flex-col border-l pl-4">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                Interval
+              </span>
+              <RadioGroup
+                value={String(timeInterval)}
+                onValueChange={(value) => setTimeInterval(Number(value))}
+                className="flex gap-2"
+                data-testid="radio-time-interval"
+              >
+                <div className="flex items-center gap-1">
+                  <RadioGroupItem value="15" id="interval-15" />
+                  <Label htmlFor="interval-15" className="text-xs cursor-pointer">
+                    15m
+                  </Label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <RadioGroupItem value="30" id="interval-30" />
+                  <Label htmlFor="interval-30" className="text-xs cursor-pointer">
+                    30m
+                  </Label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <RadioGroupItem value="60" id="interval-60" />
+                  <Label htmlFor="interval-60" className="text-xs cursor-pointer">
+                    60m
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
           </div>
 
-          {/* Calendar grid */}
-          <div className="col-span-9">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between mb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Schedule Grid
-                  </CardTitle>
-                  <div className="flex items-center gap-4">
-                    {uniqueDates.length > 1 && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs text-gray-600 dark:text-gray-400">
-                          Day:
-                        </Label>
-                        <Select
-                          value={selectedDate || ""}
-                          onValueChange={setSelectedDate}
-                          data-testid="select-day"
-                        >
-                          <SelectTrigger className="w-[140px] h-8 text-xs">
-                            <SelectValue placeholder="Select day" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {uniqueDates.map((date) => (
-                              <SelectItem
-                                key={date}
-                                value={date}
-                                data-testid={`select-day-${date}`}
-                              >
-                                {new Date(
-                                  date + "T12:00:00",
-                                ).toLocaleDateString("en-US", {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-gray-600 dark:text-gray-400">
-                        Game Duration:
-                      </Label>
-                      <Select
-                        value={String(gameDuration)}
-                        onValueChange={(value) =>
-                          setGameDuration(Number(value))
-                        }
-                        data-testid="select-game-duration"
-                      >
-                        <SelectTrigger className="w-[110px] h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="60" data-testid="duration-60">
-                            60 min
-                          </SelectItem>
-                          <SelectItem value="75" data-testid="duration-75">
-                            75 min
-                          </SelectItem>
-                          <SelectItem value="90" data-testid="duration-90">
-                            90 min
-                          </SelectItem>
-                          <SelectItem value="105" data-testid="duration-105">
-                            105 min
-                          </SelectItem>
-                          <SelectItem value="120" data-testid="duration-120">
-                            120 min
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-gray-600 dark:text-gray-400">
-                        Time Interval:
-                      </Label>
-                      <RadioGroup
-                        value={String(timeInterval)}
-                        onValueChange={(value) =>
-                          setTimeInterval(Number(value))
-                        }
-                        className="flex gap-3"
-                        data-testid="radio-time-interval"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <RadioGroupItem
-                            value="15"
-                            id="interval-15"
-                            data-testid="radio-interval-15"
-                          />
-                          <Label
-                            htmlFor="interval-15"
-                            className="text-xs cursor-pointer"
-                          >
-                            15 min
-                          </Label>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <RadioGroupItem
-                            value="30"
-                            id="interval-30"
-                            data-testid="radio-interval-30"
-                          />
-                          <Label
-                            htmlFor="interval-30"
-                            className="text-xs cursor-pointer"
-                          >
-                            30 min
-                          </Label>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <RadioGroupItem
-                            value="60"
-                            id="interval-60"
-                            data-testid="radio-interval-60"
-                          />
-                          <Label
-                            htmlFor="interval-60"
-                            className="text-xs cursor-pointer"
-                          >
-                            60 min
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  {/* Two-column layout: fixed time column + scrollable grid */}
-                  <div className="flex">
-                    {/* Fixed Time Column */}
-                    <div className="flex-shrink-0 w-[120px]">
-                      {/* Time header */}
-                      <div className="border p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center h-[40px]">
-                        Time
-                      </div>
-                      {/* Time labels */}
-                      {timeSlots.map((slot) => (
-                        <div
-                          key={`time-${slot.date}-${slot.time}`}
-                          className="border border-t-0 p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800/50 flex flex-col justify-center h-[70px]"
-                        >
-                          <div>{slot.date}</div>
-                          <div className="text-gray-500">{slot.time}</div>
-                        </div>
-                      ))}
-                    </div>
+          <div className="flex gap-2 items-center">
+            {unplacedMatchups.length > 0 && (
+              <Button
+                onClick={() => autoPlaceMutation.mutate()}
+                disabled={autoPlaceMutation.isPending}
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                data-testid="button-auto-place"
+              >
+                {autoPlaceMutation.isPending ? "Placing..." : "Auto Place"}
+              </Button>
+            )}
+            {placedCount > 0 && (
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                data-testid="button-export-csv"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </Button>
+            )}
+            {placedCount === matchups.length && matchups.length > 0 && (
+              <Badge className="bg-green-500">
+                <Check className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </div>
+        </div>
 
-                    {/* Scrollable Diamond Grid */}
-                    <div className="flex-1 relative">
+        {/* MAIN: Schedule Grid */}
+        <div className="flex-1 overflow-hidden relative flex">
+          {/* Y-Axis: Time Labels */}
+          <div className="w-16 flex-shrink-0 border-r bg-card z-20 overflow-hidden">
+            <div
+              className="border-b bg-muted/50 flex items-center justify-center text-xs font-medium"
+              style={{ height: "48px" }}
+            >
+              Time
+            </div>
+            <div className="overflow-y-auto" style={{ height: `calc(100% - 48px)` }}>
+              {timeSlots.map((slot) => (
+                <div
+                  key={`time-${slot.date}-${slot.time}`}
+                  className="border-b flex items-center justify-center text-xs font-mono text-muted-foreground"
+                  style={{ height: `${zoomLevel}px` }}
+                >
+                  {slot.time}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Grid Area */}
+          <div className="flex-1 overflow-auto">
+            <div
+              ref={gridRef}
+              className="grid gap-0 relative min-w-max"
+              style={{
+                gridTemplateColumns: `repeat(${selectedDiamonds.length}, minmax(180px, 1fr))`,
+                gridTemplateRows: `48px repeat(${timeSlots.length}, ${zoomLevel}px)`,
+              }}
+            >
+              {/* Diamond headers */}
+              {selectedDiamonds.map((diamond: Diamond) => (
+                <div
+                  key={diamond.id}
+                  data-diamond-header
+                  className="border-b border-r p-2 bg-muted/50 text-xs font-medium flex items-center gap-1.5 sticky top-0 z-10"
+                >
+                  <MapPin className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate">{diamond.name}</span>
+                  {diamond.status !== "open" && (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[9px] h-4 px-1",
+                        diamond.status === "closed" && "bg-red-100 text-red-700",
+                        diamond.status === "delayed" && "bg-yellow-100 text-yellow-700"
+                      )}
+                    >
+                      {diamond.status}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+
+              {/* Empty cells */}
+              {timeSlots.map((slot, timeIndex) => (
+                <React.Fragment key={`slot-${slot.date}-${slot.time}`}>
+                  {selectedDiamonds.map((diamond: Diamond, diamondIndex) => {
+                    const isAvailable = isTimeAvailable(slot.time, diamond);
+                    const isHovered =
+                      hoveredCell?.timeIndex === timeIndex &&
+                      hoveredCell?.diamondIndex === diamondIndex;
+
+                    return (
                       <div
-                        ref={gridRef}
-                        className="grid gap-0 relative"
-                        style={{
-                          gridTemplateColumns: `repeat(${selectedDiamonds.length}, 1fr)`,
-                          gridTemplateRows: `40px repeat(${timeSlots.length}, 70px)`,
-                        }}
+                        key={`empty-${diamond.id}-${slot.date}-${slot.time}`}
+                        className={cn(
+                          "border-b border-r relative transition-colors",
+                          !isAvailable
+                            ? "bg-muted/30"
+                            : isHovered
+                              ? "bg-primary/10 ring-2 ring-primary ring-inset"
+                              : "bg-card/30 hover:bg-accent/5"
+                        )}
                       >
-                        {/* Diamond headers */}
-                        {selectedDiamonds.map((diamond: Diamond) => (
-                          <div
-                            key={diamond.id}
-                            className="border border-l-0 p-2 bg-gray-100 dark:bg-gray-800 text-left text-xs font-medium flex items-center gap-1"
-                          >
-                            <MapPin className="w-3 h-3" />
-                            {diamond.name}
-                          </div>
-                        ))}
-
-                        {/* Empty cells (just visual grid, no individual drop zones) */}
-                        {timeSlots.map((slot, timeIndex) => (
-                          <React.Fragment
-                            key={`slot-${slot.date}-${slot.time}`}
-                          >
-                            {selectedDiamonds.map(
-                              (diamond: Diamond, diamondIndex) => {
-                                const isAvailable = isTimeAvailable(
-                                  slot.time,
-                                  diamond,
-                                );
-                                const isHovered =
-                                  hoveredCell?.timeIndex === timeIndex &&
-                                  hoveredCell?.diamondIndex === diamondIndex;
-
-                                return (
-                                  <div
-                                    key={`empty-${diamond.id}-${slot.date}-${slot.time}`}
-                                    className={`border border-t-0 border-l-0 relative transition-colors ${
-                                      !isAvailable
-                                        ? "bg-gray-100 dark:bg-gray-800/50"
-                                        : isHovered
-                                          ? "bg-[var(--field-green)]/10"
-                                          : ""
-                                    }`}
-                                  />
-                                );
-                              },
-                            )}
-                          </React.Fragment>
-                        ))}
-
-                        {/* Single droppable zone overlay for coordinate-based drops */}
-                        <GridDropZone
-                          activeMatchup={activeMatchup}
-                          allGames={existingGames}
-                          timeInterval={timeInterval}
-                          newGameDuration={gameDuration}
-                          getSlotFromCoordinates={getSlotFromCoordinates}
-                          setHoveredCell={setHoveredCell}
-                          timeSlots={timeSlots}
-                          selectedDiamonds={selectedDiamonds}
-                        />
-
-                        {/* Placed games as positioned overlays */}
-                        {existingGames.map((game) => {
-                          const slotIndex = timeSlots.findIndex(
-                            (s) => s.date === game.date && s.time === game.time,
-                          );
-                          const diamondIndex = selectedDiamonds.findIndex(
-                            (d) => d.id === game.diamondId,
-                          );
-
-                          if (slotIndex === -1 || diamondIndex === -1)
-                            return null;
-
-                          const rowSpan = Math.ceil(
-                            (game.durationMinutes || 90) / timeInterval,
-                          );
-                          const gridRowStart = slotIndex + 2; // +2 for header row
-                          const gridColumnStart = diamondIndex + 1; // +1 (no time column here)
-
-                          return (
-                            <DraggableGameCard
-                              key={game.id}
-                              game={game}
-                              gridRowStart={gridRowStart}
-                              gridColumnStart={gridColumnStart}
-                              rowSpan={rowSpan}
-                              teams={teams}
-                              pools={pools}
-                              allGames={existingGames}
-                              timeInterval={timeInterval}
-                              onRemove={(gameId) =>
-                                removeMutation.mutate(gameId)
-                              }
-                              onResize={(gameId, newDuration) =>
-                                resizeMutation.mutate({
-                                  gameId,
-                                  durationMinutes: newDuration,
-                                })
-                              }
-                              showToast={toast}
-                              diamonds={diamonds}
-                            />
-                          );
-                        })}
+                        {!isAvailable && (
+                          <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,currentColor_5px,currentColor_6px)]" />
+                        )}
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+
+              {/* Drop zone overlay */}
+              <GridDropZone
+                activeMatchup={activeMatchup}
+                allGames={existingGames}
+                timeInterval={timeInterval}
+                newGameDuration={gameDuration}
+                getSlotFromCoordinates={getSlotFromCoordinates}
+                setHoveredCell={setHoveredCell}
+                timeSlots={timeSlots}
+                selectedDiamonds={selectedDiamonds}
+              />
+
+              {/* Placed games */}
+              {existingGames.map((game) => {
+                const slotIndex = timeSlots.findIndex(
+                  (s) => s.date === game.date && s.time === game.time
+                );
+                const diamondIndex = selectedDiamonds.findIndex(
+                  (d) => d.id === game.diamondId
+                );
+
+                if (slotIndex === -1 || diamondIndex === -1) return null;
+
+                const rowSpan = Math.ceil(
+                  (game.durationMinutes || 90) / timeInterval
+                );
+                const gridRowStart = slotIndex + 2;
+                const gridColumnStart = diamondIndex + 1;
+
+                return (
+                  <DraggableGameCard
+                    key={game.id}
+                    game={game}
+                    gridRowStart={gridRowStart}
+                    gridColumnStart={gridColumnStart}
+                    rowSpan={rowSpan}
+                    teams={teams}
+                    pools={pools}
+                    allGames={existingGames}
+                    timeInterval={timeInterval}
+                    onRemove={(gameId) => removeMutation.mutate(gameId)}
+                    onResize={(gameId, newDuration) =>
+                      resizeMutation.mutate({
+                        gameId,
+                        durationMinutes: newDuration,
+                      })
+                    }
+                    showToast={toast}
+                    diamonds={diamonds}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM DECK: Unscheduled Games */}
+        <div
+          className={cn(
+            "border-t bg-card transition-all",
+            isDeckExpanded ? "h-[180px]" : "h-12"
+          )}
+        >
+          {/* Deck Header */}
+          <button
+            type="button"
+            className="w-full h-12 px-4 flex items-center justify-between border-b cursor-pointer hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+            onClick={() => setIsDeckExpanded(!isDeckExpanded)}
+            aria-expanded={isDeckExpanded}
+            aria-controls="bullpen-content"
+            data-testid="button-toggle-deck"
+          >
+            <div className="flex items-center gap-3">
+              <Badge
+                variant="secondary"
+                className="bg-primary/10 text-primary font-semibold"
+              >
+                {unplacedMatchups.length}
+              </Badge>
+              <span className="text-sm font-medium">Games Remaining</span>
+              <span className="text-xs text-muted-foreground">
+                {placedCount} of {matchups.length} placed ({progress}%)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {isDeckExpanded && (
+                <div
+                  className="relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    value={bullpenSearch}
+                    onChange={(e) => setBullpenSearch(e.target.value)}
+                    placeholder="Search teams..."
+                    className="h-8 w-48 pl-8 text-xs"
+                    data-testid="input-bullpen-search"
+                  />
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              {isDeckExpanded ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+              )}
+            </div>
+          </button>
+
+          {/* Deck Content */}
+          <div
+            ref={bullpenRef}
+            id="bullpen-content"
+            role="region"
+            aria-label="Unscheduled games"
+            className={cn(
+              "overflow-x-auto p-3 outline-none",
+              isDeckExpanded ? "h-[calc(100%-48px)]" : "h-0 p-0 overflow-hidden"
+            )}
+            tabIndex={isDeckExpanded ? 0 : -1}
+          >
+            <div className="flex gap-3 h-full">
+              {unplacedMatchups.length === 0 ? (
+                <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+                  <Check className="w-4 h-4 mr-2 text-green-500" aria-hidden="true" />
+                  All games placed!
+                </div>
+              ) : (
+                unplacedMatchups.map((matchup) => (
+                  <DraggableMatchup
+                    key={matchup.id}
+                    matchup={matchup}
+                    teams={teams}
+                    pools={pools}
+                    isCompact
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1731,11 +1811,12 @@ export function DragScheduleBuilder({
             matchup={activeMatchup}
             teams={teams}
             pools={pools}
+            isCompact
           />
         )}
         {activeGame && (
-          <div className="border-2 border-[var(--field-green)] bg-[var(--field-green)]/5 p-2 rounded-lg opacity-75">
-            <GameCard 
+          <div className="border-2 border-primary bg-primary/5 p-2 rounded-lg opacity-90 rotate-2 scale-105 shadow-xl">
+            <GameCard
               game={activeGame}
               teams={teams}
               pools={pools}
@@ -1751,10 +1832,13 @@ export function DragScheduleBuilder({
       </DragOverlay>
 
       {/* Conflict Override Dialog */}
-      <AlertDialog open={conflictDialog.open} onOpenChange={(open) => !open && handleCancelOverride()}>
+      <AlertDialog
+        open={conflictDialog.open}
+        onOpenChange={(open) => !open && handleCancelOverride()}
+      >
         <AlertDialogContent data-testid="dialog-conflict-override">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-[var(--clay-red)]">
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-5 h-5" />
               Scheduling Conflict Detected
             </AlertDialogTitle>
@@ -1770,31 +1854,34 @@ export function DragScheduleBuilder({
                 </ul>
                 {conflictDialog.conflicts.conflictTypes.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {conflictDialog.conflicts.conflictTypes.includes('diamond_closed') && (
-                      <Badge variant="destructive">Diamond Closed</Badge>
-                    )}
-                    {conflictDialog.conflicts.conflictTypes.includes('allocation_conflict') && (
-                      <Badge variant="destructive">No Time Block</Badge>
-                    )}
-                    {conflictDialog.conflicts.conflictTypes.includes('game_overlap') && (
-                      <Badge variant="destructive">Game Overlap</Badge>
-                    )}
-                    {conflictDialog.conflicts.conflictTypes.includes('team_conflict') && (
-                      <Badge variant="destructive">Team Conflict</Badge>
-                    )}
+                    {conflictDialog.conflicts.conflictTypes.includes(
+                      "diamond_closed"
+                    ) && <Badge variant="destructive">Diamond Closed</Badge>}
+                    {conflictDialog.conflicts.conflictTypes.includes(
+                      "allocation_conflict"
+                    ) && <Badge variant="destructive">No Time Block</Badge>}
+                    {conflictDialog.conflicts.conflictTypes.includes(
+                      "game_overlap"
+                    ) && <Badge variant="destructive">Game Overlap</Badge>}
+                    {conflictDialog.conflicts.conflictTypes.includes(
+                      "team_conflict"
+                    ) && <Badge variant="destructive">Team Conflict</Badge>}
                   </div>
                 )}
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                  As an admin, you can override this conflict if you're sure about the placement.
+                <p className="text-sm text-muted-foreground mt-3">
+                  As an admin, you can override this conflict if you're sure about
+                  the placement.
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-override">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel data-testid="button-cancel-override">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleForceOverride}
-              className="bg-[var(--clay-red)] hover:bg-[var(--clay-red)]/90"
+              className="bg-destructive hover:bg-destructive/90"
               data-testid="button-force-override"
             >
               Override & Place Anyway
