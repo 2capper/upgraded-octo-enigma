@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Edit, ExternalLink, Check, X } from 'lucide-react';
+import { Edit, ExternalLink, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -253,31 +253,6 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
     return phone;
   };
 
-  const getRosterStatus = (team: Team) => {
-    if (team.rosterLink) {
-      return (
-        <a 
-          href={team.rosterLink} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
-          data-testid={`link-roster-${team.id}`}
-        >
-          <Check className="w-4 h-4" />
-          View Roster
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      );
-    }
-    
-    return (
-      <div className="flex items-center gap-1 text-gray-400 text-sm">
-        <X className="w-4 h-4" />
-        No roster link
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -294,17 +269,16 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
               <TableHead>Coach Name</TableHead>
               <TableHead>Coach Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Team Number</TableHead>
+              <TableHead>Roster #</TableHead>
               <TableHead>Registration</TableHead>
               <TableHead>Payment</TableHead>
-              <TableHead>Roster Link</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={9} className="text-center text-gray-500 py-8">
                   No teams found. Import teams from CSV first.
                 </TableCell>
               </TableRow>
@@ -342,7 +316,29 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
                   </TableCell>
                   <TableCell data-testid={`text-team-number-${team.id}`}>
                     {team.teamNumber ? (
-                      <Badge variant="secondary">{team.teamNumber}</Badge>
+                      <a 
+                        href={`https://www.playoba.ca/stats#/2111/team/${team.teamNumber.trim()}/roster`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+                        data-testid={`link-roster-${team.id}`}
+                      >
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                          {team.teamNumber}
+                        </Badge>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                      </a>
+                    ) : team.rosterLink ? (
+                      <a 
+                        href={team.rosterLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                        data-testid={`link-roster-${team.id}`}
+                      >
+                        View Roster
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -364,9 +360,6 @@ export function TeamEditor({ teams, tournamentId }: TeamEditorProps) {
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    {getRosterStatus(team)}
                   </TableCell>
                   <TableCell className="text-right">
                     <TeamEditDialog team={team} onSuccess={handleSuccess} />
