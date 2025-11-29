@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Menu, X, Trophy, Users, Calendar, ListChecks, Medal, Home } from 'lucide-react';
+import { Menu, X, Trophy, Users, Calendar, ListChecks, Medal, Home, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/components/theme-provider';
 
 const TournamentLogo = () => (
   <div className="flex items-center justify-center h-12 w-12 bg-[var(--splash-orange)] rounded-md">
@@ -14,6 +15,11 @@ interface NavigationProps {
 
 export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -52,6 +58,20 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                 </button>
               );
             })}
+            
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-white hover:text-[var(--splash-orange)] transition-colors rounded-md hover:bg-white/10"
+              data-testid="button-theme-toggle-desktop"
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -86,6 +106,25 @@ export const Navigation = ({ activeTab, onTabChange }: NavigationProps) => {
                 </button>
               );
             })}
+            
+            {/* Mobile Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center w-full px-3 py-2 text-white hover:bg-[var(--splash-orange)]/20 rounded-md transition-colors"
+              data-testid="button-theme-toggle-mobile"
+            >
+              {resolvedTheme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4 mr-2" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 mr-2" />
+                  Dark Mode
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
