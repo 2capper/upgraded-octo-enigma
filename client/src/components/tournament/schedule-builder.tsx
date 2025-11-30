@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type { Game, Diamond, Team, TournamentDiamondAllocation } from "@shared/schema";
 
 const DEFAULT_DURATION = 90;
+const SLOT_INTERVAL = 30;
 
 interface ScheduleBuilderProps {
   tournamentId: string;
@@ -35,6 +36,11 @@ interface ScheduleBuilderProps {
   endDate: string;
   diamonds: Diamond[];
   teams: Team[];
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 function TeamLogo({ team, size = "sm" }: { team?: Team, size?: "sm" | "md" }) {
@@ -152,25 +158,30 @@ function DraggableBullpenGame({ game, teamMap }: { game: Game, teamMap: Map<stri
   );
 }
 
-function DraggableGridGame({ game, teamMap }: { game: Game, teamMap: Map<string, Team> }) {
+function DraggableGridGame({ game, teamMap, rowSpan, zoomLevel }: { game: Game, teamMap: Map<string, Team>, rowSpan: number, zoomLevel: number }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: game.id,
     data: { game, type: 'grid' },
   });
 
+  const height = rowSpan * zoomLevel;
+
   const style = transform ? {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.3 : 1, 
     zIndex: 50,
-  } : undefined;
+    height: `${height}px`,
+  } : {
+    height: `${height}px`,
+  };
 
   return (
     <div 
       ref={setNodeRef} 
-      style={{ ...style, height: "100%" }} 
+      style={style} 
       {...listeners} 
       {...attributes} 
-      className="h-full w-full cursor-grab active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-md"
+      className="w-full cursor-grab active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-md absolute top-0 left-0 right-0"
       tabIndex={0}
       role="button"
       aria-label={`Reschedule ${teamMap.get(game.awayTeamId || "")?.name || "TBD"} vs ${teamMap.get(game.homeTeamId || "")?.name || "TBD"}`}
@@ -182,33 +193,46 @@ function DraggableGridGame({ game, teamMap }: { game: Game, teamMap: Map<string,
 
 function TimeSlot({ 
   diamondId, 
+  diamondName,
   time, 
   game, 
   teamMap, 
   allocation,
-  height
+  height,
+  rowSpan,
+  zoomLevel,
+  isOccupied
 }: { 
-  diamondId: string, 
+  diamondId: string,
+  diamondName: string,
   time: string, 
   game?: Game, 
   teamMap: Map<string, Team>,
   allocation?: TournamentDiamondAllocation,
-  height: number
+  height: number,
+  rowSpan: number,
+  zoomLevel: number,
+  isOccupied: boolean
 }) {
+  const isDropDisabled = isOccupied || !allocation;
+  
   const { setNodeRef, isOver } = useDroppable({
     id: `${diamondId}::${time}`,
-    data: { diamondId, time }
+    data: { diamondId, time, hasAllocation: !!allocation },
+    disabled: isDropDisabled
   });
 
   let bgClass = "bg-slate-50/50 dark:bg-slate-900/20"; 
   
   if (!allocation) {
     bgClass = "bg-slate-100/80 dark:bg-slate-900/80";
+  } else if (isOccupied && !game) {
+    bgClass = "bg-slate-50/30 dark:bg-slate-900/50";
   } else {
     bgClass = "bg-white dark:bg-slate-950"; 
   }
 
-  if (isOver) {
+  if (isOver && !isDropDisabled) {
       bgClass = "bg-primary/10 ring-inset ring-2 ring-primary z-20"; 
   }
 
@@ -219,18 +243,29 @@ function TimeSlot({
       className={cn(
         "border-b border-r relative p-0.5 transition-all box-border",
         bgClass,
-        game ? "overflow-visible z-10" : ""
+        game ? "overflow-visible z-10" : "",
+        !isDropDisabled ? "focus-within:ring-2 focus-within:ring-primary/50" : ""
       )}
       data-testid={`slot-${diamondId}-${time}`}
+      tabIndex={!isDropDisabled ? 0 : -1}
+      role="gridcell"
+      aria-label={game 
+        ? `${diamondName} at ${time}, occupied by game`
+        : isOccupied 
+          ? `${diamondName} at ${time}, part of ongoing game`
+          : allocation 
+            ? `${diamondName} at ${time}, available for scheduling`
+            : `${diamondName} at ${time}, unavailable`
+      }
     >
-      {!game && allocation && (
+      {!game && !isOccupied && allocation && (
         <span className="absolute top-0.5 left-1 text-[8px] text-slate-300 dark:text-slate-700 select-none pointer-events-none font-mono group-hover:text-slate-400">
           {time}
         </span>
       )}
 
       {game && (
-        <DraggableGridGame game={game} teamMap={teamMap} />
+        <DraggableGridGame game={game} teamMap={teamMap} rowSpan={rowSpan} zoomLevel={zoomLevel} />
       )}
     </div>
   );
@@ -267,6 +302,60 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
     return map;
   }, [teams]);
 
+  const timeSlots = useMemo(() => {
+    const times = [];
+    for (let h = 8; h < 23; h++) {
+      times.push(`${h.toString().padStart(2, '0')}:00`);
+      times.push(`${h.toString().padStart(2, '0')}:30`);
+    }
+    return times;
+  }, []);
+
+  const scheduledGames = useMemo(() => 
+    games.filter(g => g.diamondId && g.time && g.date === selectedDate), 
+  [games, selectedDate]);
+
+  const scheduledGamesMap = useMemo(() => {
+    const map = new Map<string, { game: Game, rowSpan: number }>();
+    const occupiedSlots = new Set<string>();
+    
+    for (const game of scheduledGames) {
+      if (!game.diamondId || !game.time) continue;
+      
+      const duration = game.durationMinutes ?? DEFAULT_DURATION;
+      const rowSpan = Math.ceil(duration / SLOT_INTERVAL);
+      const startMinutes = timeToMinutes(game.time);
+      
+      map.set(`${game.diamondId}::${game.time}`, { game, rowSpan });
+      
+      for (let i = 1; i < rowSpan; i++) {
+        const slotMinutes = startMinutes + (i * SLOT_INTERVAL);
+        const hours = Math.floor(slotMinutes / 60);
+        const mins = slotMinutes % 60;
+        const slotTime = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        occupiedSlots.add(`${game.diamondId}::${slotTime}`);
+      }
+    }
+    
+    return { gameMap: map, occupiedSlots };
+  }, [scheduledGames]);
+
+  const dayAllocations = useMemo(() => 
+    allocations.filter(a => a.date === selectedDate),
+  [allocations, selectedDate]);
+
+  const dayAllocationsMap = useMemo(() => {
+    const map = new Map<string, TournamentDiamondAllocation>();
+    for (const alloc of dayAllocations) {
+      for (const time of timeSlots) {
+        if (alloc.startTime <= time && alloc.endTime > time) {
+          map.set(`${alloc.diamondId}::${time}`, alloc);
+        }
+      }
+    }
+    return map;
+  }, [dayAllocations, timeSlots]);
+
   const moveGameMutation = useMutation({
     mutationFn: async (data: { gameId: string, date: string, time: string, diamondId: string }) => {
       return apiRequest("PUT", `/api/games/${data.gameId}/move`, {
@@ -293,14 +382,6 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
          }), 
   [games, bullpenSearch, teamMap]);
 
-  const scheduledGames = useMemo(() => 
-    games.filter(g => g.diamondId && g.time && g.date === selectedDate), 
-  [games, selectedDate]);
-
-  const dayAllocations = useMemo(() => 
-    allocations.filter(a => a.date === selectedDate),
-  [allocations, selectedDate]);
-
   const dateOptions = useMemo(() => {
     const dates = [];
     let curr = new Date(startDate + "T00:00:00");
@@ -312,14 +393,46 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
     return dates;
   }, [startDate, endDate]);
 
-  const timeSlots = useMemo(() => {
-    const times = [];
-    for (let h = 8; h < 23; h++) {
-      times.push(`${h.toString().padStart(2, '0')}:00`);
-      times.push(`${h.toString().padStart(2, '0')}:30`);
+  const canPlaceGameAtSlot = (diamondId: string, startTime: string, duration: number, excludeGameId?: string): { valid: boolean, reason?: string } => {
+    const slotsNeeded = Math.ceil(duration / SLOT_INTERVAL);
+    const startMinutes = timeToMinutes(startTime);
+    
+    for (let i = 0; i < slotsNeeded; i++) {
+      const slotMinutes = startMinutes + (i * SLOT_INTERVAL);
+      const hours = Math.floor(slotMinutes / 60);
+      const mins = slotMinutes % 60;
+      const slotTime = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+      const slotKey = `${diamondId}::${slotTime}`;
+      
+      const hasAllocation = dayAllocationsMap.has(slotKey);
+      if (!hasAllocation) {
+        return { valid: false, reason: `Slot ${slotTime} is not allocated` };
+      }
+      
+      const existingGame = scheduledGamesMap.gameMap.get(slotKey);
+      if (existingGame && existingGame.game.id !== excludeGameId) {
+        return { valid: false, reason: `Slot ${slotTime} has an existing game` };
+      }
+      
+      if (scheduledGamesMap.occupiedSlots.has(slotKey)) {
+        const occupyingGameId = Array.from(scheduledGamesMap.gameMap.entries())
+          .find(([key]) => {
+            const [gDiamond] = key.split("::");
+            if (gDiamond !== diamondId) return false;
+            const gameData = scheduledGamesMap.gameMap.get(key);
+            if (!gameData || gameData.game.id === excludeGameId) return false;
+            const gStartMins = timeToMinutes(gameData.game.time || "");
+            const gEndMins = gStartMins + (gameData.game.durationMinutes ?? DEFAULT_DURATION);
+            return slotMinutes >= gStartMins && slotMinutes < gEndMins;
+          });
+        if (occupyingGameId) {
+          return { valid: false, reason: `Slot ${slotTime} is occupied by another game` };
+        }
+      }
     }
-    return times;
-  }, []);
+    
+    return { valid: true };
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const game = event.active.data.current?.game as Game;
@@ -331,13 +444,26 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
     
     if (over && active.id !== over.id) {
       const [diamondId, time] = (over.id as string).split("::");
-      if (diamondId && time) {
-        moveGameMutation.mutate({
-          gameId: active.id as string,
-          date: selectedDate,
-          time,
-          diamondId
-        });
+      const game = active.data.current?.game as Game | undefined;
+      
+      if (diamondId && time && game) {
+        const duration = game.durationMinutes ?? DEFAULT_DURATION;
+        const validation = canPlaceGameAtSlot(diamondId, time, duration, game.id);
+        
+        if (validation.valid) {
+          moveGameMutation.mutate({
+            gameId: active.id as string,
+            date: selectedDate,
+            time,
+            diamondId
+          });
+        } else {
+          toast({ 
+            title: "Cannot Place Game", 
+            description: validation.reason || "Invalid drop location", 
+            variant: "destructive" 
+          });
+        }
       }
     }
     setActiveDragGame(null);
@@ -346,7 +472,7 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
   const getOverlayHeight = () => {
       if (!activeDragGame) return undefined;
       const duration = activeDragGame.durationMinutes ?? DEFAULT_DURATION;
-      const slotsNeeded = Math.ceil(duration / 30);
+      const slotsNeeded = Math.ceil(duration / SLOT_INTERVAL);
       return slotsNeeded * zoomLevel;
   };
 
@@ -444,10 +570,10 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
             </div>
 
             <ScrollArea className="flex-1" type="always">
-                <div className="flex min-w-max">
+                <div className="flex min-w-max" role="grid" aria-label="Schedule grid">
                    {diamonds.map(diamond => (
-                       <div key={diamond.id} className="flex flex-col w-[260px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-                           <div className="h-10 sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center px-2 shadow-sm">
+                       <div key={diamond.id} className="flex flex-col w-[260px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950" role="row">
+                           <div className="h-10 sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center px-2 shadow-sm" role="columnheader">
                                <MapPin className="w-3 h-3 mr-1 text-primary/70" />
                                <span className="text-xs font-bold truncate text-slate-700 dark:text-slate-200">
                                  {diamond.name}
@@ -455,18 +581,24 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
                            </div>
                            
                            {timeSlots.map(time => {
-                               const alloc = dayAllocations.find(a => a.diamondId === diamond.id && a.startTime <= time && a.endTime > time);
-                               const game = scheduledGames.find(g => g.diamondId === diamond.id && g.time === time);
+                               const slotKey = `${diamond.id}::${time}`;
+                               const alloc = dayAllocationsMap.get(slotKey);
+                               const gameData = scheduledGamesMap.gameMap.get(slotKey);
+                               const isOccupied = scheduledGamesMap.occupiedSlots.has(slotKey);
                                
                                return (
                                    <TimeSlot 
-                                       key={`${diamond.id}-${time}`}
+                                       key={slotKey}
                                        diamondId={diamond.id}
+                                       diamondName={diamond.name}
                                        time={time}
-                                       game={game}
+                                       game={gameData?.game}
                                        teamMap={teamMap}
                                        allocation={alloc}
                                        height={zoomLevel}
+                                       rowSpan={gameData?.rowSpan ?? 1}
+                                       zoomLevel={zoomLevel}
+                                       isOccupied={isOccupied}
                                    />
                                );
                            })}
@@ -483,13 +615,13 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
             isDeckExpanded ? "h-56" : "h-12"
         )}>
             <div 
-                className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-b-0 border-slate-200 dark:border-slate-800 rounded-t-xl px-8 py-1 cursor-pointer shadow-sm hover:text-primary group"
+                className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 border border-b-0 border-slate-200 dark:border-slate-800 rounded-t-xl px-8 py-1 cursor-pointer shadow-sm hover:text-primary group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 onClick={() => setIsDeckExpanded(!isDeckExpanded)}
                 role="button"
                 aria-expanded={isDeckExpanded}
                 aria-label={isDeckExpanded ? "Collapse bullpen" : "Expand bullpen"}
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsDeckExpanded(!isDeckExpanded); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDeckExpanded(!isDeckExpanded); }}}
                 data-testid="bullpen-toggle"
             >
                 {isDeckExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -543,8 +675,6 @@ export function ScheduleBuilder({ tournamentId, startDate, endDate, diamonds, te
            </div>
         ) : null}
       </DragOverlay>
-      
-      <div aria-live="polite" aria-atomic="true" className="sr-only" data-testid="drag-announcements" />
     </DndContext>
   );
 }
